@@ -1,0 +1,13 @@
+[package]
+name = "devboard-db"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+devboard-domain = { path = "../domain" }
+sea-orm = { workspace = true }
+serde = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

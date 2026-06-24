@@ -1,0 +1,15 @@
+[package]
+name = "devboard-auth"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+devboard-domain = { path = "../domain" }
+rand_core = { version = "0.6", features = ["getrandom"] }
+argon2 = { workspace = true }
+jsonwebtoken = { workspace = true }
+serde = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
