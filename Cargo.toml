@@ -24,8 +24,16 @@ path="src/main.rs"
 devboard-config = { path = "crates/config" }
 devboard-graphql = { path = "crates/graphql" }
 devboard-db = { path = "crates/db" }
-tokio = { workspace = true }
+devboard-repository = { path = "crates/repository" }
+devboard-auth = { path = "crates/auth" }
+devboard-service = { path = "crates/service" }
+axum = { workspace = true }
 anyhow = { workspace = true }
+async-graphql = { workspace = true }
+async-graphql-axum = { workspace = true }
+tower-http = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
@@ -44,7 +52,7 @@ sea-orm = { version = "=2.0.0-rc.41", features = [
   "with-chrono",
   "macros"
 ]}
-async-graphql = { version = "7.2.1", features = ["dataloader", "chrono", "uuid"] }
+async-graphql = { version = "7.2.1", features = ["dataloader", "chrono", "uuid", "boxed-trait"] }
 async-graphql-axum = "7.2.1"
 axum = {version = "0.8.9", features= ["ws"]}
 tower = "0.5.3"

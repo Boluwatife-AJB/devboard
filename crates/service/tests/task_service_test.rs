@@ -288,13 +288,13 @@ fn setup() -> (
 
 #[tokio::test]
 async fn contributor_can_create_task() {
-    let (service, project_repo, team_repo, project_id, team_id, user_id) = setup();
+    let (service, _project_repo, team_repo, project_id, team_id, user_id) = setup();
 
-    // Give user Contributor access via team membership
+    
     team_repo.add_membership(TeamMembership {
         team_id,
         user_id,
-        role: TeamRole::Member, // Member → Contributor in project
+        role: TeamRole::Member, 
         joined_at: chrono::Utc::now(),
     });
 
@@ -320,7 +320,6 @@ async fn contributor_can_create_task() {
 async fn viewer_cannot_create_task() {
     let (service, project_repo, _team_repo, project_id, _team_id, user_id) = setup();
 
-    // Give user only Viewer override — not enough to create
     project_repo.add_membership(ProjectMembership {
         project_id,
         user_id,
@@ -349,7 +348,6 @@ async fn viewer_cannot_create_task() {
 async fn unauthenticated_user_cannot_create_task() {
     let (service, _project_repo, _team_repo, project_id, _team_id, _) = setup();
 
-    // Random user with no memberships at all
     let stranger = UserId::new();
 
     let result = service

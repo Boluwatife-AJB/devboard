@@ -102,6 +102,19 @@ impl AuthService {
     ) -> Result<devboard_auth::Claims, ServiceError> {
       self.jwt.verify(token).map_err(ServiceError::from)
     }
+
+    pub async fn get_user(
+      &self,
+      id: UserId,
+    ) -> Result<PublicUser, ServiceError> {
+      self.user_repo
+        .find_by_id(id)
+        .await?
+        .map(PublicUser::from)
+        .ok_or_else(|| ServiceError::UserNotFound { 
+          id: id.to_string() 
+        })
+    }
 }
 
 fn validate_email(email: &str) -> Result<(), ServiceError> {
