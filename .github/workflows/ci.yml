@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: ["master", "staging"]
+  pull_request:
+    branches: ["master", "staging"]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  check:
+    name: Check & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cache dependencies
+        uses: swatinem/rust-cache@v2
+
+      - name: Check compilation
+        run: cargo check --all-targets --all-features
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: devboard
+          POSTGRES_PASSWORD: devboard
+          POSTGRES_DB: devboard_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://devboard:devboard@localhost:5432/devboard_test
+      JWT_SECRET: test-secret-that-is-long-enough-32ch
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+      RUST_LOG: devboard=debug
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cache dependencies
+        uses: swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --workspace
+
+  build:
+    name: Build Release Binary
+    runs-on: ubuntu-latest
+    needs: [check, test]
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cache dependencies
+        uses: swatinem/rust-cache@v2
+
+      - name: Build project
+        run: cargo build --workspace --release
+
+    

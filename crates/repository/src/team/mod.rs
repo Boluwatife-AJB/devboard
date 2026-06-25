@@ -36,6 +36,11 @@ pub trait TeamRepository: Send + Sync {
     team_id: TeamId,
     user_id: UserId,
   ) -> Result<Option<TeamMembership>, RepositoryError>;
+
+  async fn delete(
+    &self,
+    id: TeamId
+  ) -> Result<(), RepositoryError>;
 }
 
 pub(crate) fn model_to_domain(

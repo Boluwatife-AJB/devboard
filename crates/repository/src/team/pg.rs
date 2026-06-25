@@ -1,11 +1,18 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
-
-
-use devboard_domain::{OrganizationId, Team, TeamId, TeamMembership, TeamRole, UserId};
-use devboard_db::entities::{team::{self, Entity as TeamEntity}, team_membership};
+use sea_orm::{
+  ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter
+};
 use uuid::Uuid;
+
+
+use devboard_domain::{
+  OrganizationId, Team, TeamId, TeamMembership, TeamRole, UserId
+};
+use devboard_db::entities::{
+  team::{self, Entity as TeamEntity}, 
+  team_membership
+};
 
 use crate::RepositoryError;
 use super::{
@@ -63,7 +70,7 @@ impl TeamRepository for PgTeamRepository {
     ) -> Result<Team, RepositoryError> {
       let now = Utc::now();
 
-      let active_model = team::ActiveModel {
+      let active = team::ActiveModel {
         id: ActiveValue::Set(Uuid::from(id)),
         organization_id: ActiveValue::Set(Uuid::from(organization_id)),
         name: ActiveValue::Set(name),
@@ -71,7 +78,7 @@ impl TeamRepository for PgTeamRepository {
         updated_at: ActiveValue::Set(now.into()),
       };
 
-      let model = active_model
+      let model = active
         .insert(&self.db)
         .await
         .map_err(RepositoryError::from_db_err)?;
@@ -87,14 +94,14 @@ impl TeamRepository for PgTeamRepository {
     ) -> Result<TeamMembership, RepositoryError> {
       let now = Utc::now();
 
-      let active_model = team_membership::ActiveModel {
+      let active = team_membership::ActiveModel {
         team_id: ActiveValue::Set(Uuid::from(team_id)),
         user_id: ActiveValue::Set(Uuid::from(user_id)),
         role: ActiveValue::Set(team_role_to_str(&role).to_string()),
         joined_at: ActiveValue::Set(now.into()),
       };
 
-      let model = active_model
+      let model = active
         .insert(&self.db)
         .await
         .map_err(RepositoryError::from_db_err)?;
@@ -118,5 +125,20 @@ impl TeamRepository for PgTeamRepository {
     .map_err(RepositoryError::from_db_err)?;
 
     model.map(membership_to_domain).transpose()
+  }
+
+  #[tracing::instrument(skip(self), fields(team_id = %id))]
+  async fn delete(&self, id: TeamId) -> Result<(), RepositoryError> {
+    let result = TeamEntity::delete_by_id(Uuid::from(id))
+        .exec(&self.db)
+        .await
+        .map_err(RepositoryError::from_db_err)?;
+
+    if result.rows_affected == 0 {
+      return Err(RepositoryError::NotFound);
+    }
+
+    Ok(())
+
   }
 }

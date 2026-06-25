@@ -1,0 +1,35 @@
+  services:
+    app:
+      build: .
+      container_name: devboard_app
+      environment: 
+        DATABASE_URL: postgres://devboard:${POSTGRES_PASSWORD}@postgres:5432/devboard
+        JWT_SECRET: ${JWT_SECRET}
+        SERVER_HOST: 0.0.0.0
+        SERVER_PORT: 8080
+        RUST_LOG: devboard=info,sea_orm=warn,tower_http=info
+      ports:
+        - "8080:8080"
+      depends_on:
+        postgres:
+          condition: service_healthy
+      restart: unless-stopped
+
+    postgres:
+      image: postgres:17-alpine
+      container_name: devboard_db
+      environment:
+        POSTGRES_USER: devboard
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_DB: devboard
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U devboard"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+
+  volumes:
+    postgres_data:
