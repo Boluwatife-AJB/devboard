@@ -244,6 +244,8 @@ impl TeamRepository for FakeTeamRepo {
     async fn get_membership(&self, team_id: TeamId, user_id: UserId) -> Result<Option<TeamMembership>, RepositoryError> {
         Ok(self.memberships.lock().unwrap().get(&(team_id, user_id)).cloned())
     }
+  
+    async fn delete(&self, _: TeamId) -> Result<(), RepositoryError> { Ok(()) }
 }
 
 fn setup() -> (
