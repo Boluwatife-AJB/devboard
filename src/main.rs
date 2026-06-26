@@ -32,6 +32,8 @@ use devboard_repository::{
 };
 use devboard_service::{AuthService, ProjectService, TaskService};
 
+mod auth_routes;
+use auth_routes::auth_router;
 
 #[derive(Clone)]
 struct AppState {
@@ -106,7 +108,7 @@ async fn main() -> anyhow::Result<()> {
         auth_service,
     };
 
-    let app = build_router(state, &config);
+    let app = build_router(state);
 
     let address = config.server.address();
     let listener = tokio::net::TcpListener::bind(&address)
@@ -125,13 +127,14 @@ async fn main() -> anyhow::Result<()> {
     Ok(()) 
 }
 
-fn build_router(state: AppState, _config: &AppConfig) -> Router {
+fn build_router(state: AppState) -> Router {
     let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS, Method::DELETE])
         .allow_headers(Any)
         .allow_origin(Any);
 
     Router::new()
+        .merge(auth_router())
         .route("/graphql", post(graphql_handler))
         .route("/graphql/ws", get(graphql_ws_handler))
         .route("/playground", get(playground_handler))
