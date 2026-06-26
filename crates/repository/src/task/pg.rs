@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::Utc;
 use sea_orm::{
-  ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+  ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect,
 };
 use uuid::Uuid;
 
@@ -206,5 +206,55 @@ impl TaskRepository for PgTaskRepository {
       }
 
       Ok(())
+    }
+
+    async fn find_by_project_paginated(
+      &self,
+      project_id: ProjectId,
+      status: Option<TaskStatus>,
+      after_id: Option<uuid::Uuid>,
+      limit: u64
+    ) -> Result<(Vec<Task>, bool), RepositoryError> {
+      let mut query = TaskEntity::find()
+        .filter(task::Column::ProjectId.eq(Uuid::from(project_id)))
+        .order_by_asc(task::Column::TaskNumber);
+
+      if let Some(s) = status {
+        query = query.filter(
+          task::Column::Status.eq(status_to_str(&s))
+        );
+      }
+
+      if let Some(after_uuid) = after_id {
+        let cursor_task = TaskEntity::find_by_id(after_uuid)
+            .one(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        if let Some(ct) = cursor_task {
+          query = query.filter(
+            task::Column::TaskNumber.gt(ct.task_number)
+          );
+        }
+      }
+
+      let models = query
+        .limit(limit + 1)
+        .all(&self.db)
+        .await
+        .map_err(RepositoryError::from_db_err)?;
+
+      let has_more = models.len() as u64 > limit;
+      let models: Vec<_> = models
+        .into_iter()
+        .take(limit as usize)
+        .collect();
+
+      let task = models
+        .into_iter()
+        .map(model_to_domain)
+        .collect::<Result<Vec<_>, _>>()?;
+
+      Ok((task, has_more))
     }
 }

@@ -1256,14 +1256,17 @@ dependencies = [
  "devboard-auth",
  "devboard-config",
  "devboard-db",
+ "devboard-domain",
  "devboard-graphql",
  "devboard-repository",
  "devboard-service",
+ "migration",
  "serde_json",
  "tokio",
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -1323,6 +1326,7 @@ dependencies = [
  "async-stream",
  "async-trait",
  "axum",
+ "base64",
  "chrono",
  "devboard-auth",
  "devboard-domain",
@@ -4173,6 +4177,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]

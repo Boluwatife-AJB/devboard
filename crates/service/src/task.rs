@@ -3,12 +3,13 @@ use std::sync::Arc;
 use devboard_domain::{ProjectId, ProjectRole, Task, TaskId, TaskPriority, TaskStatus, UserId, has_project_permission};
 use devboard_repository::{ProjectRepository, TaskRepository, TeamRepository};
 
-use crate::error::ServiceError;
+use crate::{error::ServiceError, event_bus::EventBus, events::TaskEvent};
 
 pub struct TaskService {
   task_repo: Arc<dyn TaskRepository>,
   project_repo: Arc<dyn ProjectRepository>,
   team_repo: Arc<dyn TeamRepository>,
+  event_bus: EventBus,
 }
 
 impl TaskService {
@@ -16,11 +17,13 @@ impl TaskService {
       task_repo: Arc<dyn TaskRepository>,
       project_repo: Arc<dyn ProjectRepository>,
       team_repo: Arc<dyn TeamRepository>,
+      event_bus: EventBus 
     ) -> Self {
       Self { 
         task_repo, 
         project_repo, 
-        team_repo 
+        team_repo,
+        event_bus
       }
     }
 
@@ -83,6 +86,31 @@ impl TaskService {
 
     #[tracing::instrument(
       skip(self),
+      fields(project_id = %project_id, caller_id = %caller_id)
+    )]
+    pub async fn list_tasks_paginated(
+      &self,
+      project_id: ProjectId,
+      caller_id: UserId,
+      status_filter: Option<TaskStatus>,
+      after_id: Option<uuid::Uuid>,
+      limit: u64,
+    ) -> Result<(Vec<Task>, bool), ServiceError> {
+      self.require_project_permission(
+        caller_id, 
+        project_id, 
+        ProjectRole::Viewer
+      )
+      .await?;
+
+      self.task_repo
+        .find_by_project_paginated(project_id, status_filter, after_id, limit)
+        .await
+        .map_err(ServiceError::from)
+    }
+
+    #[tracing::instrument(
+      skip(self),
       fields(
         project_id = %project_id,
         reporter_id = %reporter_id,
@@ -121,7 +149,9 @@ impl TaskService {
 
       let task_id = TaskId::new();
 
-      self.task_repo
+
+      let task = self
+        .task_repo
         .create(
           task_id, 
           project_id, 
@@ -132,9 +162,14 @@ impl TaskService {
           priority, 
           reporter_id, 
           assignee_id
-        )
-        .await
-        .map_err(ServiceError::from)
+        ).await?;
+
+        self.event_bus.publish_task(TaskEvent::Created { 
+          project_id, 
+          task:task.clone() 
+        });
+
+        Ok(task)
     }
 
     #[tracing::instrument(
@@ -155,7 +190,7 @@ impl TaskService {
       )
       .await?;
 
-      self.task_repo
+      let task = self.task_repo
         .update_status(task_id, new_status)
         .await
         .map_err(|err| match err {
@@ -163,7 +198,14 @@ impl TaskService {
               ServiceError::TaskNotFound { id: task_id.to_string() }
             }
             other => ServiceError::from(other)
-        })
+        })?;
+
+      self.event_bus.publish_task(TaskEvent::Updated {
+        project_id, task: 
+        task.clone()
+      });
+
+      Ok(task)
     }
 
     #[tracing::instrument(
@@ -224,7 +266,14 @@ impl TaskService {
               }
             }
             other => ServiceError::from(other)
-        })
+        })?;
+
+      self.event_bus.publish_task(TaskEvent::Deleted {
+        project_id, 
+        task_id 
+      });
+
+      Ok(())
     }
 
   

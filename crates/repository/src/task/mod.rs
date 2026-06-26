@@ -58,6 +58,14 @@ pub trait TaskRepository: Send + Sync {
     &self,
     id: TaskId,
   ) -> Result<(), RepositoryError>;
+
+  async fn find_by_project_paginated(
+    &self,
+    project_id: ProjectId,
+    status: Option<TaskStatus>,
+    after_id: Option<uuid::Uuid>,
+    limit: u64
+  ) -> Result<(Vec<Task>, bool), RepositoryError>;
 }
 
 pub(crate) fn status_to_str(status: &TaskStatus) -> &'static str {

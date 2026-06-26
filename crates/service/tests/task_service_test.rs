@@ -6,6 +6,7 @@ use async_trait::async_trait;
 
 use devboard_domain::{OrganizationId, ProjectId, ProjectMembership, ProjectRole, Task, TaskId, TaskPriority, TaskStatus, Team, TeamId, TeamMembership, TeamRole, UserId};
 use devboard_repository::{ProjectRepository, RepositoryError, TaskRepository, TeamRepository};
+use devboard_service::EventBus;
 
 struct FakeTaskRepo {
   tasks: Mutex<HashMap<TaskId, Task>>
@@ -126,6 +127,43 @@ impl TaskRepository for FakeTaskRepo {
       .ok_or(RepositoryError::NotFound)?;
     task.assignee_id = assignee_id;
       Ok(task.clone())
+  }
+
+  async fn find_by_project_paginated(
+    &self,
+    project_id: ProjectId,
+    status: Option<TaskStatus>,
+    after_id: Option<uuid::Uuid>,
+    limit: u64
+  ) -> Result<(Vec<Task>, bool), RepositoryError> {
+    let mut tasks: Vec<Task> = self
+        .tasks
+        .lock()
+        .unwrap()
+        .values()
+        .filter(|t| t.project_id == project_id)
+        .filter(|t| status.as_ref().is_none_or(|s| t.status == *s))
+        .cloned()
+        .collect();
+    
+    tasks.sort_by_key(|t| t.task_number);
+
+    if let Some(after_id) = after_id {
+      let after_num = self
+        .tasks
+        .lock()
+        .unwrap()
+        .get(&TaskId::from(after_id))
+        .map(|t| t.task_number);
+
+      if let Some(after_num) = after_num {
+        tasks = tasks.iter().filter(|t| t.task_number > after_num).cloned().collect();
+      }
+    }
+
+    let has_more = tasks.len() as u64 > limit;
+    tasks.truncate(limit as usize);
+    Ok((tasks, has_more))
   }
 
   async fn delete(
@@ -278,11 +316,13 @@ fn setup() -> (
     let project_repo = Arc::new(FakeProjectRepo::new_with_project(project));
     let team_repo = Arc::new(FakeTeamRepo::new());
     let task_repo = Arc::new(FakeTaskRepo::new());
+    let event_bus = EventBus::new();
 
     let service = devboard_service::TaskService::new(
         task_repo,
         project_repo.clone(),
         team_repo.clone(),
+        event_bus,
     );
 
     (service, project_repo, team_repo, project_id, team_id, user_id)

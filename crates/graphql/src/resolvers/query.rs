@@ -1,9 +1,19 @@
 use async_graphql::{Context, ID, Object};
 use devboard_domain::{ProjectId, TaskId, TaskStatus};
 
-use crate::{GqlUser, context::ContextExt, error::IntoGraphQLResult, types::{GqlProject, GqlTask, GqlTaskStatus}};
+use crate::{
+  GqlUser, 
+  context::ContextExt, 
+  error::IntoGraphQLResult, 
+  types::{
+    GqlProject, GqlTask, GqlTaskStatus, 
+    pagination::{
+      ConnectionArgs, PageInfo, TaskConnection, TaskEdge, decode_cursor, encode_cursor
+    }
+  }
+};
 
-pub struct QueryRoot;
+pub struct QueryRoot; 
 
 #[Object]
 impl QueryRoot {
@@ -120,6 +130,70 @@ impl QueryRoot {
       Ok(GqlTask { 
         inner: task, 
         project_key: project.key 
+      })
+    }
+
+    async fn tasks_paginated(
+      &self,
+      ctx: &Context<'_>,
+      project_id: ID,
+      status: Option<GqlTaskStatus>,
+      args: ConnectionArgs,
+    ) -> async_graphql::Result<TaskConnection> {
+      let auth = ctx.authenticated_user()?;
+      let services = ctx.services()?;
+
+      let project_id = parse_id::<ProjectId>(&project_id)?;
+      let status_filter = status.map(TaskStatus::from);
+      let limit = args.limit();
+
+      let after_id = args
+        .after
+        .as_deref()
+        .and_then(decode_cursor)
+        .and_then(|s| s.parse::<uuid::Uuid>().ok());
+
+      let project = services
+        .project_service
+        .get_project(project_id, auth.user_id)
+        .await
+        .map_gql_err()?;
+
+      let (tasks, has_next) = services
+        .task_service
+        .list_tasks_paginated(
+          project_id,
+          auth.user_id,
+          status_filter,
+          after_id,
+          limit,
+        )
+        .await
+        .map_gql_err()?;
+
+      let edges: Vec<TaskEdge> = tasks
+        .into_iter()
+        .map(|t| {
+          let cursor = encode_cursor(&t.id.to_string());
+          TaskEdge {
+            cursor,
+            node: GqlTask { inner: t, project_key: project.key.clone() },
+          }
+        })
+        .collect();
+
+      let start_cursor = edges.first().map(|e| e.cursor.clone());
+      let end_cursor = edges.last().map(|e| e.cursor.clone());
+
+      Ok(TaskConnection {
+        page_info: PageInfo {
+          has_next_page: has_next,
+          has_previous_page: args.after.is_some(),
+          start_cursor,
+          end_cursor,
+        },
+        total_count: edges.len() as i64,
+        edges,
       })
     }
 }

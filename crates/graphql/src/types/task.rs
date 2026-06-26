@@ -70,7 +70,7 @@ impl From<GqlTaskPriority> for TaskPriority {
         }
     }
 }
-
+#[derive(Clone)]
 pub struct GqlTask {
   pub inner: Task,
   pub project_key: String,

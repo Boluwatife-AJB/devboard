@@ -79,10 +79,13 @@ async fn main() -> anyhow::Result<()> {
         jwt_service.clone()
     ));
 
+    let event_bus = devboard_service::EventBus::new();
+
     let task_service = Arc::new(TaskService::new(
         task_repo,
         project_repo.clone(),
         team_repo.clone(),
+        event_bus.clone()
     ));
 
     let project_service = Arc::new(ProjectService::new(
@@ -94,7 +97,8 @@ async fn main() -> anyhow::Result<()> {
         auth_service.clone(), 
         task_service, 
         project_service, 
-        user_repo
+        user_repo,
+        event_bus
     );
 
     let state = AppState {

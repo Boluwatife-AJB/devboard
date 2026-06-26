@@ -1,4 +1,4 @@
-use devboard_domain::ProjectId;
+use devboard_domain::{ProjectId, Task, TaskId};
 
 #[derive(Debug, Clone)]
 pub enum TaskEvent {
@@ -12,6 +12,17 @@ pub enum TaskEvent {
   },
   Deleted {
     project_id: ProjectId,
-    task_id: devboard_domain::TaskId
+    task_id: TaskId
   }
 }
+
+impl TaskEvent {
+    pub fn project_id(&self) -> ProjectId {
+      match self {
+          TaskEvent::Updated { project_id, .. } => *project_id,
+          TaskEvent::Created { project_id, .. } => *project_id,
+          TaskEvent::Deleted { project_id, .. } => *project_id,
+      }
+    }
+}
+

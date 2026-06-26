@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_graphql::{Schema, dataloader::DataLoader};
 
 use devboard_repository::UserRepository;
-use devboard_service::{AuthService, ProjectService, TaskService};
+use devboard_service::{AuthService, EventBus, ProjectService, TaskService};
 
 use crate::{
   UserLoader, 
@@ -17,7 +17,8 @@ pub fn build_schema(
   auth_service: Arc<AuthService>,
   task_service: Arc<TaskService>,
   project_service: Arc<ProjectService>,
-  user_repo: Arc<dyn UserRepository>
+  user_repo: Arc<dyn UserRepository>,
+  event_bus: EventBus
 ) -> DevBoardSchema {
   let services = Services {
     auth_service,
@@ -30,5 +31,6 @@ pub fn build_schema(
   Schema::build(QueryRoot, MutationRoot, SubscriptionRoot)
     .data(services)
     .data(user_loader)
+    .data(event_bus)
     .finish()
 }
