@@ -28,11 +28,21 @@ impl SubscriptionRoot {
         })?;
 
       let services = ctx.services()?;
-      services
+
+      let project = services
         .project_service
         .get_project(project_id, auth.user_id)
         .await
         .map_err(crate::error::to_graphql_error)?;
+
+      let project_key = project.key.clone();
+
+      // let services = ctx.services()?;
+      // services
+      //   .project_service
+      //   .get_project(project_id, auth.user_id)
+      //   .await
+      //   .map_err(crate::error::to_graphql_error)?;
 
       let event_bus = ctx.data::<EventBus>()?;
       let receiver = event_bus.subscribe_tasks();
@@ -44,7 +54,7 @@ impl SubscriptionRoot {
                 if event.project_id() != project_id {
                   return None;
                 }
-                Some(task_event_to_gql(event))
+                Some(task_event_to_gql(event, &project_key))
               }
               Err(BroadcastStreamRecvError::Lagged(n)) => {
                 tracing::warn!(
@@ -60,7 +70,7 @@ impl SubscriptionRoot {
     }
 }
 
-fn task_event_to_gql(event: TaskEvent) -> TaskUpdatedEvent {
+fn task_event_to_gql(event: TaskEvent, project_key: &str) -> TaskUpdatedEvent {
   match event {
       TaskEvent::Created { project_id, task } => {
         let _project_key = String::new();
@@ -68,7 +78,7 @@ fn task_event_to_gql(event: TaskEvent) -> TaskUpdatedEvent {
           kind: TaskEventKind::Created, 
           task: Some(GqlTask { 
             inner: task.clone(), 
-            project_key: task.project_id.to_string() 
+            project_key: project_key.to_string() 
           }), 
           task_id: ID(task.id.to_string()), 
           project_id: ID(project_id.to_string()) 
@@ -78,7 +88,7 @@ fn task_event_to_gql(event: TaskEvent) -> TaskUpdatedEvent {
         kind: TaskEventKind::Updated, 
         task: Some(GqlTask { 
           inner: task.clone(), 
-          project_key: task.project_id.to_string() 
+          project_key: project_key.to_string() 
         }), 
         task_id: ID(task.id.to_string()), 
         project_id: ID(project_id.to_string()) 

@@ -21,6 +21,7 @@ use tracing_subscriber::{
   layer::SubscriberExt, 
   EnvFilter, 
 };
+use migration::{Migrator, MigratorTrait};
 
 use devboard_auth::JwtService;
 use devboard_config::AppConfig;
@@ -61,10 +62,12 @@ async fn main() -> anyhow::Result<()> {
     .await
     .context("failed to connect to database")?;
 
-    // TODO: Run pending migrations
-    // Migrator::up
-
-    tracing::info!("database migration applied");
+    
+    Migrator::up(&db, None)
+        .await
+        .context("failed to run database migrations")?;
+    
+     
 
     let user_repo = Arc::new(PgUserRepository::new(db.clone()));
     let task_repo = Arc::new(PgTaskRepository::new(db.clone()));

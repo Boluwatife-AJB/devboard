@@ -101,7 +101,7 @@ jobs:
         uses: swatinem/rust-cache@v2
 
       - name: Run integration tests
-        run: cargo test --test integration_tests
+        run: cargo test --test integration_test
         
   build:
     name: Build Release Binary

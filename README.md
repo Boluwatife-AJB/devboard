@@ -66,14 +66,13 @@ boundaries — the GraphQL crate physically cannot import SeaORM entities.
 
 ```bash
 # Start the database
-docker compose up -d
+ docker compose -f docker-compose.prod.yml up -d postgres
 
-# Copy and configure environment
-cp .env.example .env
-# Edit .env — set JWT_SECRET to a random 32+ character string
-
-# Run (applies migrations automatically on startup)
-cargo run
+ # Create a .env file (see "Environment Variables" below)
+ # and set JWT_SECRET to a random 32+ character string.
+ 
+ # Run (applies migrations automatically on startup)
+ cargo run
 
 # GraphQL Playground available at:
 # http://localhost:8080/playground

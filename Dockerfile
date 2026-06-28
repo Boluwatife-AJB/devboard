@@ -12,13 +12,13 @@ RUN apt-get update && apt-get install -y      --no-install-recommends \
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
-COPY crates/domain/Cargo.toml crates/domain
-COPY crates/db/Cargo.toml crates/db
-COPY crates/auth/Cargo.toml crates/auth
-COPY crates/config/Cargo.toml crates/config
-COPY crates/service/Cargo.toml crates/service
-COPY crates/repository/Cargo.toml crates/repository
-COPY crates/graphql/Cargo.toml crates/graphql
+COPY crates/domain/Cargo.toml crates/domain/
+COPY crates/db/Cargo.toml crates/db/
+COPY crates/auth/Cargo.toml crates/auth/
+COPY crates/config/Cargo.toml crates/config/
+COPY crates/service/Cargo.toml crates/service/
+COPY crates/repository/Cargo.toml crates/repository/
+COPY crates/graphql/Cargo.toml crates/graphql/
 
 RUN for crate in domain db auth config service repository graphql; do \
         mkdir -p "crates/$crate/src" && \
@@ -40,6 +40,7 @@ FROM debian:bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libssl3 \
+    curl \
     libgcc-s1 \
     && rm -rf /var/lib/apt/lists/*
 
