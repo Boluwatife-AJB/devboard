@@ -10,7 +10,7 @@ use devboard_db::entities::task::{self, Entity as TaskEntity};
 use devboard_domain::{ProjectId, Task, TaskId, TaskPriority, TaskStatus, UserId};
 
 use super::{TaskRepository, model_to_domain, priority_to_str, status_to_str};
-use crate::error::RepositoryError;
+use crate::{error::RepositoryError, task::CreateTaskParams};
 
 pub struct PgTaskRepository {
     db: DatabaseConnection,
@@ -71,35 +71,24 @@ impl TaskRepository for PgTaskRepository {
     #[tracing::instrument(
         skip(self),
         fields(
-            task_id = %id,
-            project_id = %project_id,
-            reporter_id = %reporter_id
+            task_id = %params.id,
+            project_id = %params.project_id,
+            reporter_id = %params.reporter_id
         )
     )]
-    async fn create(
-        &self,
-        id: TaskId,
-        project_id: ProjectId,
-        task_number: i32,
-        title: String,
-        description: Option<String>,
-        status: TaskStatus,
-        priority: TaskPriority,
-        reporter_id: UserId,
-        assignee_id: Option<UserId>,
-    ) -> Result<Task, RepositoryError> {
+    async fn create(&self, params: CreateTaskParams) -> Result<Task, RepositoryError> {
         let now = Utc::now();
 
         let active_model = task::ActiveModel {
-            id: ActiveValue::Set(Uuid::from(id)),
-            project_id: ActiveValue::Set(Uuid::from(project_id)),
-            task_number: ActiveValue::Set(task_number),
-            title: ActiveValue::Set(title),
-            description: ActiveValue::Set(description),
-            status: ActiveValue::Set(status_to_str(&status).to_string()),
-            priority: ActiveValue::Set(priority_to_str(&priority).to_string()),
-            reporter_id: ActiveValue::Set(Uuid::from(reporter_id)),
-            assignee_id: ActiveValue::Set(assignee_id.map(Uuid::from)),
+            id: ActiveValue::Set(Uuid::from(params.id)),
+            project_id: ActiveValue::Set(Uuid::from(params.project_id)),
+            task_number: ActiveValue::Set(params.task_number),
+            title: ActiveValue::Set(params.title),
+            description: ActiveValue::Set(params.description),
+            status: ActiveValue::Set(status_to_str(&params.status).to_string()),
+            priority: ActiveValue::Set(priority_to_str(&params.priority).to_string()),
+            reporter_id: ActiveValue::Set(Uuid::from(params.reporter_id)),
+            assignee_id: ActiveValue::Set(params.assignee_id.map(Uuid::from)),
             created_at: ActiveValue::Set(now.into()),
             updated_at: ActiveValue::Set(now.into()),
         };

@@ -51,7 +51,6 @@ async fn ensure_organization(db: &DatabaseConnection, org_id: OrganizationId) {
         slug: ActiveValue::Set(format!("itest-{}", Uuid::from(org_id))),
         created_at: ActiveValue::Set(now.into()),
         updated_at: ActiveValue::Set(now.into()),
-        ..Default::default()
     }
     .insert(db)
     .await

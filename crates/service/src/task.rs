@@ -3,7 +3,9 @@ use std::sync::Arc;
 use devboard_domain::{
     ProjectId, ProjectRole, Task, TaskId, TaskPriority, TaskStatus, UserId, has_project_permission,
 };
-use devboard_repository::{ProjectRepository, TaskRepository, TeamRepository};
+use devboard_repository::{
+    ProjectRepository, TaskRepository, TeamRepository, task::CreateTaskParams,
+};
 
 use crate::{error::ServiceError, event_bus::EventBus, events::TaskEvent};
 
@@ -133,17 +135,17 @@ impl TaskService {
 
         let task = self
             .task_repo
-            .create(
-                task_id,
+            .create(CreateTaskParams {
+                id: task_id,
                 project_id,
                 task_number,
                 title,
                 description,
-                TaskStatus::Backlog,
+                status: TaskStatus::Backlog,
                 priority,
                 reporter_id,
                 assignee_id,
-            )
+            })
             .await?;
 
         self.event_bus.publish_task(TaskEvent::Created {

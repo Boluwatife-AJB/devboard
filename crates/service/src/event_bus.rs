@@ -16,10 +16,7 @@ impl EventBus {
     }
 
     pub fn publish_task(&self, event: TaskEvent) -> usize {
-        match self.task_tx.send(event) {
-            Ok(n) => n,
-            Err(_) => 0,
-        }
+        self.task_tx.send(event).unwrap_or_default()
     }
 
     pub fn subscribe_tasks(&self) -> broadcast::Receiver<TaskEvent> {

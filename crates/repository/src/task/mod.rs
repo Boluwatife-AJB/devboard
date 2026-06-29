@@ -4,6 +4,19 @@ use devboard_domain::{ProjectId, Task, TaskId, TaskPriority, TaskStatus, UserId}
 
 use crate::error::RepositoryError;
 
+#[derive(Debug)]
+pub struct CreateTaskParams {
+    pub id: TaskId,
+    pub project_id: ProjectId,
+    pub task_number: i32,
+    pub title: String,
+    pub description: Option<String>,
+    pub status: TaskStatus,
+    pub priority: TaskPriority,
+    pub reporter_id: UserId,
+    pub assignee_id: Option<UserId>,
+}
+
 #[async_trait]
 pub trait TaskRepository: Send + Sync {
     async fn find_by_id(&self, id: TaskId) -> Result<Option<Task>, RepositoryError>;
@@ -16,18 +29,7 @@ pub trait TaskRepository: Send + Sync {
         status: Option<TaskStatus>,
     ) -> Result<Vec<Task>, RepositoryError>;
 
-    async fn create(
-        &self,
-        id: TaskId,
-        project_id: ProjectId,
-        task_number: i32,
-        title: String,
-        description: Option<String>,
-        status: TaskStatus,
-        priority: TaskPriority,
-        reporter_id: UserId,
-        assignee_id: Option<UserId>,
-    ) -> Result<Task, RepositoryError>;
+    async fn create(&self, params: CreateTaskParams) -> Result<Task, RepositoryError>;
 
     async fn update_status(&self, id: TaskId, status: TaskStatus) -> Result<Task, RepositoryError>;
 

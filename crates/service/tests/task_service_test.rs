@@ -7,6 +7,7 @@ use devboard_domain::{
     OrganizationId, ProjectId, ProjectMembership, ProjectRole, Task, TaskId, TaskPriority,
     TaskStatus, Team, TeamId, TeamMembership, TeamRole, UserId,
 };
+use devboard_repository::task::CreateTaskParams;
 use devboard_repository::{ProjectRepository, RepositoryError, TaskRepository, TeamRepository};
 use devboard_service::EventBus;
 
@@ -49,31 +50,23 @@ impl TaskRepository for FakeTaskRepo {
 
     async fn create(
         &self,
-        id: TaskId,
-        project_id: ProjectId,
-        task_number: i32,
-        title: String,
-        description: Option<String>,
-        status: TaskStatus,
-        priority: TaskPriority,
-        reporter_id: UserId,
-        assignee_id: Option<UserId>,
+        params: CreateTaskParams,
     ) -> Result<Task, RepositoryError> {
         use chrono::Utc;
         let task = Task {
-            id,
-            project_id,
-            task_number,
-            title,
-            description,
-            status,
-            priority,
-            reporter_id,
-            assignee_id,
+            id: params.id,
+            project_id: params.project_id,
+            task_number: params.task_number,
+            title: params.title,
+            description: params.description,
+            status: params.status,
+            priority: params.priority,
+            reporter_id: params.reporter_id,
+            assignee_id: params.assignee_id,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
-        self.tasks.lock().unwrap().insert(id, task.clone());
+        self.tasks.lock().unwrap().insert(params.id, task.clone());
         Ok(task)
     }
 
