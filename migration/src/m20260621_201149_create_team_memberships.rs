@@ -15,21 +15,17 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(ColumnDef::new(TeamMembership::TeamId).uuid().not_null())
                     .col(ColumnDef::new(TeamMembership::UserId).uuid().not_null())
-                    .col(
-                        ColumnDef::new(TeamMembership::Role)
-                            .string()
-                            .not_null()
-                    )
+                    .col(ColumnDef::new(TeamMembership::Role).string().not_null())
                     .col(
                         ColumnDef::new(TeamMembership::JoinedAt)
                             .timestamp_with_time_zone()
                             .not_null()
-                            .default(Expr::current_timestamp())
+                            .default(Expr::current_timestamp()),
                     )
                     .primary_key(
                         Index::create()
                             .col(TeamMembership::TeamId)
-                            .col(TeamMembership::UserId)
+                            .col(TeamMembership::UserId),
                     )
                     .foreign_key(
                         ForeignKey::create()
@@ -67,5 +63,5 @@ pub enum TeamMembership {
     TeamId,
     UserId,
     Role,
-    JoinedAt
+    JoinedAt,
 }

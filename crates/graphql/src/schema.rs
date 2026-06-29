@@ -6,31 +6,31 @@ use devboard_repository::UserRepository;
 use devboard_service::{AuthService, EventBus, ProjectService, TaskService};
 
 use crate::{
-  UserLoader, 
-  context::Services, 
-  resolvers::{MutationRoot, QueryRoot, SubscriptionRoot}
+    UserLoader,
+    context::Services,
+    resolvers::{MutationRoot, QueryRoot, SubscriptionRoot},
 };
 
 pub type DevBoardSchema = Schema<QueryRoot, MutationRoot, SubscriptionRoot>;
 
 pub fn build_schema(
-  auth_service: Arc<AuthService>,
-  task_service: Arc<TaskService>,
-  project_service: Arc<ProjectService>,
-  user_repo: Arc<dyn UserRepository>,
-  event_bus: EventBus
+    auth_service: Arc<AuthService>,
+    task_service: Arc<TaskService>,
+    project_service: Arc<ProjectService>,
+    user_repo: Arc<dyn UserRepository>,
+    event_bus: EventBus,
 ) -> DevBoardSchema {
-  let services = Services {
-    auth_service,
-    task_service,
-    project_service
-  };
+    let services = Services {
+        auth_service,
+        task_service,
+        project_service,
+    };
 
-  let user_loader = DataLoader::new(UserLoader::new(user_repo), tokio::spawn);
+    let user_loader = DataLoader::new(UserLoader::new(user_repo), tokio::spawn);
 
-  Schema::build(QueryRoot, MutationRoot, SubscriptionRoot)
-    .data(services)
-    .data(user_loader)
-    .data(event_bus)
-    .finish()
+    Schema::build(QueryRoot, MutationRoot, SubscriptionRoot)
+        .data(services)
+        .data(user_loader)
+        .data(event_bus)
+        .finish()
 }

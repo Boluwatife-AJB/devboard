@@ -1,183 +1,160 @@
-use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
-
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 
-use devboard_domain::{OrganizationId, ProjectId, ProjectMembership, ProjectRole, Task, TaskId, TaskPriority, TaskStatus, Team, TeamId, TeamMembership, TeamRole, UserId};
+use devboard_domain::{
+    OrganizationId, ProjectId, ProjectMembership, ProjectRole, Task, TaskId, TaskPriority,
+    TaskStatus, Team, TeamId, TeamMembership, TeamRole, UserId,
+};
 use devboard_repository::{ProjectRepository, RepositoryError, TaskRepository, TeamRepository};
 use devboard_service::EventBus;
 
 struct FakeTaskRepo {
-  tasks: Mutex<HashMap<TaskId, Task>>
+    tasks: Mutex<HashMap<TaskId, Task>>,
 }
 
 impl FakeTaskRepo {
     fn new() -> Self {
-      Self {tasks: Mutex::new(HashMap::new())}
+        Self {
+            tasks: Mutex::new(HashMap::new()),
+        }
     }
 }
 
 #[async_trait]
 impl TaskRepository for FakeTaskRepo {
-  async fn find_by_id(
-    &self, 
-    id: TaskId
-  ) -> Result<Option<Task>, RepositoryError> {
-    Ok(self.tasks.lock().unwrap().get(&id).cloned())
-  }
-
-  async fn find_by_ids(
-    &self,
-    ids: Vec<TaskId>
-  ) -> Result<Vec<Task>, RepositoryError> {
-    let tasks = self
-        .tasks
-        .lock()
-        .unwrap();
-    Ok(ids.iter().filter_map(|id| tasks.get(id).cloned()).collect())
-  }
-
-  async fn find_by_project(
-    &self,
-    project_id: ProjectId,
-    status: Option<TaskStatus>
-  ) -> Result<Vec<Task>, RepositoryError> {
-    let tasks = self.tasks.lock().unwrap();
-    Ok(tasks.values()
-        .filter(|t| t.project_id == project_id)
-        .filter(|t| status.map_or(true, |s| t.status == s))
-        .cloned()
-        .collect())
-  }
-
-  async fn create(
-    &self, 
-    id: TaskId, 
-    project_id: ProjectId,
-    task_number: i32,
-    title: String,
-    description: Option<String>,
-    status: TaskStatus,
-    priority: TaskPriority,
-    reporter_id: UserId,
-    assignee_id: Option<UserId>
-  ) -> Result<Task, RepositoryError> {
-    use chrono::Utc;
-    let task = Task {
-      id,
-      project_id,
-      task_number,
-      title,
-      description,
-      status,
-      priority, 
-      reporter_id, 
-      assignee_id,
-      created_at: Utc::now(), 
-      updated_at: Utc::now(),
-    };
-    self.tasks.lock().unwrap().insert(id, task.clone());
-    Ok(task)
-  }
-
-  async fn update_status(
-    &self, 
-    id: TaskId, 
-    status: TaskStatus
-  ) -> Result<Task, RepositoryError> {
-    let mut tasks = self
-      .tasks
-      .lock()
-      .unwrap();
-    let task = tasks
-      .get_mut(&id)
-      .ok_or(RepositoryError::NotFound)?;
-    task.status = status;
-    Ok(task.clone())
-  }
-
-  async fn update_priority(
-    &self, 
-    id: TaskId, 
-    priority: TaskPriority
-  ) -> Result<Task, RepositoryError> {
-    let mut tasks = self
-      .tasks
-      .lock()
-      .unwrap();
-    let task = tasks
-      .get_mut(&id)
-      .ok_or(RepositoryError::NotFound)?;
-    task.priority = priority;
-    Ok(task.clone())
-  }
-
-  async fn assign(
-    &self, 
-    id: TaskId, 
-    assignee_id: Option<UserId>
-  ) -> Result<Task, RepositoryError> {
-    let mut tasks = self
-      .tasks
-      .lock()
-      .unwrap();
-    let task = tasks
-      .get_mut(&id)
-      .ok_or(RepositoryError::NotFound)?;
-    task.assignee_id = assignee_id;
-      Ok(task.clone())
-  }
-
-  async fn find_by_project_paginated(
-    &self,
-    project_id: ProjectId,
-    status: Option<TaskStatus>,
-    after_id: Option<uuid::Uuid>,
-    limit: u64
-  ) -> Result<(Vec<Task>, bool), RepositoryError> {
-    let mut tasks: Vec<Task> = self
-        .tasks
-        .lock()
-        .unwrap()
-        .values()
-        .filter(|t| t.project_id == project_id)
-        .filter(|t| status.as_ref().is_none_or(|s| t.status == *s))
-        .cloned()
-        .collect();
-    
-    tasks.sort_by_key(|t| t.task_number);
-
-    if let Some(after_id) = after_id {
-      let after_num = self
-        .tasks
-        .lock()
-        .unwrap()
-        .get(&TaskId::from(after_id))
-        .map(|t| t.task_number);
-
-      if let Some(after_num) = after_num {
-        tasks = tasks.iter().filter(|t| t.task_number > after_num).cloned().collect();
-      }
+    async fn find_by_id(&self, id: TaskId) -> Result<Option<Task>, RepositoryError> {
+        Ok(self.tasks.lock().unwrap().get(&id).cloned())
     }
 
-    let has_more = tasks.len() as u64 > limit;
-    tasks.truncate(limit as usize);
-    Ok((tasks, has_more))
-  }
+    async fn find_by_ids(&self, ids: Vec<TaskId>) -> Result<Vec<Task>, RepositoryError> {
+        let tasks = self.tasks.lock().unwrap();
+        Ok(ids.iter().filter_map(|id| tasks.get(id).cloned()).collect())
+    }
 
-  async fn delete(
-    &self, 
-    id: TaskId
-  ) -> Result<(), RepositoryError> {
-    self
-      .tasks
-      .lock()
-      .unwrap()
-      .remove(&id)
-      .ok_or(RepositoryError::NotFound)?;
-    Ok(())
-  }
+    async fn find_by_project(
+        &self,
+        project_id: ProjectId,
+        status: Option<TaskStatus>,
+    ) -> Result<Vec<Task>, RepositoryError> {
+        let tasks = self.tasks.lock().unwrap();
+        Ok(tasks
+            .values()
+            .filter(|t| t.project_id == project_id)
+            .filter(|t| status.map_or(true, |s| t.status == s))
+            .cloned()
+            .collect())
+    }
+
+    async fn create(
+        &self,
+        id: TaskId,
+        project_id: ProjectId,
+        task_number: i32,
+        title: String,
+        description: Option<String>,
+        status: TaskStatus,
+        priority: TaskPriority,
+        reporter_id: UserId,
+        assignee_id: Option<UserId>,
+    ) -> Result<Task, RepositoryError> {
+        use chrono::Utc;
+        let task = Task {
+            id,
+            project_id,
+            task_number,
+            title,
+            description,
+            status,
+            priority,
+            reporter_id,
+            assignee_id,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        self.tasks.lock().unwrap().insert(id, task.clone());
+        Ok(task)
+    }
+
+    async fn update_status(&self, id: TaskId, status: TaskStatus) -> Result<Task, RepositoryError> {
+        let mut tasks = self.tasks.lock().unwrap();
+        let task = tasks.get_mut(&id).ok_or(RepositoryError::NotFound)?;
+        task.status = status;
+        Ok(task.clone())
+    }
+
+    async fn update_priority(
+        &self,
+        id: TaskId,
+        priority: TaskPriority,
+    ) -> Result<Task, RepositoryError> {
+        let mut tasks = self.tasks.lock().unwrap();
+        let task = tasks.get_mut(&id).ok_or(RepositoryError::NotFound)?;
+        task.priority = priority;
+        Ok(task.clone())
+    }
+
+    async fn assign(
+        &self,
+        id: TaskId,
+        assignee_id: Option<UserId>,
+    ) -> Result<Task, RepositoryError> {
+        let mut tasks = self.tasks.lock().unwrap();
+        let task = tasks.get_mut(&id).ok_or(RepositoryError::NotFound)?;
+        task.assignee_id = assignee_id;
+        Ok(task.clone())
+    }
+
+    async fn find_by_project_paginated(
+        &self,
+        project_id: ProjectId,
+        status: Option<TaskStatus>,
+        after_id: Option<uuid::Uuid>,
+        limit: u64,
+    ) -> Result<(Vec<Task>, bool), RepositoryError> {
+        let mut tasks: Vec<Task> = self
+            .tasks
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|t| t.project_id == project_id)
+            .filter(|t| status.as_ref().is_none_or(|s| t.status == *s))
+            .cloned()
+            .collect();
+
+        tasks.sort_by_key(|t| t.task_number);
+
+        if let Some(after_id) = after_id {
+            let after_num = self
+                .tasks
+                .lock()
+                .unwrap()
+                .get(&TaskId::from(after_id))
+                .map(|t| t.task_number);
+
+            if let Some(after_num) = after_num {
+                tasks = tasks
+                    .iter()
+                    .filter(|t| t.task_number > after_num)
+                    .cloned()
+                    .collect();
+            }
+        }
+
+        let has_more = tasks.len() as u64 > limit;
+        tasks.truncate(limit as usize);
+        Ok((tasks, has_more))
+    }
+
+    async fn delete(&self, id: TaskId) -> Result<(), RepositoryError> {
+        self.tasks
+            .lock()
+            .unwrap()
+            .remove(&id)
+            .ok_or(RepositoryError::NotFound)?;
+        Ok(())
+    }
 }
 
 struct FakeProjectRepo {
@@ -187,46 +164,69 @@ struct FakeProjectRepo {
 }
 
 impl FakeProjectRepo {
-  fn new_with_project(project: devboard_domain::Project) -> Self {
-    let mut projects = HashMap::new();
-    let id = project.id;
-    projects.insert(id, project);
-    Self {
-      projects: Mutex::new(projects),
-      memberships: Mutex::new(HashMap::new()),
-      counters: Mutex::new(HashMap::new()),
+    fn new_with_project(project: devboard_domain::Project) -> Self {
+        let mut projects = HashMap::new();
+        let id = project.id;
+        projects.insert(id, project);
+        Self {
+            projects: Mutex::new(projects),
+            memberships: Mutex::new(HashMap::new()),
+            counters: Mutex::new(HashMap::new()),
+        }
     }
-  }
 
-  fn add_membership(
-    &self, 
-    m: ProjectMembership
-  ) {
-    self.memberships
-      .lock()
-      .unwrap()
-      .insert((m.project_id, m.user_id), m);
-  }
+    fn add_membership(&self, m: ProjectMembership) {
+        self.memberships
+            .lock()
+            .unwrap()
+            .insert((m.project_id, m.user_id), m);
+    }
 }
 
 #[async_trait]
-impl ProjectRepository for FakeProjectRepo  {
-  async fn find_by_id(&self, id: ProjectId) -> Result<Option<devboard_domain::Project>, RepositoryError> {
+impl ProjectRepository for FakeProjectRepo {
+    async fn find_by_id(
+        &self,
+        id: ProjectId,
+    ) -> Result<Option<devboard_domain::Project>, RepositoryError> {
         Ok(self.projects.lock().unwrap().get(&id).cloned())
     }
-    async fn find_by_ids(&self, ids: Vec<ProjectId>) -> Result<Vec<devboard_domain::Project>, RepositoryError> {
+    async fn find_by_ids(
+        &self,
+        ids: Vec<ProjectId>,
+    ) -> Result<Vec<devboard_domain::Project>, RepositoryError> {
         let projects = self.projects.lock().unwrap();
-        Ok(ids.iter().filter_map(|id| projects.get(id).cloned()).collect())
+        Ok(ids
+            .iter()
+            .filter_map(|id| projects.get(id).cloned())
+            .collect())
     }
-    async fn find_by_organization(&self, _: OrganizationId) -> Result<Vec<devboard_domain::Project>, RepositoryError> {
+    async fn find_by_organization(
+        &self,
+        _: OrganizationId,
+    ) -> Result<Vec<devboard_domain::Project>, RepositoryError> {
         Ok(self.projects.lock().unwrap().values().cloned().collect())
     }
-    async fn create(&self, id: ProjectId, organization_id: OrganizationId, team_id: TeamId, name: String, key: String, description: Option<String>) -> Result<devboard_domain::Project, RepositoryError> {
+    async fn create(
+        &self,
+        id: ProjectId,
+        organization_id: OrganizationId,
+        team_id: TeamId,
+        name: String,
+        key: String,
+        description: Option<String>,
+    ) -> Result<devboard_domain::Project, RepositoryError> {
         use chrono::Utc;
         let project = devboard_domain::Project {
-            id, organization_id, team_id, name, key,
-            description, next_task_number: 1,
-            created_at: Utc::now(), updated_at: Utc::now(),
+            id,
+            organization_id,
+            team_id,
+            name,
+            key,
+            description,
+            next_task_number: 1,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
         };
         self.projects.lock().unwrap().insert(id, project.clone());
         Ok(project)
@@ -237,17 +237,43 @@ impl ProjectRepository for FakeProjectRepo  {
         *n += 1;
         Ok(*n)
     }
-    async fn add_member(&self, project_id: ProjectId, user_id: UserId, role_override: Option<ProjectRole>) -> Result<ProjectMembership, RepositoryError> {
+    async fn add_member(
+        &self,
+        project_id: ProjectId,
+        user_id: UserId,
+        role_override: Option<ProjectRole>,
+    ) -> Result<ProjectMembership, RepositoryError> {
         use chrono::Utc;
-        let m = ProjectMembership { project_id, user_id, role_override, added_at: Utc::now() };
-        self.memberships.lock().unwrap().insert((project_id, user_id), m.clone());
+        let m = ProjectMembership {
+            project_id,
+            user_id,
+            role_override,
+            added_at: Utc::now(),
+        };
+        self.memberships
+            .lock()
+            .unwrap()
+            .insert((project_id, user_id), m.clone());
         Ok(m)
     }
-    async fn get_membership(&self, project_id: ProjectId, user_id: UserId) -> Result<Option<ProjectMembership>, RepositoryError> {
-        Ok(self.memberships.lock().unwrap().get(&(project_id, user_id)).cloned())
+    async fn get_membership(
+        &self,
+        project_id: ProjectId,
+        user_id: UserId,
+    ) -> Result<Option<ProjectMembership>, RepositoryError> {
+        Ok(self
+            .memberships
+            .lock()
+            .unwrap()
+            .get(&(project_id, user_id))
+            .cloned())
     }
     async fn delete(&self, id: ProjectId) -> Result<(), RepositoryError> {
-        self.projects.lock().unwrap().remove(&id).ok_or(RepositoryError::NotFound)?;
+        self.projects
+            .lock()
+            .unwrap()
+            .remove(&id)
+            .ok_or(RepositoryError::NotFound)?;
         Ok(())
     }
 }
@@ -258,32 +284,76 @@ struct FakeTeamRepo {
 
 impl FakeTeamRepo {
     fn new() -> Self {
-        Self { memberships: Mutex::new(HashMap::new()) }
+        Self {
+            memberships: Mutex::new(HashMap::new()),
+        }
     }
     fn add_membership(&self, m: TeamMembership) {
-        self.memberships.lock().unwrap().insert((m.team_id, m.user_id), m);
+        self.memberships
+            .lock()
+            .unwrap()
+            .insert((m.team_id, m.user_id), m);
     }
 }
 
 #[async_trait]
 impl TeamRepository for FakeTeamRepo {
-    async fn find_by_id(&self, _: TeamId) -> Result<Option<Team>, RepositoryError> { Ok(None) }
-    async fn find_by_organization(&self, _: OrganizationId) -> Result<Vec<Team>, RepositoryError> { Ok(vec![]) }
-    async fn create(&self, id: TeamId, organization_id: OrganizationId, name: String) -> Result<Team, RepositoryError> {
-        use chrono::Utc;
-        Ok(Team { id, organization_id, name, created_at: Utc::now(), updated_at: Utc::now(), })
+    async fn find_by_id(&self, _: TeamId) -> Result<Option<Team>, RepositoryError> {
+        Ok(None)
     }
-    async fn add_member(&self, team_id: TeamId, user_id: UserId, role: TeamRole) -> Result<TeamMembership, RepositoryError> {
+    async fn find_by_organization(&self, _: OrganizationId) -> Result<Vec<Team>, RepositoryError> {
+        Ok(vec![])
+    }
+    async fn create(
+        &self,
+        id: TeamId,
+        organization_id: OrganizationId,
+        name: String,
+    ) -> Result<Team, RepositoryError> {
         use chrono::Utc;
-        let m = TeamMembership { team_id, user_id, role, joined_at: Utc::now() };
-        self.memberships.lock().unwrap().insert((team_id, user_id), m.clone());
+        Ok(Team {
+            id,
+            organization_id,
+            name,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        })
+    }
+    async fn add_member(
+        &self,
+        team_id: TeamId,
+        user_id: UserId,
+        role: TeamRole,
+    ) -> Result<TeamMembership, RepositoryError> {
+        use chrono::Utc;
+        let m = TeamMembership {
+            team_id,
+            user_id,
+            role,
+            joined_at: Utc::now(),
+        };
+        self.memberships
+            .lock()
+            .unwrap()
+            .insert((team_id, user_id), m.clone());
         Ok(m)
     }
-    async fn get_membership(&self, team_id: TeamId, user_id: UserId) -> Result<Option<TeamMembership>, RepositoryError> {
-        Ok(self.memberships.lock().unwrap().get(&(team_id, user_id)).cloned())
+    async fn get_membership(
+        &self,
+        team_id: TeamId,
+        user_id: UserId,
+    ) -> Result<Option<TeamMembership>, RepositoryError> {
+        Ok(self
+            .memberships
+            .lock()
+            .unwrap()
+            .get(&(team_id, user_id))
+            .cloned())
     }
-  
-    async fn delete(&self, _: TeamId) -> Result<(), RepositoryError> { Ok(()) }
+
+    async fn delete(&self, _: TeamId) -> Result<(), RepositoryError> {
+        Ok(())
+    }
 }
 
 fn setup() -> (
@@ -325,18 +395,24 @@ fn setup() -> (
         event_bus,
     );
 
-    (service, project_repo, team_repo, project_id, team_id, user_id)
+    (
+        service,
+        project_repo,
+        team_repo,
+        project_id,
+        team_id,
+        user_id,
+    )
 }
 
 #[tokio::test]
 async fn contributor_can_create_task() {
     let (service, _project_repo, team_repo, project_id, team_id, user_id) = setup();
 
-    
     team_repo.add_membership(TeamMembership {
         team_id,
         user_id,
-        role: TeamRole::Member, 
+        role: TeamRole::Member,
         joined_at: chrono::Utc::now(),
     });
 
@@ -381,7 +457,10 @@ async fn viewer_cannot_create_task() {
         .await;
 
     assert!(
-        matches!(result, Err(devboard_service::ServiceError::Forbidden { .. })),
+        matches!(
+            result,
+            Err(devboard_service::ServiceError::Forbidden { .. })
+        ),
         "viewer should not be able to create tasks"
     );
 }
@@ -393,7 +472,14 @@ async fn unauthenticated_user_cannot_create_task() {
     let stranger = UserId::new();
 
     let result = service
-        .create_task(project_id, stranger, "Ghost task".into(), None, TaskPriority::Low, None)
+        .create_task(
+            project_id,
+            stranger,
+            "Ghost task".into(),
+            None,
+            TaskPriority::Low,
+            None,
+        )
         .await;
 
     assert!(matches!(
@@ -402,19 +488,50 @@ async fn unauthenticated_user_cannot_create_task() {
     ));
 }
 
-
 #[tokio::test]
 async fn task_numbers_increment_sequentially() {
     let (service, _project_repo, team_repo, project_id, team_id, user_id) = setup();
 
     team_repo.add_membership(TeamMembership {
-        team_id, user_id, role: TeamRole::Member,
+        team_id,
+        user_id,
+        role: TeamRole::Member,
         joined_at: chrono::Utc::now(),
     });
 
-    let t1 = service.create_task(project_id, user_id, "First".into(), None, TaskPriority::Low, None).await.unwrap();
-    let t2 = service.create_task(project_id, user_id, "Second".into(), None, TaskPriority::Low, None).await.unwrap();
-    let t3 = service.create_task(project_id, user_id, "Third".into(), None, TaskPriority::Low, None).await.unwrap();
+    let t1 = service
+        .create_task(
+            project_id,
+            user_id,
+            "First".into(),
+            None,
+            TaskPriority::Low,
+            None,
+        )
+        .await
+        .unwrap();
+    let t2 = service
+        .create_task(
+            project_id,
+            user_id,
+            "Second".into(),
+            None,
+            TaskPriority::Low,
+            None,
+        )
+        .await
+        .unwrap();
+    let t3 = service
+        .create_task(
+            project_id,
+            user_id,
+            "Third".into(),
+            None,
+            TaskPriority::Low,
+            None,
+        )
+        .await
+        .unwrap();
 
     assert_eq!(t1.task_number, 1);
     assert_eq!(t2.task_number, 2);

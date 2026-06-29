@@ -1,13 +1,12 @@
-pub mod ids;
-pub mod error;
 pub mod comment;
+pub mod error;
+pub mod ids;
 pub mod organization;
 pub mod project;
 pub mod rbac;
 pub mod task;
 pub mod team;
 pub mod user;
-
 
 pub use comment::Comment;
 pub use error::DomainError;

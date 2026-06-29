@@ -1,67 +1,57 @@
 use async_trait::async_trait;
 use chrono::Utc;
 use sea_orm::{
-  ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ActiveModelTrait, QueryFilter
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
 use uuid::Uuid;
 
-
-use devboard_domain::{User, UserId};
 use devboard_db::entities::user::{self, Entity as UserEntity};
+use devboard_domain::{User, UserId};
 
-use crate::error::RepositoryError;
-use super::model_to_domain;
 use super::UserRepository;
+use super::model_to_domain;
+use crate::error::RepositoryError;
 
 pub struct PgUserRepository {
-  db: DatabaseConnection,
+    db: DatabaseConnection,
 }
 
 impl PgUserRepository {
-  pub fn new(db: DatabaseConnection) -> Self {
-    Self { db }
-  }
+    pub fn new(db: DatabaseConnection) -> Self {
+        Self { db }
+    }
 }
 
 #[async_trait]
 impl UserRepository for PgUserRepository {
     #[tracing::instrument(skip(self), fields(user_id = %id))]
-    async fn find_by_id(
-      &self,
-      id: UserId
-    ) -> Result<Option<User>, RepositoryError> {
-      let model = UserEntity::find_by_id(Uuid::from(id))
-        .one(&self.db)
-        .await
-        .map_err(RepositoryError::from_db_err)?;
+    async fn find_by_id(&self, id: UserId) -> Result<Option<User>, RepositoryError> {
+        let model = UserEntity::find_by_id(Uuid::from(id))
+            .one(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
 
-      model.map(model_to_domain).transpose()
+        model.map(model_to_domain).transpose()
     }
 
     #[tracing::instrument(skip(self), fields(count = ids.len()))]
-    async fn find_by_ids(
-      &self,
-      ids: Vec<UserId>
-    ) -> Result<Vec<User>, RepositoryError> {
-      let uuids: Vec<Uuid> = ids.into_iter().map(Uuid::from).collect();
+    async fn find_by_ids(&self, ids: Vec<UserId>) -> Result<Vec<User>, RepositoryError> {
+        let uuids: Vec<Uuid> = ids.into_iter().map(Uuid::from).collect();
 
-      let models = UserEntity::find()
-        .filter(user::Column::Id.is_in(uuids))
-        .all(&self.db)
-        .await
-        .map_err(RepositoryError::from_db_err)?;
+        let models = UserEntity::find()
+            .filter(user::Column::Id.is_in(uuids))
+            .all(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
 
-      models
-        .into_iter()
-        .map(model_to_domain)
-        .collect::<Result<Vec<_>, _>>()
+        models
+            .into_iter()
+            .map(model_to_domain)
+            .collect::<Result<Vec<_>, _>>()
     }
 
     #[tracing::instrument(skip(self), fields(email = %email))]
-    async fn find_by_email(
-        &self,
-        email: &str,
-    ) -> Result<Option<User>, RepositoryError> {
+    async fn find_by_email(&self, email: &str) -> Result<Option<User>, RepositoryError> {
         let model = UserEntity::find()
             .filter(user::Column::Email.eq(email))
             .one(&self.db)
@@ -97,7 +87,6 @@ impl UserRepository for PgUserRepository {
 
         model_to_domain(model)
     }
-
 
     #[tracing::instrument(skip(self), fields(user_id = %id))]
     async fn update_display_name(

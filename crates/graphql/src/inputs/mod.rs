@@ -1,7 +1,7 @@
 pub mod auth;
-pub mod task;
 pub mod project;
+pub mod task;
 
 pub use auth::{AuthPayloadGql, LoginInput, RegisterInput};
-pub use project::{CreateProjectInput, AddProjectMemberInput};
+pub use project::{AddProjectMemberInput, CreateProjectInput};
 pub use task::{AssignTaskInput, CreateTaskInput, UpdateTaskStatusInput};

@@ -6,21 +6,21 @@ use devboard_service::{AuthService, ProjectService, TaskService};
 
 #[derive(Clone)]
 pub struct Services {
-  pub auth_service: Arc<AuthService>,
-  pub task_service: Arc<TaskService>,
-  pub project_service: Arc<ProjectService>
+    pub auth_service: Arc<AuthService>,
+    pub task_service: Arc<TaskService>,
+    pub project_service: Arc<ProjectService>,
 }
 
 #[derive(Debug, Clone)]
 pub struct AuthenticatedUser {
-  pub user_id: UserId,
-  pub claims: Claims,
+    pub user_id: UserId,
+    pub claims: Claims,
 }
 
 impl AuthenticatedUser {
     pub fn from_claims(claims: Claims) -> Result<Self, devboard_auth::AuthError> {
-      let user_id = claims.user_id()?;
-      Ok(Self { user_id, claims })
+        let user_id = claims.user_id()?;
+        Ok(Self { user_id, claims })
     }
 }
 
@@ -37,9 +37,7 @@ impl ContextExt for async_graphql::Context<'_> {
 
     fn authenticated_user(&self) -> async_graphql::Result<&AuthenticatedUser> {
         self.data::<AuthenticatedUser>().map_err(|_| {
-          crate::error::to_graphql_error(
-            devboard_service::ServiceError::Unauthenticated,
-          )
+            crate::error::to_graphql_error(devboard_service::ServiceError::Unauthenticated)
         })
     }
 

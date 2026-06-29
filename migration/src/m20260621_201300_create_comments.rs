@@ -26,7 +26,7 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(Comment::EditedAt)
                             .timestamp_with_time_zone()
-                            .null()
+                            .null(),
                     )
                     .foreign_key(
                         ForeignKey::create()
@@ -53,7 +53,7 @@ impl MigrationTrait for Migration {
                     .name("idx_comments_task_id")
                     .table(Comment::Table)
                     .col(Comment::TaskId)
-                    .to_owned()
+                    .to_owned(),
             )
             .await
     }
@@ -73,5 +73,5 @@ pub enum Comment {
     AuthorId,
     Body,
     CreatedAt,
-    EditedAt
+    EditedAt,
 }

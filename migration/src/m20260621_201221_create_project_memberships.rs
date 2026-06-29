@@ -16,38 +16,38 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(ProjectMembership::ProjectId)
                             .uuid()
-                            .not_null()
+                            .not_null(),
                     )
                     .col(ColumnDef::new(ProjectMembership::UserId).uuid().not_null())
                     .col(
                         ColumnDef::new(ProjectMembership::RoleOverride)
                             .string()
-                            .null()
+                            .null(),
                     )
                     .col(
                         ColumnDef::new(ProjectMembership::AddedAt)
                             .timestamp_with_time_zone()
                             .not_null()
-                            .default(Expr::current_timestamp())
+                            .default(Expr::current_timestamp()),
                     )
                     .primary_key(
                         Index::create()
                             .col(ProjectMembership::ProjectId)
-                            .col(ProjectMembership::UserId)
+                            .col(ProjectMembership::UserId),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_proj_membership_project")
                             .from(ProjectMembership::Table, ProjectMembership::ProjectId)
                             .to(Project::Table, Project::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_proj_membership_user")
                             .from(ProjectMembership::Table, ProjectMembership::UserId)
                             .to(User::Table, User::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
@@ -78,5 +78,5 @@ pub enum ProjectMembership {
     ProjectId,
     UserId,
     RoleOverride,
-    AddedAt
+    AddedAt,
 }
