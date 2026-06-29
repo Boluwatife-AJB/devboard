@@ -48,10 +48,7 @@ impl TaskRepository for FakeTaskRepo {
             .collect())
     }
 
-    async fn create(
-        &self,
-        params: CreateTaskParams,
-    ) -> Result<Task, RepositoryError> {
+    async fn create(&self, params: CreateTaskParams) -> Result<Task, RepositoryError> {
         use chrono::Utc;
         let task = Task {
             id: params.id,
