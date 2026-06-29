@@ -94,7 +94,7 @@ devboard/
 ## Running Tests
 
 ```bash
-# Unit and integration tests (no database required for domain/service tests)
+# Unit tests (no database required)
 cargo test --workspace
 
 # Domain layer tests only (fast, zero dependencies)
@@ -102,13 +102,22 @@ cargo test -p devboard-domain
 
 # Service layer tests (fake repositories, no database)
 cargo test -p devboard-service
+
+# Integration tests (requires Postgres — see below)
+docker compose up -d
+cargo test --test integration_test -- --ignored
 ```
+
+Integration tests use `TEST_DATABASE_URL` when set, otherwise default to
+`postgres://devboard:devboard@localhost:5433/devboard_test` (matching `docker-compose.yml`).
+Port 5433 is used locally to avoid conflicting with other Postgres instances on 5432.
 
 ## Environment Variables
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `DATABASE_URL` | ✓ | — | Postgres connection string |
+| `DATABASE_URL` | ✓ | — | Postgres connection string (app runtime) |
+| `TEST_DATABASE_URL` | | `localhost:5433/devboard_test` | Postgres for integration tests |
 | `JWT_SECRET` | ✓ | — | JWT signing secret (min 32 chars) |
 | `SERVER_HOST` | | `0.0.0.0` | Bind address |
 | `SERVER_PORT` | | `8080` | Bind port |

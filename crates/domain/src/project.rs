@@ -35,7 +35,7 @@ pub enum ProjectRole {
 
 impl ProjectRole {
     pub fn at_least(&self, other: ProjectRole) -> bool {
-      (*self as u8) >= (other as u8)
+      u8::from(*self) >= u8::from(other)
     }
 }
 

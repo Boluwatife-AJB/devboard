@@ -93,7 +93,7 @@ impl ProjectRepository for PgProjectRepository {
         name: ActiveValue::Set(name),
         key: ActiveValue::Set(key),
         description: ActiveValue::Set(description),
-        next_task_number: ActiveValue::Set(1),
+        next_task_number: ActiveValue::Set(0),
         created_at: ActiveValue::Set(now.into()),
         updated_at: ActiveValue::Set(now.into()),
       };

@@ -37,13 +37,6 @@ impl SubscriptionRoot {
 
       let project_key = project.key.clone();
 
-      // let services = ctx.services()?;
-      // services
-      //   .project_service
-      //   .get_project(project_id, auth.user_id)
-      //   .await
-      //   .map_err(crate::error::to_graphql_error)?;
-
       let event_bus = ctx.data::<EventBus>()?;
       let receiver = event_bus.subscribe_tasks();
 

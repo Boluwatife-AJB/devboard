@@ -31,7 +31,7 @@ pub enum TeamRole {
 
 impl TeamRole {
   pub fn at_least(&self, other: TeamRole) -> bool {
-    (*self as u8) >= (other as u8)
+    u8::from(*self) >= u8::from(other)
   }
 }
 
