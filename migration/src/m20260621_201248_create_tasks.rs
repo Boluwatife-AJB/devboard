@@ -20,15 +20,15 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Task::Description).text().null())
                     .col(
                         ColumnDef::new(Task::Status)
-                        .string()
-                        .not_null()
-                        .default("BACKLOG"),
+                            .string()
+                            .not_null()
+                            .default("BACKLOG"),
                     )
                     .col(
                         ColumnDef::new(Task::Priority)
-                        .string()
-                        .not_null()
-                        .default("MEDIUM"),
+                            .string()
+                            .not_null()
+                            .default("MEDIUM"),
                     )
                     .col(ColumnDef::new(Task::AssigneeId).uuid().null())
                     .col(ColumnDef::new(Task::ReporterId).uuid().not_null())
@@ -49,21 +49,21 @@ impl MigrationTrait for Migration {
                             .name("fk_task_project")
                             .from(Task::Table, Task::ProjectId)
                             .to(Project::Table, Project::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_task_assignee")
                             .from(Task::Table, Task::AssigneeId)
                             .to(User::Table, User::Id)
-                            .on_delete(ForeignKeyAction::SetNull)
+                            .on_delete(ForeignKeyAction::SetNull),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_task_reporter")
                             .from(Task::Table, Task::ReporterId)
                             .to(User::Table, User::Id)
-                            .on_delete(ForeignKeyAction::Restrict)
+                            .on_delete(ForeignKeyAction::Restrict),
                     )
                     .to_owned(),
             )
@@ -78,7 +78,7 @@ impl MigrationTrait for Migration {
                     .col(Task::ProjectId)
                     .col(Task::TaskNumber)
                     .unique()
-                    .to_owned(),    
+                    .to_owned(),
             )
             .await?;
 
@@ -100,7 +100,7 @@ impl MigrationTrait for Migration {
                     .name("idx_tasks_status")
                     .table(Task::Table)
                     .col(Task::Status)
-                    .to_owned()
+                    .to_owned(),
             )
             .await
     }
@@ -113,6 +113,7 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(DeriveIden)]
+#[allow(clippy::enum_variant_names)]
 pub enum Task {
     Table,
     Id,

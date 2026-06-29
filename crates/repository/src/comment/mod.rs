@@ -1,20 +1,14 @@
 pub mod pg;
 
+use crate::error::RepositoryError;
 use async_trait::async_trait;
 use devboard_domain::{Comment, CommentId, TaskId, UserId};
-use crate::error::RepositoryError;
 
 #[async_trait]
 pub trait CommentRepository: Send + Sync {
-    async fn find_by_id(
-        &self,
-        id: CommentId,
-    ) -> Result<Option<Comment>, RepositoryError>;
+    async fn find_by_id(&self, id: CommentId) -> Result<Option<Comment>, RepositoryError>;
 
-    async fn find_by_task(
-        &self,
-        task_id: TaskId,
-    ) -> Result<Vec<Comment>, RepositoryError>;
+    async fn find_by_task(&self, task_id: TaskId) -> Result<Vec<Comment>, RepositoryError>;
 
     async fn create(
         &self,
@@ -24,16 +18,9 @@ pub trait CommentRepository: Send + Sync {
         body: String,
     ) -> Result<Comment, RepositoryError>;
 
-    async fn update_body(
-        &self,
-        id: CommentId,
-        body: String,
-    ) -> Result<Comment, RepositoryError>;
+    async fn update_body(&self, id: CommentId, body: String) -> Result<Comment, RepositoryError>;
 
-    async fn delete(
-        &self,
-        id: CommentId,
-    ) -> Result<(), RepositoryError>;
+    async fn delete(&self, id: CommentId) -> Result<(), RepositoryError>;
 }
 
 pub(crate) fn model_to_domain(

@@ -12,12 +12,7 @@ impl MigrationTrait for Migration {
                     .table(User::Table)
                     .if_not_exists()
                     .col(ColumnDef::new(User::Id).uuid().not_null().primary_key())
-                    .col(
-                        ColumnDef::new(User::Email)
-                            .string()
-                            .not_null()
-                            .unique_key(),
-                    )
+                    .col(ColumnDef::new(User::Email).string().not_null().unique_key())
                     .col(ColumnDef::new(User::DisplayName).string().not_null())
                     .col(ColumnDef::new(User::PasswordHash).string().not_null())
                     .col(
@@ -52,5 +47,5 @@ pub enum User {
     DisplayName,
     PasswordHash,
     CreatedAt,
-    UpdatedAt
+    UpdatedAt,
 }

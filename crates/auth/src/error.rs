@@ -2,21 +2,21 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AuthError {
-  #[error("invalid credentials")]
-  InvalidCredentials,
+    #[error("invalid credentials")]
+    InvalidCredentials,
 
-  #[error("token expired")]
-  TokenExpired,
+    #[error("token expired")]
+    TokenExpired,
 
-  #[error("invalid token")]
-  InvalidToken,
+    #[error("invalid token")]
+    InvalidToken,
 
-  #[error("token missing")]
-  TokenMissing,
+    #[error("token missing")]
+    TokenMissing,
 
-  #[error("password hashing failed")]
-  HashingFailed,
+    #[error("password hashing failed")]
+    HashingFailed,
 
-  #[error("hashing thread panicked")]
-  HashingPanic
+    #[error("hashing thread panicked")]
+    HashingPanic,
 }

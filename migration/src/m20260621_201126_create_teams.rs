@@ -14,11 +14,7 @@ impl MigrationTrait for Migration {
                     .table(Team::Table)
                     .if_not_exists()
                     .col(ColumnDef::new(Team::Id).uuid().not_null().primary_key())
-                    .col(
-                        ColumnDef::new(Team::OrganizationId)
-                            .uuid()
-                            .not_null()
-                    )
+                    .col(ColumnDef::new(Team::OrganizationId).uuid().not_null())
                     .col(ColumnDef::new(Team::Name).string().not_null())
                     .col(
                         ColumnDef::new(Team::CreatedAt)
@@ -53,8 +49,6 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await
-
-
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
@@ -71,5 +65,5 @@ pub enum Team {
     OrganizationId,
     Name,
     CreatedAt,
-    UpdatedAt
+    UpdatedAt,
 }

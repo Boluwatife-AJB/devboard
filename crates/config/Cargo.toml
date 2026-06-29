@@ -7,4 +7,4 @@ edition = "2024"
 config = { workspace = true }
 serde = { workspace = true }
 anyhow = { workspace = true }
-dotenvy = "0.15.7"
+dotenvy = { workspace = true }

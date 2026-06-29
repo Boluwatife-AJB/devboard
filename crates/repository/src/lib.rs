@@ -1,9 +1,9 @@
-pub mod error;
-pub mod user;
-pub mod task;
-pub mod project;
-pub mod team;
 pub mod comment;
+pub mod error;
+pub mod project;
+pub mod task;
+pub mod team;
+pub mod user;
 
 pub use comment::CommentRepository;
 pub use error::RepositoryError;

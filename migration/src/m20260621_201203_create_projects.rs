@@ -1,8 +1,8 @@
 use sea_orm_migration::prelude::*;
 
-use crate::{m20260621_141230_create_organizations::Organization, m20260621_201126_create_teams::Team};
-
-
+use crate::{
+    m20260621_141230_create_organizations::Organization, m20260621_201126_create_teams::Team,
+};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -16,7 +16,7 @@ impl MigrationTrait for Migration {
                     .table(Project::Table)
                     .if_not_exists()
                     .col(ColumnDef::new(Project::Id).uuid().not_null().primary_key())
-                    .col(ColumnDef::new(Project::OrganizationId).uuid().not_null()) 
+                    .col(ColumnDef::new(Project::OrganizationId).uuid().not_null())
                     .col(ColumnDef::new(Project::TeamId).uuid().not_null())
                     .col(ColumnDef::new(Project::Name).string().not_null())
                     .col(ColumnDef::new(Project::Key).string().not_null())
@@ -44,7 +44,7 @@ impl MigrationTrait for Migration {
                             .name("fk_project_organization")
                             .from(Project::Table, Project::OrganizationId)
                             .to(Organization::Table, Organization::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
