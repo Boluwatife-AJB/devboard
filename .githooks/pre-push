@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+# Skip with: SKIP_INTEGRATION=1 git push
+if [[ "${SKIP_INTEGRATION:-}" == "1" ]]; then
+  echo "Skipping integration tests (SKIP_INTEGRATION=1)"
+  exit 0
+fi
+
+# Local docker-compose uses 5433; CI uses 5432
+export TEST_DATABASE_URL="${TEST_DATABASE_URL:-postgres://devboard:devboard@localhost:5433/devboard_test}"
+
+echo "==> integration tests"
+cargo test --test integration_test -- --ignored
+
+echo "Integration tests passed."
