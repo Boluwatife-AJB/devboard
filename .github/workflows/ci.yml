@@ -47,8 +47,8 @@ jobs:
       - name: Run unit tests
         run: |
           cargo test -p devboard-domain
-          cargo test -p domain-service
-          cargo test -p domain-auth
+          cargo test -p devboard-service
+          cargo test -p devboard-auth
 
   integration-test:
     name: Integration Tests
