@@ -3,3 +3,4 @@ set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 bash "$ROOT/scripts/ci-checks.sh"
+bash "$ROOT/scripts/ci-web-checks.sh"

@@ -7,15 +7,19 @@ jwt_secret := env_var_or_default("JWT_SECRET", "dev-secret-that-is-long-enough-3
 
 set shell := ["bash", "-cu"]
 
+
 default:
     @just --list
 
+# dev - API only
+# dev-full - API + Next
+
 # First-time setup
-setup: hooks env db-up ensure-db migrate
-    @echo "Setup complete. Run: just dev"
+setup: hooks env db-up ensure-db migrate web-install
+    @echo "Setup complete. Run: just dev-full"
 
 hooks:
-    chmod +x scripts/ci-checks.sh .githooks/pre-commit .githooks/pre-push
+    chmod +x scripts/ci-checks.sh scripts/ci-web-checks.sh .githooks/pre-commit .githooks/pre-push
     git config core.hooksPath .githooks
 
 env: 
@@ -73,6 +77,15 @@ run:
 
 dev: db-up ensure-db migrate run
 
+# Full stack: Postgres + API + Next
+dev-full: db-up ensure-db migrate
+    #!/usr/bin/env bash
+    set -euo pipefail
+    trap 'kill 0' EXIT
+    DATABASE_URL="{{database_url}}" JWT_SECRET="{{jwt_secret}}" cargo run &
+    cd {{app_dir}} && npm run dev &
+    wait
+
 # Tests
 test-unit:
     cargo test -p devboard-domain
@@ -103,7 +116,8 @@ check:
 
 ci: fmt-check lint check test-workspace
     bash scripts/ci-checks.sh
-    @echo "CI checks passed."
+    bash scripts/ci-web-checks.sh
+    @echo "All CI checks passed."
 
 # Build
 build:
@@ -132,3 +146,32 @@ check-deps:
     cargo check --all-targets --all-features --workspace
     @command -v cargo-audit >/dev/null && cargo audit || echo "Optional: cargo install cargo-audit"
     @command -v cargo-outdated >/dev/null && cargo outdated || echo "Optional: cargo install cargo-outdated"
+
+
+app_dir := "app"
+
+# Frontend
+
+web-install:
+    cd {{app_dir}} && npm ci
+
+web-dev:
+    cd {{app_dir}} && npm run dev
+
+web-lint:
+    cd {{app_dir}} && npm run lint
+
+web-fmt:
+    cd {{app_dir}} && npm run format
+
+web-fmt-check:
+    cd {{app_dir}} && npm run format:check
+
+web-typecheck:
+    cd {{app_dir}} && npm run type-check
+
+web-build:
+    cd {{app_dir}} && npm run build
+
+web-ci: web-lint web-typecheck
+    @echo "Frontend CI checks passed."
