@@ -13,11 +13,17 @@
     "type-check": "tsc -b"
   },
   "dependencies": {
+    "@apollo/client": "^4.2.4",
+    "@apollo/server": "^5.5.1",
     "@base-ui/react": "^1.6.0",
     "@hookform/resolvers": "^5.4.0",
     "@phosphor-icons/react": "^2.1.10",
+    "@tanstack/react-query": "^5.101.2",
+    "@tanstack/react-query-devtools": "^5.101.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "graphql": "^16.14.2",
+    "graphql-tag": "^2.12.7",
     "js-cookie": "^3.0.8",
     "mini-svg-data-uri": "^1.4.4",
     "motion": "^12.42.0",
@@ -33,6 +39,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.2.0",
     "@tailwindcss/postcss": "^4",
+    "@types/js-cookie": "^3.0.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

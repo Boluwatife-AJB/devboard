@@ -3,7 +3,6 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "project")]
 #[serde(rename_all = "camelCase")]
@@ -20,26 +19,63 @@ pub struct Model {
     pub next_task_number: i32,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
+}
+
+#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+pub enum Relation {
     #[sea_orm(
-        belongs_to,
-        from = "organization_id",
-        to = "id",
+        belongs_to = "super::organization::Entity",
+        from = "Column::OrganizationId",
+        to = "super::organization::Column::Id",
         on_update = "NoAction",
         on_delete = "Cascade"
     )]
-    pub organization: HasOne<super::organization::Entity>,
-    #[sea_orm(has_many)]
-    pub tasks: HasMany<super::task::Entity>,
+    Organization,
+    #[sea_orm(has_many = "super::project_membership::Entity")]
+    ProjectMembership,
+    #[sea_orm(has_many = "super::task::Entity")]
+    Task,
     #[sea_orm(
-        belongs_to,
-        from = "team_id",
-        to = "id",
+        belongs_to = "super::team::Entity",
+        from = "Column::TeamId",
+        to = "super::team::Column::Id",
         on_update = "NoAction",
         on_delete = "Cascade"
     )]
-    pub team: HasOne<super::team::Entity>,
-    #[sea_orm(has_many, via = "project_membership")]
-    pub users: HasMany<super::user::Entity>,
+    Team,
+}
+
+impl Related<super::organization::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Organization.def()
+    }
+}
+
+impl Related<super::project_membership::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ProjectMembership.def()
+    }
+}
+
+impl Related<super::task::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Task.def()
+    }
+}
+
+impl Related<super::team::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Team.def()
+    }
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::project_membership::Relation::User.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::project_membership::Relation::Project.def().rev())
+    }
 }
 
 impl ActiveModelBehavior for ActiveModel {}

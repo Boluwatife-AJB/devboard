@@ -4,32 +4,36 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "comment")]
+#[sea_orm(table_name = "invitation")]
 #[serde(rename_all = "camelCase")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub task_id: Uuid,
-    pub author_id: Uuid,
-    #[sea_orm(column_type = "Text")]
-    pub body: String,
+    pub organization_id: Uuid,
+    pub invited_by: Uuid,
+    pub role: String,
+    pub email: String,
+    #[sea_orm(unique)]
+    pub token: String,
+    pub status: String,
+    pub expires_at: DateTimeWithTimeZone,
+    pub accepted_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
-    pub edited_at: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::task::Entity",
-        from = "Column::TaskId",
-        to = "super::task::Column::Id",
+        belongs_to = "super::organization::Entity",
+        from = "Column::OrganizationId",
+        to = "super::organization::Column::Id",
         on_update = "NoAction",
         on_delete = "Cascade"
     )]
-    Task,
+    Organization,
     #[sea_orm(
         belongs_to = "super::user::Entity",
-        from = "Column::AuthorId",
+        from = "Column::InvitedBy",
         to = "super::user::Column::Id",
         on_update = "NoAction",
         on_delete = "Restrict"
@@ -37,9 +41,9 @@ pub enum Relation {
     User,
 }
 
-impl Related<super::task::Entity> for Entity {
+impl Related<super::organization::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Task.def()
+        Relation::Organization.def()
     }
 }
 

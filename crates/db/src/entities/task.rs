@@ -3,7 +3,6 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "task")]
 #[serde(rename_all = "camelCase")]
@@ -23,34 +22,48 @@ pub struct Model {
     pub reporter_id: Uuid,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
-    #[sea_orm(has_many)]
-    pub comments: HasMany<super::comment::Entity>,
+}
+
+#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+pub enum Relation {
+    #[sea_orm(has_many = "super::comment::Entity")]
+    Comment,
     #[sea_orm(
-        belongs_to,
-        from = "project_id",
-        to = "id",
+        belongs_to = "super::project::Entity",
+        from = "Column::ProjectId",
+        to = "super::project::Column::Id",
         on_update = "NoAction",
         on_delete = "Cascade"
     )]
-    pub project: HasOne<super::project::Entity>,
+    Project,
     #[sea_orm(
-        belongs_to,
-        relation_enum = "User2",
-        from = "assignee_id",
-        to = "id",
+        belongs_to = "super::user::Entity",
+        from = "Column::AssigneeId",
+        to = "super::user::Column::Id",
         on_update = "NoAction",
         on_delete = "SetNull"
     )]
-    pub user_2: HasOne<super::user::Entity>,
+    User2,
     #[sea_orm(
-        belongs_to,
-        relation_enum = "User1",
-        from = "reporter_id",
-        to = "id",
+        belongs_to = "super::user::Entity",
+        from = "Column::ReporterId",
+        to = "super::user::Column::Id",
         on_update = "NoAction",
         on_delete = "Restrict"
     )]
-    pub user_1: HasOne<super::user::Entity>,
+    User1,
+}
+
+impl Related<super::comment::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Comment.def()
+    }
+}
+
+impl Related<super::project::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Project.def()
+    }
 }
 
 impl ActiveModelBehavior for ActiveModel {}

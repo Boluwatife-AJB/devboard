@@ -44,3 +44,4 @@ define_id!(TeamId);
 define_id!(ProjectId);
 define_id!(TaskId);
 define_id!(CommentId);
+define_id!(InvitationId);

@@ -8,6 +8,8 @@ mod m20260621_201203_create_projects;
 mod m20260621_201221_create_project_memberships;
 mod m20260621_201248_create_tasks;
 mod m20260621_201300_create_comments;
+mod m20260701_190344_create_organization_memberships;
+mod m20260701_201048_create_invitations;
 
 pub struct Migrator;
 
@@ -23,6 +25,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260621_201221_create_project_memberships::Migration),
             Box::new(m20260621_201248_create_tasks::Migration),
             Box::new(m20260621_201300_create_comments::Migration),
+            Box::new(m20260701_190344_create_organization_memberships::Migration),
+            Box::new(m20260701_201048_create_invitations::Migration),
         ]
     }
 }
