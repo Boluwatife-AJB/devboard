@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { Geist, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
-const geistHeading = Geist({subsets:['latin'],variable:'--font-heading'});
+const geistHeading = Geist({ subsets: ["latin"], variable: "--font-heading" });
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetBrainsMono = JetBrains_Mono({
+  variable: "--font-jetBrains-mono",
   subsets: ["latin"],
 });
 
@@ -30,7 +30,17 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable, geistHeading.variable)}
+      suppressHydrationWarning
+      className={cn(
+        "dark",
+        "h-full",
+        "antialiased",
+        geistSans.variable,
+        "font-sans",
+        inter.variable,
+        geistHeading.variable,
+        jetBrainsMono.variable
+      )}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
