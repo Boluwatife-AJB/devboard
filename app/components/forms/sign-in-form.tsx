@@ -1,22 +1,27 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  EnvelopeSimpleIcon,
+  EyeClosedIcon,
+  EyeIcon,
+  LockKeyIcon,
+} from "@phosphor-icons/react/dist/ssr";
+import Link from "next/link";
+import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { signinSchema } from "@/lib/schema";
 import type { SigninFormData } from "@/types";
+import { Button } from "../ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
-import { Button } from "../ui/button";
-import { EnvelopeSimpleIcon, EyeClosedIcon, EyeIcon, LockKeyIcon, UserIcon } from "@phosphor-icons/react/dist/ssr";
-import Link from "next/link";
-import { useState } from "react";
 
 export default function SignInForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const {
-    formState: { isValid, errors },
+    formState: { isValid },
     control,
     handleSubmit,
   } = useForm<SigninFormData>({
@@ -58,7 +63,6 @@ export default function SignInForm() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <FieldGroup>
-
           <Controller
             control={control}
             name="email"
@@ -128,12 +132,10 @@ export default function SignInForm() {
               </Field>
             )}
           />
-          
 
-          
           <Button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || !isValid}
             className="w-full bg-devboard-primary text-white hover:bg-devboard-primary/90 font-semibold py-6 rounded-xs transition-colors mt-5"
           >
             {isLoading ? "Signing in..." : "Sign in"}

@@ -20,6 +20,6 @@ echo "==> frontend: biome check"
 npm run lint
 
 echo "==> frontend: typescript"
-npm run typecheck
+npm run type-check
 
 echo "Frontend checks passed."

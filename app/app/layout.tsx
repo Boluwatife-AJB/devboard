@@ -39,7 +39,7 @@ export default function RootLayout({
         "font-sans",
         inter.variable,
         geistHeading.variable,
-        jetBrainsMono.variable
+        jetBrainsMono.variable,
       )}
     >
       <body className="min-h-full flex flex-col">{children}</body>

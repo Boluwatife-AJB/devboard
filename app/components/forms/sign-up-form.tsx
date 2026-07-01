@@ -1,4 +1,4 @@
-/** biome-ignore-all lint/a11y/useValidAnchor: <explanation> */
+/** biome-ignore-all lint/a11y/useValidAnchor: placeholder links for terms and privacy routes */
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,7 +43,7 @@ export default function SignUpForm() {
     },
   });
 
-  const watchPassword = useWatch({
+  const _watchPassword = useWatch({
     control,
     name: "password",
   });
@@ -343,7 +343,7 @@ export default function SignUpForm() {
             <Controller
               control={control}
               name="termsAccepted"
-              render={({ field, fieldState }) => (
+              render={({ field }) => (
                 <Field>
                   <div className="flex items-start gap-2 flex-row-reverse">
                     <FieldLabel
