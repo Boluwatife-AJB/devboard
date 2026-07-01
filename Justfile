@@ -65,7 +65,7 @@ migrate-generate name:
 
 # Pull schema and generate entities + seaography bindings for PostgreSQL
 generate-entities:
-    @command -v sea-orm-cli >/dev/null || {echo "Install: cargo install sea-orm-cli --version 2.0.0-rc.41"; exit 1; }
+    @command -v sea-orm-cli >/dev/null || { echo "Install: cargo install sea-orm-cli --version 2.0.0-rc.41"; exit 1; }
     sea-orm-cli generate entity \
     -u {{database_url}} \
     -o crates/db/src/entities \
