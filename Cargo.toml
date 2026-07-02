@@ -1,9 +1,11 @@
 [workspace]
 members = [
-  "crates/auth",
+  "crates/auth", 
+  "crates/cache",
   "crates/config",
   "crates/db",
-  "crates/domain",
+  "crates/domain", 
+  "crates/email",
   "crates/graphql",
   "crates/repository",
   "crates/service",
