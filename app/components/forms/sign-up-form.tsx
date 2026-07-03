@@ -24,6 +24,8 @@ import type { SignupFormData } from "@/types";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 
+// const
+
 export default function SignUpForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);

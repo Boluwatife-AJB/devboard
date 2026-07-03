@@ -25,7 +25,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get("db-access-token");
+  const token = request.cookies.get("devboard-access-token");
 
   if (!token) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
