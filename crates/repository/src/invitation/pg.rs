@@ -5,14 +5,14 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-use devboard_domain::{
-    Invitation, InvitationId, InvitationStatus, OrganizationId,
-};
+use devboard_domain::{Invitation, InvitationId, InvitationStatus, OrganizationId};
 
 use devboard_db::entities::invitation::{self, Entity as InvitationEntity};
 
 use crate::{
-    NewInvitation, RepositoryError, invitation::{InvitationRepository, invitation_status_to_str, model_to_domain}, org_membership::org_role_to_str,
+    NewInvitation, RepositoryError,
+    invitation::{InvitationRepository, invitation_status_to_str, model_to_domain},
+    org_membership::org_role_to_str,
 };
 
 pub struct PgInvitationRepository {
@@ -58,10 +58,7 @@ impl InvitationRepository for PgInvitationRepository {
     }
 
     #[tracing::instrument(skip(self), fields(invitation_id = %invitation.id, org_id = %invitation.org_id))]
-    async fn create(
-        &self,
-        invitation: NewInvitation,
-    ) -> Result<Invitation, RepositoryError> {
+    async fn create(&self, invitation: NewInvitation) -> Result<Invitation, RepositoryError> {
         let now = Utc::now();
 
         let active = invitation::ActiveModel {

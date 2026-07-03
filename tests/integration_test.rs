@@ -1,21 +1,20 @@
 use std::sync::Arc;
 
-use chrono::Utc;
 use devboard_auth::JwtService;
-use devboard_db::{DatabaseConnection, DbConnectOptions, connect, entities::organization};
-use devboard_domain::{OrgRole, OrganizationId, ProjectRole, TaskPriority, TaskStatus, TeamId, TeamRole};
+use devboard_db::{DatabaseConnection, DbConnectOptions, connect};
+use devboard_domain::{OrgRole, TaskPriority, TaskStatus, TeamId, TeamRole};
 use devboard_email::provider::LogEmailProvider;
 use devboard_repository::{
-    PgInvitationRepository, PgOrgMembershipRepository, PgOrganizationRepository, PgProjectRepository, PgTaskRepository, PgTeamRepository, PgUserRepository, TeamRepository,
+    PgInvitationRepository, PgOrgMembershipRepository, PgOrganizationRepository,
+    PgProjectRepository, PgTaskRepository, PgTeamRepository, PgUserRepository, TeamRepository,
 };
-use devboard_service::{AuthService, EventBus, ProjectService, ServiceError, TaskService, auth::RegistrationIntent};
+use devboard_service::{
+    AuthService, EventBus, ProjectService, ServiceError, TaskService, auth::RegistrationIntent,
+};
 use migration::{Migrator, MigratorTrait};
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
 use tokio::sync::OnceCell;
-use uuid::Uuid;
 
 struct TestApp {
-    pub db: DatabaseConnection,
     pub auth_service: Arc<AuthService>,
     pub task_service: Arc<TaskService>,
     pub project_service: Arc<ProjectService>,
@@ -35,37 +34,14 @@ async fn run_migrations(db: &DatabaseConnection) {
         .await;
 }
 
-async fn ensure_organization(db: &DatabaseConnection, org_id: OrganizationId) {
-    if organization::Entity::find_by_id(Uuid::from(org_id))
-        .one(db)
-        .await
-        .expect("failed to query organization")
-        .is_some()
-    {
-        return;
-    }
-
-    let now = Utc::now();
-    organization::ActiveModel {
-        id: ActiveValue::Set(Uuid::from(org_id)),
-        name: ActiveValue::Set("Integration Test Org".into()),
-        slug: ActiveValue::Set(format!("itest-{}", Uuid::from(org_id))),
-        created_at: ActiveValue::Set(now.into()),
-        updated_at: ActiveValue::Set(now.into()),
-    }
-    .insert(db)
-    .await
-    .expect("failed to insert organization");
-}
-
 async fn setup() -> TestApp {
     let _ = dotenvy::dotenv();
 
     let database_url = std::env::var("TEST_DATABASE_URL")
         .unwrap_or_else(|_| DEFAULT_TEST_DATABASE_URL.to_string());
 
-    let redis_url = std::env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://localhost:6379".to_string());
+    let _redis_url =
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
 
     let db = connect(DbConnectOptions {
         url: database_url,
@@ -96,9 +72,9 @@ async fn setup() -> TestApp {
         org_repo.clone(),
         org_membership_repo.clone(),
         invitation_repo,
-        email_provider, 
+        email_provider,
         jwt_service,
-        "http://localhost:3000".to_string()
+        "http://localhost:3000".to_string(),
     ));
 
     let task_service = Arc::new(TaskService::new(
@@ -108,13 +84,9 @@ async fn setup() -> TestApp {
         event_bus,
     ));
 
-    let project_service = Arc::new(ProjectService::new(
-        project_repo, 
-        team_repo.clone()
-    ));
+    let project_service = Arc::new(ProjectService::new(project_repo, team_repo.clone()));
 
     TestApp {
-        db,
         auth_service,
         task_service,
         project_service,
@@ -123,7 +95,7 @@ async fn setup() -> TestApp {
 }
 
 fn unique_email(prefix: &str) -> String {
-    format!("{}+{}@test.devboard.dev", prefix, uuid::Uuid::new_v4() )
+    format!("{}+{}@test.devboard.dev", prefix, uuid::Uuid::new_v4())
 }
 
 // Auth tests
@@ -137,13 +109,16 @@ async fn test_register_by_creating_an_organization() {
     let payload = app
         .auth_service
         .register(
-            email.clone(), 
-            "Test owner".into(), "password123".into(), RegistrationIntent::CreateOrganization { name: format!("Test Org {}", uuid::Uuid::new_v4()), 
-            slug: format!("test-org-{}", uuid::Uuid::new_v4()) 
-        },
-    )
-    .await
-    .expect("registration with organization should succeed");
+            email.clone(),
+            "Test Owner".into(),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("Test Org {}", uuid::Uuid::new_v4()),
+                slug: format!("test-org-{}", uuid::Uuid::new_v4()),
+            },
+        )
+        .await
+        .expect("registration with organization should succeed");
 
     assert!(!payload.access_token.is_empty());
 
@@ -169,17 +144,20 @@ async fn test_login_returns_all_organizations() {
 
     let email = unique_email("multiorg");
     let slug_a = format!("org-a-{}", uuid::Uuid::new_v4());
-    let slug_b = format!("org-b-{}", uuid::Uuid::new_v4());
+    let _slug_b = format!("org-b-{}", uuid::Uuid::new_v4());
 
     app.auth_service
         .register(
-            email.clone(), 
-            "Multi Org User".into(), "password123".into(), RegistrationIntent::CreateOrganization { name: "Org A".into(), 
-            slug: slug_a.clone() 
-        },
-    )
-    .await
-    .expect("first registration should succeed");
+            email.clone(),
+            "Multi Org User".into(),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: "Org A".into(),
+                slug: slug_a.clone(),
+            },
+        )
+        .await
+        .expect("first registration should succeed");
 
     let login_payload = app
         .auth_service
@@ -205,17 +183,18 @@ async fn test_login_with_wrong_password_fails() {
 
     app.auth_service
         .register(
-            email.clone(), 
-            "Test User".into(), "correctpassword".into(), RegistrationIntent::CreateOrganization { name: format!("Org {}", uuid::Uuid::new_v4()), slug: format!("org-{}", uuid::Uuid::new_v4()), 
-        },
-    )
-    .await
-    .expect("registration should succeed");
+            email.clone(),
+            "Test User".into(),
+            "correctpassword".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("Org {}", uuid::Uuid::new_v4()),
+                slug: format!("org-{}", uuid::Uuid::new_v4()),
+            },
+        )
+        .await
+        .expect("registration should succeed");
 
-    let result = app
-        .auth_service
-        .login(email, "wrongpassword".into())
-        .await;
+    let result = app.auth_service.login(email, "wrongpassword".into()).await;
 
     assert!(
         matches!(result, Err(ServiceError::InvalidCredentials)),
@@ -227,26 +206,34 @@ async fn test_login_with_wrong_password_fails() {
 #[ignore = "requires running Postgres + Redis — run with: cargo test --test integration_test -- --ignored"]
 async fn test_duplicate_email_registration_is_rejected() {
     let app = setup().await;
-    
+
     let email = unique_email("duplicate");
 
     app.auth_service
         .register(
-            email.clone(), 
-            "First User".into(), "password123".into(), RegistrationIntent::CreateOrganization { 
-            name: format!("Org {}", uuid::Uuid::new_v4()), slug: format!("org-{}", uuid::Uuid::new_v4()) 
-        },
-    )
-    .await
-    .expect("first registration should succeed");
+            email.clone(),
+            "First User".into(),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("Org {}", uuid::Uuid::new_v4()),
+                slug: format!("org-{}", uuid::Uuid::new_v4()),
+            },
+        )
+        .await
+        .expect("first registration should succeed");
 
     let result = app
         .auth_service
         .register(
-            email, "Second User".into(), "password456".into(), RegistrationIntent::CreateOrganization { name: format!("Org {}", uuid::Uuid::new_v4()), slug: format!("org-{}", uuid::Uuid::new_v4()) 
-        },
-    )
-    .await;
+            email,
+            "Second User".into(),
+            "password456".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("Org {}", uuid::Uuid::new_v4()),
+                slug: format!("org-{}", uuid::Uuid::new_v4()),
+            },
+        )
+        .await;
 
     assert!(
         matches!(result, Err(ServiceError::Conflict { .. })),
@@ -263,23 +250,29 @@ async fn test_duplicate_slug_is_rejected() {
 
     app.auth_service
         .register(
-            email.clone(), 
-            "Owner 1".into(), "password123".into(), RegistrationIntent::CreateOrganization { name: "Org 1".into(),
-            slug: slug.clone() 
-        },
-    )
-    .await
-    .expect("first org registration should succeed");
+            email.clone(),
+            "Owner 1".into(),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: "Org 1".into(),
+                slug: slug.clone(),
+            },
+        )
+        .await
+        .expect("first org registration should succeed");
 
     let result = app
         .auth_service
         .register(
-            email, 
-            "Owner 2".into(), "password456".into(), RegistrationIntent::CreateOrganization { name: "Org 2".into(),
-            slug: slug 
-        },
-    )
-    .await;
+            email,
+            "Owner 2".into(),
+            "password456".into(),
+            RegistrationIntent::CreateOrganization {
+                name: "Org 2".into(),
+                slug,
+            },
+        )
+        .await;
 
     assert!(
         matches!(result, Err(ServiceError::Conflict { .. })),
@@ -293,41 +286,33 @@ async fn test_duplicate_slug_is_rejected() {
 #[ignore = "requires running Postgres + Redis — run with: cargo test --test integration_test -- --ignored"]
 async fn test_invite_and_register_new_user() {
     let app = setup().await;
-    
 
-    let owner_payload = app.auth_service
+    let owner_payload = app
+        .auth_service
         .register(
-            unique_email("inviter"), 
-            "Inviter".into(), "password123".into(), RegistrationIntent::CreateOrganization { name: format!("Org {}", uuid::Uuid::new_v4()), slug: format!("org-{}", uuid::Uuid::new_v4()) 
-        },
-    )
-    .await
-    .expect("registration should succeed");
-
+            unique_email("inviter"),
+            "Inviter".into(),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("Org {}", uuid::Uuid::new_v4()),
+                slug: format!("org-{}", uuid::Uuid::new_v4()),
+            },
+        )
+        .await
+        .expect("registration should succeed");
 
     let owner_id = owner_payload.user.id;
     let org_id = owner_payload.organizations[0].id;
     let invitee_email = unique_email("invitee");
 
-
     app.auth_service
-        .create_invite(
-            owner_id, 
-            org_id, 
-            invitee_email.clone(),
-            OrgRole::OrgMember,
-        )
+        .create_invite(owner_id, org_id, invitee_email.clone(), OrgRole::OrgMember)
         .await
         .expect("invite creation should succeed");
 
     let duplicate_result = app
         .auth_service
-        .create_invite(
-            owner_id, 
-            org_id, 
-            invitee_email.clone(), 
-            OrgRole::OrgMember
-        )
+        .create_invite(owner_id, org_id, invitee_email.clone(), OrgRole::OrgMember)
         .await;
 
     assert!(
@@ -344,32 +329,40 @@ async fn test_non_admin_cannot_create_invite() {
     let owner_payload = app
         .auth_service
         .register(
-            unique_email("owner"), 
-            "Owner".into(), "password123".into(), RegistrationIntent::CreateOrganization { name: format!("Org {}", uuid::Uuid::new_v4()), slug: format!("org-{}", uuid::Uuid::new_v4()) 
-        },
-    )
-    .await
-    .expect("owner registration should succeed");
+            unique_email("owner"),
+            "Owner".into(),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("Org {}", uuid::Uuid::new_v4()),
+                slug: format!("org-{}", uuid::Uuid::new_v4()),
+            },
+        )
+        .await
+        .expect("owner registration should succeed");
 
     let org_id = owner_payload.organizations[0].id;
 
     let member_payload = app
         .auth_service
         .register(
-            unique_email("member"), 
-            "Member".into(), "password123".into(), RegistrationIntent::CreateOrganization { name: format!("Org {}", uuid::Uuid::new_v4()), slug: format!("org-{}", uuid::Uuid::new_v4()) 
-        },
-    )
-    .await
-    .expect("member registration should succeed");
+            unique_email("member"),
+            "Member".into(),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("Org {}", uuid::Uuid::new_v4()),
+                slug: format!("org-{}", uuid::Uuid::new_v4()),
+            },
+        )
+        .await
+        .expect("member registration should succeed");
 
     let result = app
         .auth_service
         .create_invite(
-            member_payload.user.id, 
-            org_id, 
-            unique_email("target"), 
-            OrgRole::OrgMember
+            member_payload.user.id,
+            org_id,
+            unique_email("target"),
+            OrgRole::OrgMember,
         )
         .await;
 
@@ -385,14 +378,19 @@ async fn test_non_admin_cannot_create_invite() {
 async fn test_create_project_and_tasks_with_sequential_numbering() {
     let app = setup().await;
 
-    let payload = app.auth_service
+    let payload = app
+        .auth_service
         .register(
-            unique_email("projectowner"), 
-            "Project Owner".into(), "password123".into(), RegistrationIntent::CreateOrganization { name: format!("Dev Org {}", uuid::Uuid::new_v4()), slug: format!("dev-org-{}", uuid::Uuid::new_v4()) 
-        },
-    )
-    .await
-    .expect("owner registration should succeed");
+            unique_email("projectowner"),
+            "Project Owner".into(),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("Dev Org {}", uuid::Uuid::new_v4()),
+                slug: format!("dev-org-{}", uuid::Uuid::new_v4()),
+            },
+        )
+        .await
+        .expect("owner registration should succeed");
 
     let user_id = payload.user.id;
     let org_id = payload.organizations[0].id;
@@ -400,11 +398,12 @@ async fn test_create_project_and_tasks_with_sequential_numbering() {
     let team_id = TeamId::new();
 
     app.team_repo
-        .add_member(
-            team_id, 
-            user_id, 
-            TeamRole::Admin
-        )
+        .create(team_id, org_id, "Engineering".into())
+        .await
+        .expect("team creation should succeed");
+
+    app.team_repo
+        .add_member(team_id, user_id, TeamRole::Admin)
         .await
         .expect("adding team member should succeed");
 
@@ -464,19 +463,28 @@ async fn test_create_project_and_tasks_with_sequential_numbering() {
 async fn test_task_status_transitions() {
     let app = setup().await;
 
-    let payload = app.auth_service
+    let payload = app
+        .auth_service
         .register(
-            unique_email("statustransition"), 
-            "Dev".into(), "password123".into(), RegistrationIntent::CreateOrganization { name: format!("Status Org {}", uuid::Uuid::new_v4()), slug: format!("status-org-{}", uuid::Uuid::new_v4()) 
-        },
-    )
-    .await
-    .expect("owner registration should succeed");
-    
+            unique_email("statustransition"),
+            "Dev".into(),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("Status Org {}", uuid::Uuid::new_v4()),
+                slug: format!("status-org-{}", uuid::Uuid::new_v4()),
+            },
+        )
+        .await
+        .expect("owner registration should succeed");
+
     let user_id = payload.user.id;
     let org_id = payload.organizations[0].id;
     let team_id = TeamId::new();
 
+    app.team_repo
+        .create(team_id, org_id, "Status Team".into())
+        .await
+        .expect("team creation should succeed");
 
     app.team_repo
         .add_member(team_id, user_id, TeamRole::Admin)
@@ -496,7 +504,7 @@ async fn test_task_status_transitions() {
         .await
         .expect("project creation should succeed");
 
-    assert_eq!(project.key, "TEST");
+    assert_eq!(project.key, "ST");
 
     let task = app
         .task_service
@@ -515,12 +523,7 @@ async fn test_task_status_transitions() {
 
     let in_progress = app
         .task_service
-        .update_status(
-            task.id, 
-            user_id, 
-            project.id, 
-            TaskStatus::InProgress
-        )
+        .update_status(task.id, user_id, project.id, TaskStatus::InProgress)
         .await
         .expect("status update to InProgress should succeed");
 
@@ -528,11 +531,7 @@ async fn test_task_status_transitions() {
 
     let done = app
         .task_service
-        .update_status(
-            task.id, 
-            user_id, 
-            project.id, 
-            TaskStatus::Done)
+        .update_status(task.id, user_id, project.id, TaskStatus::Done)
         .await
         .expect("status update to Done should succeed");
 
@@ -547,16 +546,25 @@ async fn test_rbac_viewer_cannot_delete_task() {
     let owner = app
         .auth_service
         .register(
-            unique_email("rbac-owner"), "Owner".into(), "password123".into(), RegistrationIntent::CreateOrganization { name: format!("RBAC Org {}", uuid::Uuid::new_v4()), 
-            slug: format!("rbac-org-{}", uuid::Uuid::new_v4()) 
-        },
-    )
-    .await
-    .expect("owner registration should succeed");
+            unique_email("rbac-owner"),
+            "Owner".into(),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("RBAC Org {}", uuid::Uuid::new_v4()),
+                slug: format!("rbac-org-{}", uuid::Uuid::new_v4()),
+            },
+        )
+        .await
+        .expect("owner registration should succeed");
 
     let owner_id = owner.user.id;
     let org_id = owner.organizations[0].id;
     let team_id = TeamId::new();
+
+    app.team_repo
+        .create(team_id, org_id, "RBAC Team".into())
+        .await
+        .expect("team creation should succeed");
 
     app.team_repo
         .add_member(team_id, owner_id, TeamRole::Owner)
@@ -576,7 +584,6 @@ async fn test_rbac_viewer_cannot_delete_task() {
         .await
         .expect("project creation should succeed");
 
-
     let task = app
         .task_service
         .create_task(
@@ -593,33 +600,41 @@ async fn test_rbac_viewer_cannot_delete_task() {
     let viewer = app
         .auth_service
         .register(
-            unique_email(
-                "rbac-viewer"), 
-                "Viewer".into(), 
-                "password123".into(), RegistrationIntent::CreateOrganization { 
-                    name: format!("RBAC Org {}", uuid::Uuid::new_v4()), 
-                    slug: format!("rbac-org-{}", uuid::Uuid::new_v4()) 
-                },
+            unique_email("rbac-viewer"),
+            "Viewer".into(),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("RBAC Org {}", uuid::Uuid::new_v4()),
+                slug: format!("rbac-org-{}", uuid::Uuid::new_v4()),
+            },
         )
         .await
         .expect("viewer registration should succeed");
+
+    app.team_repo
+        .add_member(team_id, viewer.user.id, TeamRole::Member)
+        .await
+        .expect("adding viewer to team should succeed");
 
     let delete_result = app
         .task_service
         .delete_task(task.id, viewer.user.id, project.id)
         .await;
 
-    assert!(matches!(
-        delete_result,
-        Err(devboard_service::ServiceError::Forbidden { .. })
-    ), "viewer should not be able to delete task");
+    assert!(
+        matches!(
+            delete_result,
+            Err(devboard_service::ServiceError::Forbidden { .. })
+        ),
+        "viewer should not be able to delete task"
+    );
 
     let read_result = app
         .task_service
         .get_task(task.id, viewer.user.id, project.id)
         .await;
 
-    assert!(read_result.is_ok(), "viewer should be able to read task"); 
+    assert!(read_result.is_ok(), "viewer should be able to read task");
 }
 
 #[tokio::test]
@@ -630,23 +645,31 @@ async fn test_stranger_has_no_access_to_project() {
     let owner = app
         .auth_service
         .register(
-            unique_email("stranger-owner"), 
-            "Owner".into(), "password123".into(), RegistrationIntent::CreateOrganization { name: format!("Private Org {}", uuid::Uuid::new_v4()), 
-            slug: format!("private-org-{}", uuid::Uuid::new_v4()) 
-        },
-    )
-    .await
-    .expect("owner registration should succeed");
+            unique_email("stranger-owner"),
+            "Owner".into(),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("Private Org {}", uuid::Uuid::new_v4()),
+                slug: format!("private-org-{}", uuid::Uuid::new_v4()),
+            },
+        )
+        .await
+        .expect("owner registration should succeed");
 
     let owner_id = owner.user.id;
     let org_id = owner.organizations[0].id;
     let team_id = TeamId::new();
 
     app.team_repo
-        .add_member(team_id, owner_id,  TeamRole::Owner)
+        .create(team_id, org_id, "Private Team".into())
+        .await
+        .expect("team creation should succeed");
+
+    app.team_repo
+        .add_member(team_id, owner_id, TeamRole::Owner)
         .await
         .expect("adding team member should succeed");
-    
+
     let project = app
         .project_service
         .create_project(
@@ -665,11 +688,12 @@ async fn test_stranger_has_no_access_to_project() {
     let stranger = app
         .auth_service
         .register(
-            unique_email("stranger"), 
-            "Stranger".into(), 
-            "password123".into(), RegistrationIntent::CreateOrganization { 
-                name: format!("Stranger Org {}", uuid::Uuid::new_v4()), 
-                slug: format!("stranger-org-{}", uuid::Uuid::new_v4()) 
+            unique_email("stranger"),
+            "Stranger".into(),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("Stranger Org {}", uuid::Uuid::new_v4()),
+                slug: format!("stranger-org-{}", uuid::Uuid::new_v4()),
             },
         )
         .await
@@ -681,7 +705,8 @@ async fn test_stranger_has_no_access_to_project() {
         .await;
 
     assert!(
-        matches!(result, Err(ServiceError::ProjectNotFound { .. })), "stranger should get NotFound, not Forbidden \
+        matches!(result, Err(ServiceError::ProjectNotFound { .. })),
+        "stranger should get NotFound, not Forbidden \
         (don't confirm the project exists to unauthorized callers)"
     );
 }

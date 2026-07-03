@@ -11,13 +11,13 @@ use crate::{RepositoryError, org_membership::str_to_org_role};
 
 #[derive(Clone, Debug)]
 pub struct NewInvitation {
-  pub id: InvitationId,
-  pub org_id: OrganizationId,
-  pub invited_by: UserId,
-  pub email: String,
-  pub role: OrgRole,
-  pub token: String,
-  pub expires_at: DateTime<Utc>,
+    pub id: InvitationId,
+    pub org_id: OrganizationId,
+    pub invited_by: UserId,
+    pub email: String,
+    pub role: OrgRole,
+    pub token: String,
+    pub expires_at: DateTime<Utc>,
 }
 
 #[async_trait]
@@ -30,10 +30,7 @@ pub trait InvitationRepository: Send + Sync {
         email: &str,
     ) -> Result<Option<Invitation>, RepositoryError>;
 
-    async fn create(
-        &self,
-        invitation: NewInvitation,
-    ) -> Result<Invitation, RepositoryError>;
+    async fn create(&self, invitation: NewInvitation) -> Result<Invitation, RepositoryError>;
 
     async fn mark_accepted(&self, id: InvitationId) -> Result<(), RepositoryError>;
 

@@ -1,11 +1,12 @@
-use std::sync::Arc;
 use chrono::{Duration, Utc};
+use std::sync::Arc;
 
 use devboard_auth::{JwtService, hash_password, verify_password};
 use devboard_domain::{InvitationId, OrgRole, OrgSummary, OrganizationId, PublicUser, UserId};
 use devboard_email::{EmailProvider, templates::InviteEmailData};
 use devboard_repository::{
-    OrganizationRepository, UserRepository, invitation::{InvitationRepository, NewInvitation},
+    OrganizationRepository, UserRepository,
+    invitation::{InvitationRepository, NewInvitation},
     org_membership::OrgMembershipRepository,
 };
 
@@ -210,12 +211,11 @@ impl AuthService {
             .invitation_repo
             .find_pending_by_org_and_email(org_id, &email)
             .await?
+            && existing.is_valid()
         {
-            if existing.is_valid() {
-                return Err(ServiceError::Conflict {
-                    message: "a pending invitation for this email already exists".into(),
-                });
-            }
+            return Err(ServiceError::Conflict {
+                message: "a pending invitation for this email already exists".into(),
+            });
         }
 
         let token = generate_invite_token();
@@ -223,7 +223,7 @@ impl AuthService {
 
         let _invitation = self
             .invitation_repo
-            .create( NewInvitation {
+            .create(NewInvitation {
                 id: InvitationId::new(),
                 org_id,
                 invited_by: caller_id,
@@ -399,7 +399,10 @@ fn validate_org_slug(slug: &str) -> Result<(), ServiceError> {
             message: "slug is required".into(),
         });
     }
-    if !slug.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-') {
+    if !slug
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    {
         return Err(ServiceError::Validation {
             field: "slug".into(),
             message: "slug must contain only lowercase letters and hypens".into(),

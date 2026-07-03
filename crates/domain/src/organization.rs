@@ -13,7 +13,7 @@ pub enum OrgRole {
 
 impl OrgRole {
     pub fn at_least(&self, other: OrgRole) -> bool {
-        (*self as u8) >= (other as u8)
+        u8::from(*self) >= u8::from(other)
     }
 }
 
