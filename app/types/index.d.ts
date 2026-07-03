@@ -11,3 +11,23 @@ interface AuthOrganization {
   slug: string;
   role: string;
 }
+
+interface User {
+  id: string;
+  email: string;
+  display_name: string;
+}
+
+interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+}
+
+interface SignUpResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+  organizations: Organization[]
+}

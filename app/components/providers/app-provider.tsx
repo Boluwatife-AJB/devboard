@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { ProgressProvider } from "@bprogress/next/app";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -13,7 +13,7 @@ export default function AppProvider({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ProgressProvider
         height="2px"
-        color="#005A9C"
+        color="#6366f1  "
         options={{ showSpinner: false }}
         shallowRouting
       >

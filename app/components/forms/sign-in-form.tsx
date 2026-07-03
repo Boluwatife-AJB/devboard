@@ -9,21 +9,29 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { publicApi } from "@/lib/api";
+import {
+  setAccessToken,
+  setOrganizations,
+  setSelectedOrgId,
+} from "@/lib/auth/cookies";
 import { signinSchema } from "@/lib/schema";
-import type { SigninFormData } from "@/types";
+import type { SigninFormData, SignUpResponse } from "@/types";
 import { Button } from "../ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
 
-const login = async (data: SigninFormData) => {
+const login = async (data: SigninFormData): Promise<SignUpResponse> => {
   const response = await publicApi.post("/auth/login", data);
   return response.data;
 };
 
 export default function SignInForm() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
 
   const {
@@ -39,21 +47,28 @@ export default function SignInForm() {
     },
   });
 
-  const { mutateAsync: loginMutation, isPending: isLoginPending } = useMutation({
-    mutationFn: login,
-    onSuccess: (data) => {
-      console.log("Login successful:", data);
+  const { mutateAsync: loginMutation, isPending: isLoginPending } = useMutation(
+    {
+      mutationFn: login,
+      onSuccess: (data) => {
+        // console.log("Login successful:", data);
+        setAccessToken(data.access_token);
+        setSelectedOrgId(data.organizations[0].id);
+        setOrganizations(data.organizations);
+        router.push("/");
+        toast.success("Login successful");
+      },
+      onError: (error) => {
+        console.error("Login error:", error);
+      },
     },
-    onError: (error) => {
-      console.error("Login error:", error);
-    },
-  });
+  );
 
   const handleShowPassword = () => {
     setShowPassword(!showPassword);
   };
 
-  const onSubmit =(data: SigninFormData) => {
+  const onSubmit = (data: SigninFormData) => {
     loginMutation(data);
   };
 
