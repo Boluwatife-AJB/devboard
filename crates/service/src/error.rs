@@ -38,6 +38,9 @@ pub enum ServiceError {
     #[error("comment not found: {id}")]
     CommentNotFound { id: String },
 
+    #[error("invitation not found: {id}")]
+    InvitationNotFound { id: String },
+
     #[error("conflict: {message}")]
     Conflict { message: String },
 

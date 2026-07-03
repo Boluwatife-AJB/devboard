@@ -49,14 +49,11 @@ impl QueryRoot {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
-        let org_id = auth
-            .claims
-            .organization_id()
-            .map_err(|_| async_graphql::Error::new("invalid token claims"))?;
+        let memberships = auth.require_org()?;
 
         let projects = services
             .project_service
-            .list_projects(org_id, auth.user_id)
+            .list_projects(memberships.organisation_id, auth.user_id)
             .await
             .map_gql_err()?;
 

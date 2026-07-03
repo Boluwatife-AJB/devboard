@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 devboard-domain = { path = "../domain" }
 devboard-auth = { path = "../auth" }
+devboard-email = { path = "../email" }
 devboard-repository = { path = "../repository" }
 async-trait = { workspace = true }
 uuid = { workspace = true }
@@ -14,6 +15,7 @@ tracing = { workspace = true }
 thiserror = { workspace = true }
 validator = { workspace = true }
 tokio = { workspace = true }
+getrandom = "0.4.3"
 
 [[test]]
 name="task_service_test"

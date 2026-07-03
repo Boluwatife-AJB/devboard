@@ -12,6 +12,7 @@ pub mod user;
 pub use comment::Comment;
 pub use error::DomainError;
 pub use ids::*;
+pub use invitation::*;
 pub use organization::{OrgMembership, OrgRole, OrgSummary, Organization};
 pub use project::*;
 pub use rbac::*;

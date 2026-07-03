@@ -12,6 +12,20 @@ pub struct AppConfig {
     pub server: ServerConfig,
     pub auth: AuthConfig,
     pub observability: ObservabilityConfig,
+    pub redis: RedisConfig,
+    pub email: EmailConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RedisConfig {
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct EmailConfig {
+    pub resend_api_key: String,
+    pub from_address: String,
+    pub app_base_url: String,
 }
 
 impl AppConfig {
@@ -61,11 +75,31 @@ impl AppConfig {
                 .unwrap_or_else(|_| "devboard=info,sea_orm=warn,tower_http=info".to_string()),
         };
 
+        let redis = RedisConfig {
+            url: raw
+                .get_string("redis_url")
+                .context("REDIS_URL is required")?,
+        };
+
+        let email = EmailConfig {
+            resend_api_key: raw
+                .get_string("resend_api_key")
+                .context("RESEND_API_KEY is required")?,
+            from_address: raw
+                .get_string("email_from")
+                .context("EMAIL_FROM is required")?,
+            app_base_url: raw
+                .get_string("app_base_url")
+                .context("APP_BASE_URL is required")?,
+        };
+
         Ok(AppConfig {
             database,
             server,
             auth,
             observability,
+            redis,
+            email,
         })
     }
 }

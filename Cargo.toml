@@ -30,6 +30,8 @@ devboard-repository = { path = "crates/repository" }
 devboard-auth = { path = "crates/auth" }
 devboard-service = { path = "crates/service" }
 devboard-domain = { path = "crates/domain" }
+devboard-email = { path = "crates/email" }
+devboard-cache = { path = "crates/cache" }
 migration = { path = "migration" }
 axum = { workspace = true }
 anyhow = { workspace = true }

@@ -5,10 +5,7 @@ use devboard_domain::{OrganizationId, ProjectId, TaskId, UserId};
 use crate::{
     context::ContextExt,
     error::IntoGraphQLResult,
-    inputs::{
-        AssignTaskInput, AuthPayloadGql, CreateProjectInput, CreateTaskInput, LoginInput,
-        RegisterInput, UpdateTaskStatusInput,
-    },
+    inputs::{AssignTaskInput, CreateProjectInput, CreateTaskInput, UpdateTaskStatusInput},
     resolvers::query::parse_id,
     types::{GqlProject, GqlTask},
 };
@@ -17,48 +14,6 @@ pub struct MutationRoot;
 
 #[Object]
 impl MutationRoot {
-    async fn register(
-        &self,
-        ctx: &Context<'_>,
-        input: RegisterInput,
-    ) -> async_graphql::Result<AuthPayloadGql> {
-        let services = ctx.services()?;
-
-        let org_id = parse_id::<OrganizationId>(&input.organization_id)?;
-
-        let payload = services
-            .auth_service
-            .register(input.email, input.display_name, input.password, org_id)
-            .await
-            .map_gql_err()?;
-
-        Ok(AuthPayloadGql {
-            access_token: payload.access_token,
-            user: payload.user.into(),
-        })
-    }
-
-    async fn login(
-        &self,
-        ctx: &Context<'_>,
-        input: LoginInput,
-    ) -> async_graphql::Result<AuthPayloadGql> {
-        let services = ctx.services()?;
-
-        let org_id = parse_id::<OrganizationId>(&input.organization_id)?;
-
-        let payload = services
-            .auth_service
-            .login(input.email, input.password, org_id)
-            .await
-            .map_gql_err()?;
-
-        Ok(AuthPayloadGql {
-            access_token: payload.access_token,
-            user: payload.user.into(),
-        })
-    }
-
     async fn create_project(
         &self,
         ctx: &Context<'_>,

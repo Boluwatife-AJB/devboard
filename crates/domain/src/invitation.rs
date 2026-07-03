@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{CommentId, OrganizationId, UserId, organization::OrgRole};
+use crate::{InvitationId, OrganizationId, UserId, organization::OrgRole};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -13,7 +13,7 @@ pub enum InvitationStatus {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Invitation {
-    pub id: CommentId,
+    pub id: InvitationId,
     pub organization_id: OrganizationId,
     pub invited_by: UserId,
     pub email: String,

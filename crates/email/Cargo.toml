@@ -10,4 +10,4 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
-async_trait = { workspace = true }
+async-trait = { workspace = true }

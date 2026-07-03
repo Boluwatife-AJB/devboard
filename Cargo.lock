@@ -1327,9 +1327,11 @@ dependencies = [
  "axum",
  "chrono",
  "devboard-auth",
+ "devboard-cache",
  "devboard-config",
  "devboard-db",
  "devboard-domain",
+ "devboard-email",
  "devboard-graphql",
  "devboard-repository",
  "devboard-service",
@@ -1411,8 +1413,13 @@ dependencies = [
 name = "devboard-email"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "devboard-domain",
  "resend-rs",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1462,7 +1469,9 @@ dependencies = [
  "chrono",
  "devboard-auth",
  "devboard-domain",
+ "devboard-email",
  "devboard-repository",
+ "getrandom 0.4.3",
  "thiserror",
  "tokio",
  "tracing",
