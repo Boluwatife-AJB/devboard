@@ -1,13 +1,20 @@
+import DashboardHeader from "@/components/layout/header";
+import DashboardSidebar from "@/components/layout/sidebar";
+
 export default function DashboardLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center font-sans  bg-background  dark:bg-background ">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        {children}
-      </main>
+    <div className="flex h-screen bg-background">
+      <DashboardSidebar />
+      <div className="flex flex-col flex-1">
+        <DashboardHeader />
+        <main className="bg-background flex-1 overflow-auto p-8">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
