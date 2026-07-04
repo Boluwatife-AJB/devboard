@@ -20,12 +20,12 @@ import {
   setSelectedOrgId,
 } from "@/lib/auth/cookies";
 import { signinSchema } from "@/lib/schema";
-import type { SigninFormData, SignUpResponse } from "@/types";
+import type { AuthResponse, SigninFormData } from "@/types";
 import { Button } from "../ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
 
-const login = async (data: SigninFormData): Promise<SignUpResponse> => {
+const login = async (data: SigninFormData): Promise<AuthResponse> => {
   const response = await publicApi.post("/auth/login", data);
   return response.data;
 };

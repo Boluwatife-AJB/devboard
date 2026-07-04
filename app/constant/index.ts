@@ -1,0 +1,51 @@
+import {
+  ChatTextIcon,
+  CheckSquareIcon,
+  FolderIcon,
+  GearIcon,
+  SignOutIcon,
+  SquaresFourIcon,
+  UserIcon,
+} from "@phosphor-icons/react/dist/ssr";
+import type { SidebarLink } from "@/types";
+
+export const sidebarMenu: SidebarLink[] = [
+  {
+    path: "/",
+    name: "Dashboard",
+    icon: SquaresFourIcon,
+  },
+  {
+    path: "/projects",
+    name: "Projects",
+    icon: FolderIcon,
+  },
+  {
+    path: "/tasks",
+    name: "Tasks",
+    icon: CheckSquareIcon,
+  },
+  {
+    path: "/messages",
+    name: "Messages",
+    icon: ChatTextIcon,
+  },
+  {
+    path: "/settings",
+    name: "Settings",
+    icon: GearIcon,
+  },
+];
+
+export const sidebarBottomMenu: SidebarLink[] = [
+  {
+    path: "/profile",
+    name: "Profile",
+    icon: UserIcon,
+  },
+  {
+    path: "/logout",
+    name: "Logout",
+    icon: SignOutIcon,
+  },
+];

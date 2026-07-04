@@ -33,7 +33,7 @@ import {
 } from "@/lib/auth/cookies";
 import { signupSchema } from "@/lib/schema";
 import { slugify } from "@/lib/utils";
-import type { SignUpResponse, SignupFormData } from "@/types";
+import type { AuthResponse, SignupFormData } from "@/types";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 
@@ -44,7 +44,7 @@ const SIGNUP_STEPS = [
 
 const STEP1_FIELDS = ["fullName", "email", "password"] as const;
 
-const register = async (data: SignupFormData): Promise<SignUpResponse> => {
+const register = async (data: SignupFormData): Promise<AuthResponse> => {
   const payload = {
     email: data.email,
     display_name: data.fullName,
