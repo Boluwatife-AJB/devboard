@@ -30,3 +30,11 @@ export const signinSchema = z.object({
   email: z.email("Please enter a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
+
+export const addProjectSchema = z.object({
+  organizationId: z.string().min(1, "Organization Id is required"),
+  teamId: z.string().min(1, "TeamId is required"),
+  name: z.string().min(1, "Name is required"),
+  key: z.string().min(1, "Key is required"),
+  description: z.string().optional(),
+});
