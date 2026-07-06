@@ -52,6 +52,7 @@ export const sidebarBottomMenu: SidebarLink[] = [
 
 export const projectCards = [
   {
+    id: 1,
     scope: "design",
     title: "Atlas Core 1",
     description:
@@ -80,6 +81,7 @@ export const projectCards = [
   },
   {
     scope: "engineering",
+    id: 2,
     title: "GraphQL Engine v2",
     description: "Optimizing query execution time and introducing automated…",
     status: "review",
@@ -98,6 +100,7 @@ export const projectCards = [
   },
   {
     scope: "marketing",
+    id: 3,
     title: "Social Media Campaign",
     description:
       "Increasing brand awareness and driving engagement through social media.",
@@ -113,6 +116,7 @@ export const projectCards = [
   },
   {
     scope: "engineering",
+    id: 4,
     title: "Payments System",
     description:
       "Implementing new payment gateway and improving the existing one.",

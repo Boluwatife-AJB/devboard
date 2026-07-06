@@ -1,11 +1,21 @@
+"use client";
+
 import {
+  ClockIcon,
   CodeIcon,
   FunnelIcon,
   MegaphoneIcon,
   PaletteIcon,
   PlusIcon,
 } from "@phosphor-icons/react/dist/ssr";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useRouter } from "next/navigation";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarGroup,
+  AvatarGroupCount,
+  AvatarImage,
+} from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,11 +25,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { projectCards } from "@/constant";
 import { cn } from "@/lib/utils";
 
 export default function Projects() {
+  const router = useRouter();
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between">
@@ -49,8 +59,12 @@ export default function Projects() {
       {/* CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {projectCards.map((project) => (
-          <Card key={project.title} className="rounded-xs py-8!">
-            <CardHeader className="mx-8 px-0! h-20">
+          <Card
+            key={project.title}
+            className="rounded-xs py-8!"
+            onClick={() => router.push(`/projects/${project.id}`)}
+          >
+            <CardHeader className="mx-6 px-0! h-20">
               <CardTitle className="flex items-start justify-between ">
                 <div className="items-center flex gap-3">
                   <div className="flex items-center gap-2">
@@ -99,20 +113,28 @@ export default function Projects() {
                 </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="mx-8 px-0">
+            <CardContent className="mx-6 px-0">
               <p className="text-base">{project.description}</p>
             </CardContent>
 
-            <CardFooter className="mx-8 px-0">
-              {project.teamMembers.map((member) => (
-                <div key={member.name} className="flex items-center gap-2">
-                  <Avatar>
+            <CardFooter className="mx-6 flex items-center justify-between px-0">
+              <AvatarGroup>
+                {project.teamMembers.slice(0, 3).map((member) => (
+                  <Avatar className="size-8" key={member.name}>
                     <AvatarImage src={member.avatar} />
                     <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
                   </Avatar>
-                </div>
-              ))}
-              <p>{project.timeRemaining}</p>
+                ))}
+                {project.teamMembers.length > 3 && (
+                  <AvatarGroupCount>
+                    +{project.teamMembers.length - 3}
+                  </AvatarGroupCount>
+                )}
+              </AvatarGroup>
+              <p className="flex items-center gap-2">
+                <ClockIcon className="size-5" />
+                <span className="text-sm">{project.timeRemaining}</span>
+              </p>
             </CardFooter>
           </Card>
         ))}
