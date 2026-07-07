@@ -1,12 +1,12 @@
 use async_graphql::{Context, ID, Object};
-use devboard_domain::{ProjectId, TaskId, TaskStatus};
+use devboard_domain::{ProjectId, TaskId, TaskStatus, TeamId};
 
 use crate::{
     GqlUser,
     context::ContextExt,
     error::IntoGraphQLResult,
     types::{
-        GqlProject, GqlTask, GqlTaskStatus,
+        GqlOrgMember, GqlProject, GqlTask, GqlTaskStatus, GqlTeam, GqlTeamMember,
         pagination::{
             ConnectionArgs, PageInfo, TaskConnection, TaskEdge, decode_cursor, encode_cursor,
         },
@@ -58,6 +58,65 @@ impl QueryRoot {
             .map_gql_err()?;
 
         Ok(projects.into_iter().map(GqlProject::from).collect())
+    }
+
+    async fn teams(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<GqlTeam>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let membership = auth.require_org()?;
+
+        let teams = services
+            .team_service
+            .list_teams(membership.organisation_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(teams
+            .into_iter()
+            .map(|t| GqlTeam { inner: t })
+            .collect())
+    }
+
+    async fn team_members(
+        &self,
+        ctx: &Context<'_>,
+        team_id: ID,
+    ) -> async_graphql::Result<Vec<GqlTeamMember>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let membership = auth.require_org()?;
+        let team_id = parse_id::<TeamId>(&team_id)?;
+
+        let members = services
+            .team_service
+            .list_members(team_id, membership.organisation_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(members
+            .into_iter()
+            .map(|m| GqlTeamMember { inner: m })
+            .collect())
+    }
+
+    async fn org_members(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<GqlOrgMember>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let membership = auth.require_org()?;
+
+        let members = services
+            .team_service
+            .list_org_members(membership.organisation_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(members
+            .into_iter()
+            .map(|m| GqlOrgMember { inner: m })
+            .collect())
     }
 
     async fn tasks(

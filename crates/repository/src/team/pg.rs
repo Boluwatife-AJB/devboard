@@ -116,6 +116,42 @@ impl TeamRepository for PgTeamRepository {
         model.map(membership_to_domain).transpose()
     }
 
+    #[tracing::instrument(skip(self), fields(team_id = %team_id))]
+    async fn list_members(&self, team_id: TeamId) -> Result<Vec<TeamMembership>, RepositoryError> {
+        use devboard_db::entities::team_membership::Entity as TmEntity;
+
+        let models = TmEntity::find()
+            .filter(team_membership::Column::TeamId.eq(Uuid::from(team_id)))
+            .all(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        models
+            .into_iter()
+            .map(membership_to_domain)
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    #[tracing::instrument(skip(self), fields(team_id = %team_id, user_id = %user_id))]
+    async fn remove_member(
+        &self,
+        team_id: TeamId,
+        user_id: UserId,
+    ) -> Result<(), RepositoryError> {
+        use devboard_db::entities::team_membership::Entity as TmEntity;
+
+        let result = TmEntity::delete_by_id((Uuid::from(team_id), Uuid::from(user_id)))
+            .exec(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        if result.rows_affected == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        Ok(())
+    }
+
     #[tracing::instrument(skip(self), fields(team_id = %id))]
     async fn delete(&self, id: TeamId) -> Result<(), RepositoryError> {
         let result = TeamEntity::delete_by_id(Uuid::from(id))

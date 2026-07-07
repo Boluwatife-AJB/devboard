@@ -5,6 +5,7 @@ import {
   GearIcon,
   SquaresFourIcon,
   UserIcon,
+  UsersThreeIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import type { SidebarLink } from "@/types";
 
@@ -18,6 +19,11 @@ export const sidebarMenu: SidebarLink[] = [
     path: "/projects",
     name: "Projects",
     icon: FolderIcon,
+  },
+  {
+    path: "/teams",
+    name: "Teams",
+    icon: UsersThreeIcon,
   },
   {
     path: "/tasks",

@@ -7,7 +7,7 @@ import {
   PROJECT_QUERY,
   PROJECTS_QUERY,
 } from "@/lib/graphql/documents";
-import { ApiProject, CreateProjectInput } from "@/types";
+import type { ApiProject, CreateProjectInput } from "@/types";
 
 export const projectKeys = {
   all: ["projects"] as const,

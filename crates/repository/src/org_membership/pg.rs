@@ -98,6 +98,32 @@ impl OrgMembershipRepository for PgOrgMembershipRepository {
     }
 
     #[tracing::instrument(skip(self))]
+    async fn list_by_org(
+        &self,
+        org_id: OrganizationId,
+    ) -> Result<Vec<OrgMembership>, RepositoryError> {
+        use sea_orm::{ColumnTrait, QueryFilter};
+
+        let models = OrgMembershipEntity::find()
+            .filter(org_membership::Column::OrganizationId.eq(Uuid::from(org_id)))
+            .all(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        models
+            .into_iter()
+            .map(|m| {
+                Ok(OrgMembership {
+                    organisation_id: OrganizationId::from(m.organization_id),
+                    user_id: UserId::from(m.user_id),
+                    role: str_to_org_role(&m.role)?,
+                    joined_at: m.joined_at.into(),
+                })
+            })
+            .collect()
+    }
+
+    #[tracing::instrument(skip(self))]
     async fn create(
         &self,
         user_id: UserId,

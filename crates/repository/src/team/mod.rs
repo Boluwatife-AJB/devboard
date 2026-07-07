@@ -33,6 +33,11 @@ pub trait TeamRepository: Send + Sync {
         user_id: UserId,
     ) -> Result<Option<TeamMembership>, RepositoryError>;
 
+    async fn list_members(&self, team_id: TeamId) -> Result<Vec<TeamMembership>, RepositoryError>;
+
+    async fn remove_member(&self, team_id: TeamId, user_id: UserId)
+    -> Result<(), RepositoryError>;
+
     async fn delete(&self, id: TeamId) -> Result<(), RepositoryError>;
 }
 

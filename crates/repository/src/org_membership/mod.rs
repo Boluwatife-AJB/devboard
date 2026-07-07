@@ -15,6 +15,11 @@ pub trait OrgMembershipRepository: Send + Sync {
 
     async fn find_all_for_user(&self, user_id: UserId) -> Result<Vec<OrgSummary>, RepositoryError>;
 
+    async fn list_by_org(
+        &self,
+        org_id: OrganizationId,
+    ) -> Result<Vec<OrgMembership>, RepositoryError>;
+
     async fn create(
         &self,
         user_id: UserId,

@@ -1,5 +1,10 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
+import { type ReactElement, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,23 +23,27 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreateProject } from "@/hooks/use-projects";
+import { useTeams } from "@/hooks/use-teams";
 import { getApiErrorMessage } from "@/lib/api";
 import { getSelectedOrgId } from "@/lib/auth/cookies";
 import { createProjectSchema } from "@/lib/schema";
 import type { CreateProjectFormData } from "@/types";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { type ReactElement, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
-import { toast } from "sonner";
-
-
 
 export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
   const [open, setOpen] = useState(false);
   const createProject = useCreateProject();
+  const { data: teams, isPending: isTeamsPending } = useTeams();
 
   const { control, handleSubmit, reset } = useForm<CreateProjectFormData>({
     resolver: zodResolver(createProjectSchema),
@@ -133,18 +142,50 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
               name="teamId"
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid || undefined}>
-                  <FieldLabel htmlFor="project-team-id">Team ID</FieldLabel>
-                  <Input
-                    id="project-team-id"
-                    placeholder="00000000-0000-0000-0000-000000000000"
-                    className="font-mono"
-                    aria-invalid={fieldState.invalid || undefined}
-                    {...field}
-                  />
-                  <FieldDescription>
-                    Paste the team's UUID. A team picker will replace this once
-                    the API exposes team listing.
-                  </FieldDescription>
+                  <FieldLabel htmlFor="project-team">Team</FieldLabel>
+                  <Select
+                    value={field.value || null}
+                    onValueChange={(value) => field.onChange(value ?? "")}
+                  >
+                    <SelectTrigger
+                      id="project-team"
+                      className="w-full"
+                      aria-invalid={fieldState.invalid || undefined}
+                      disabled={isTeamsPending || teams?.length === 0}
+                      onBlur={field.onBlur}
+                    >
+                      <SelectValue>
+                        {field.value
+                          ? (teams?.find((team) => team.id === field.value)
+                              ?.name ?? "Select a team")
+                          : isTeamsPending
+                            ? "Loading teams..."
+                            : "Select a team"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {teams?.map((team) => (
+                          <SelectItem key={team.id} value={team.id}>
+                            {team.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  {teams?.length === 0 ? (
+                    <FieldDescription>
+                      No teams yet — create one on the{" "}
+                      <Link href="/teams" className="underline">
+                        Teams page
+                      </Link>{" "}
+                      first.
+                    </FieldDescription>
+                  ) : (
+                    <FieldDescription>
+                      The team this project belongs to.
+                    </FieldDescription>
+                  )}
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}
@@ -163,6 +204,7 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
                   <Textarea
                     id="project-description"
                     placeholder="What is this project about?"
+                    className="resize-none"
                     rows={3}
                     {...field}
                   />

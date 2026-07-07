@@ -2,12 +2,19 @@
 
 import type { Icon } from "@phosphor-icons/react";
 import type { z } from "zod";
-import type { createProjectSchema, signinSchema, signupSchema } from "@/lib/schema";
+import type {
+  createProjectSchema,
+  createTaskSchema,
+  createTeamSchema,
+  signinSchema,
+  signupSchema,
+} from "@/lib/schema";
 
 type SignupFormData = z.infer<typeof signupSchema>;
 type SigninFormData = z.infer<typeof signinSchema>;
 type CreateProjectFormData = z.infer<typeof createProjectSchema>;
 type CreateTaskFormData = z.infer<typeof createTaskSchema>;
+type CreateTeamFormData = z.infer<typeof createTeamSchema>;
 
 interface AuthOrganization {
   id: string;
@@ -42,7 +49,6 @@ interface SidebarLink {
   icon: Icon;
 }
 
-
 type TaskStatus =
   | "BACKLOG"
   | "TODO"
@@ -55,11 +61,38 @@ type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
 type TaskEventKind = "CREATED" | "UPDATED" | "DELETED";
 
+type TeamRole = "OWNER" | "ADMIN" | "MEMBER";
+
+type OrgRole = "ORG_OWNER" | "ORG_ADMIN" | "ORG_MEMBER";
+
 interface ApiUser {
   id: string;
   email: string;
   displayName: string;
   createdAt: string;
+}
+
+interface ApiTeam {
+  id: string;
+  organizationId: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ApiTeamMember {
+  teamId: string;
+  userId: string;
+  role: TeamRole;
+  joinedAt: string;
+  user: ApiUser | null;
+}
+
+interface ApiOrgMember {
+  userId: string;
+  role: OrgRole;
+  joinedAt: string;
+  user: ApiUser | null;
 }
 
 interface ApiProject {
@@ -93,6 +126,12 @@ interface TaskUpdatedEvent {
   task: ApiTask | null;
   taskId: string;
   projectId: string;
+}
+
+interface AddTeamMemberInput {
+  teamId: string;
+  userId: string;
+  role?: TeamRole | null;
 }
 
 interface CreateProjectInput {

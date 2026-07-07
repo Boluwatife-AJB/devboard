@@ -1,4 +1,4 @@
-import { TaskPriority, TaskStatus } from "@/types";
+import type { TaskPriority, TaskStatus } from "@/types";
 
 export type KanbanStatusColumn = {
   id: TaskStatus;

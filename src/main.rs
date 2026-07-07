@@ -29,7 +29,7 @@ use devboard_repository::{
     PgOrganizationRepository, PgProjectRepository, PgTaskRepository, PgTeamRepository,
     PgUserRepository,
 };
-use devboard_service::{AuthService, ProjectService, TaskService};
+use devboard_service::{AuthService, ProjectService, TaskService, TeamService};
 
 mod auth_routes;
 use auth_routes::auth_router;
@@ -107,10 +107,16 @@ async fn main() -> anyhow::Result<()> {
 
     let project_service = Arc::new(ProjectService::new(project_repo.clone(), team_repo.clone()));
 
+    let team_service = Arc::new(TeamService::new(
+        team_repo.clone(),
+        org_membership_repo.clone(),
+    ));
+
     let schema = build_schema(
         auth_service.clone(),
         task_service,
         project_service,
+        team_service,
         user_repo,
         event_bus,
     );

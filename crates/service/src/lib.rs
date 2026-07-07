@@ -14,3 +14,4 @@ pub use event_bus::EventBus;
 pub use events::TaskEvent;
 pub use project::ProjectService;
 pub use task::TaskService;
+pub use team::TeamService;

@@ -41,7 +41,7 @@ export const createProjectSchema = z.object({
       /^[A-Z][A-Z0-9]*$/,
       "Key must be uppercase letters and numbers (e.g. CORE)",
     ),
-  teamId: z.uuid("Team ID must be a valid UUID"),
+  teamId: z.uuid("Please select a team"),
   description: z.string().optional(),
 });
 
@@ -49,4 +49,11 @@ export const createTaskSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]),
+});
+
+export const createTeamSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Team name is required")
+    .max(100, "Team name must be 100 characters or fewer"),
 });

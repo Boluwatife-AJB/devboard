@@ -29,6 +29,84 @@ const TASK_FIELDS = `
   updatedAt
 `;
 
+const TEAM_FIELDS = `
+  id
+  organizationId
+  name
+  createdAt
+  updatedAt
+`;
+
+const USER_FIELDS = `
+  id
+  email
+  displayName
+  createdAt
+`;
+
+export const TEAMS_QUERY = `
+  query Teams {
+    teams {
+      ${TEAM_FIELDS}
+    }
+  }
+`;
+
+export const TEAM_MEMBERS_QUERY = `
+  query TeamMembers($teamId: ID!) {
+    teamMembers(teamId: $teamId) {
+      teamId
+      userId
+      role
+      joinedAt
+      user {
+        ${USER_FIELDS}
+      }
+    }
+  }
+`;
+
+export const ORG_MEMBERS_QUERY = `
+  query OrgMembers {
+    orgMembers {
+      userId
+      role
+      joinedAt
+      user {
+        ${USER_FIELDS}
+      }
+    }
+  }
+`;
+
+export const CREATE_TEAM_MUTATION = `
+  mutation CreateTeam($input: CreateTeamInput!) {
+    createTeam(input: $input) {
+      ${TEAM_FIELDS}
+    }
+  }
+`;
+
+export const ADD_TEAM_MEMBER_MUTATION = `
+  mutation AddTeamMember($input: AddTeamMemberInput!) {
+    addTeamMember(input: $input) {
+      teamId
+      userId
+      role
+      joinedAt
+      user {
+        ${USER_FIELDS}
+      }
+    }
+  }
+`;
+
+export const REMOVE_TEAM_MEMBER_MUTATION = `
+  mutation RemoveTeamMember($input: RemoveTeamMemberInput!) {
+    removeTeamMember(input: $input)
+  }
+`;
+
 export const PROJECTS_QUERY = `
   query Projects {
     projects {

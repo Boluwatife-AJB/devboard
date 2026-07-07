@@ -1,13 +1,16 @@
 use async_graphql::{Context, ID, Object};
 
-use devboard_domain::{OrganizationId, ProjectId, TaskId, UserId};
+use devboard_domain::{OrganizationId, ProjectId, TaskId, TeamId, UserId};
 
 use crate::{
     context::ContextExt,
     error::IntoGraphQLResult,
-    inputs::{AssignTaskInput, CreateProjectInput, CreateTaskInput, UpdateTaskStatusInput},
+    inputs::{
+        AddTeamMemberInput, AssignTaskInput, CreateProjectInput, CreateTaskInput, CreateTeamInput,
+        RemoveTeamMemberInput, UpdateTaskStatusInput,
+    },
     resolvers::query::parse_id,
-    types::{GqlProject, GqlTask},
+    types::{GqlProject, GqlTask, GqlTeam, GqlTeamMember},
 };
 
 pub struct MutationRoot;
@@ -39,6 +42,72 @@ impl MutationRoot {
             .map_gql_err()?;
 
         Ok(GqlProject::from(project))
+    }
+
+    async fn create_team(
+        &self,
+        ctx: &Context<'_>,
+        input: CreateTeamInput,
+    ) -> async_graphql::Result<GqlTeam> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let membership = auth.require_org()?;
+
+        let team = services
+            .team_service
+            .create_team(membership.organisation_id, auth.user_id, input.name)
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlTeam { inner: team })
+    }
+
+    async fn add_team_member(
+        &self,
+        ctx: &Context<'_>,
+        input: AddTeamMemberInput,
+    ) -> async_graphql::Result<GqlTeamMember> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let membership = auth.require_org()?;
+        let team_id = parse_id::<TeamId>(&input.team_id)?;
+        let user_id = parse_id::<UserId>(&input.user_id)?;
+
+        let role = input
+            .role
+            .map(devboard_domain::TeamRole::from)
+            .unwrap_or(devboard_domain::TeamRole::Member);
+
+        let member = services
+            .team_service
+            .add_member(team_id, &membership, user_id, role)
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlTeamMember { inner: member })
+    }
+
+    async fn remove_team_member(
+        &self,
+        ctx: &Context<'_>,
+        input: RemoveTeamMemberInput,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let membership = auth.require_org()?;
+        let team_id = parse_id::<TeamId>(&input.team_id)?;
+        let user_id = parse_id::<UserId>(&input.user_id)?;
+
+        services
+            .team_service
+            .remove_member(team_id, &membership, user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
     }
 
     async fn create_task(

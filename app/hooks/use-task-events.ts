@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { TASK_UPDATED_SUBSCRIPTION } from "@/lib/graphql/documents";
 import { getWsClient } from "@/lib/graphql/ws";
-import { ApiTask, TaskUpdatedEvent } from "@/types";
+import type { ApiTask, TaskUpdatedEvent } from "@/types";
 import { taskKeys } from "./use-tasks";
 
 /**
