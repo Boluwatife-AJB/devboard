@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
+import { toast } from "sonner";
 import {
   Field,
   FieldError,
@@ -25,7 +26,7 @@ import {
 import { FormStepIndicator } from "@/components/ui/form-step-indicator";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { publicApi } from "@/lib/api";
+import { getApiErrorMessage, publicApi } from "@/lib/api";
 import {
   setAccessToken,
   setOrganizations,
@@ -104,13 +105,15 @@ export default function SignUpForm() {
       mutationFn: register,
       onSuccess: (data) => {
         setAccessToken(data.access_token);
-        setSelectedOrgId(data.organizations[0].id);
         setOrganizations(data.organizations);
+        if (data.organizations.length > 0) {
+          setSelectedOrgId(data.organizations[0].id);
+        }
         router.push("/");
-        console.log("Registration successful:", data);
+        toast.success("Account created");
       },
       onError: (error) => {
-        console.error("Signup error:", error);
+        toast.error(getApiErrorMessage(error));
       },
     });
 

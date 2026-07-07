@@ -7,7 +7,7 @@ const ORGS = "devboard_organizations";
 
 export function setAccessToken(token: string) {
   Cookies.set(ACCESS_TOKEN, token, {
-    expires: 5 * 24 * 60 * 60, // 5 days
+    expires: 5, // 5 days
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
   });

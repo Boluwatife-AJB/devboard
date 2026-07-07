@@ -1,6 +1,7 @@
 import { BellIcon, MagnifyingGlassIcon } from "@phosphor-icons/react/dist/ssr";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Input } from "../ui/input";
+import { OrgSwitcher } from "./org-switcher";
 
 export default function DashboardHeader() {
   return (
@@ -18,6 +19,8 @@ export default function DashboardHeader() {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-6">
+        <OrgSwitcher />
+
         <div className="h-6 w-px bg-outline"></div>
 
         {/* <Button className="px-3 py-1.5 bg-devboard-primary hover:bg-devboard-primary/90 text-white rounded text-xs font-medium transition-opacity flex items-center gap-2">

@@ -184,16 +184,73 @@ async fn graphql_ws_handler(
     let schema = state.schema.clone();
 
     ws.protocols(ALL_WEBSOCKET_PROTOCOLS)
-        .on_upgrade(move |socket| GraphQLWebSocket::new(socket, schema, protocol).serve())
+        .on_upgrade(move |socket| {
+            GraphQLWebSocket::new(socket, schema, protocol)
+                .on_connection_init(move |payload| ws_connection_init(state, payload))
+                .serve()
+        })
+}
 
-    // ws.on_upgrade(move |socket| {
-    //     async_graphql_axum::GraphQLWebSocket::new(
-    //       socket,
-    //       schema,
-    //       async_graphql::http::WebSocketProtocols::GraphQLWS,
-    //       )
-    //       .serve()
-    // })
+/// Browsers cannot set headers on WebSocket upgrade requests, so subscription
+/// clients pass auth via the graphql-ws `connection_init` payload instead.
+async fn ws_connection_init(
+    state: AppState,
+    payload: serde_json::Value,
+) -> async_graphql::Result<async_graphql::Data> {
+    let mut data = async_graphql::Data::default();
+
+    let user_id = payload
+        .get("Authorization")
+        .and_then(|v| v.as_str())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .and_then(|token| state.auth_service.verify_token(token).ok())
+        .and_then(|claims| claims.user_id().ok());
+
+    let Some(user_id) = user_id else {
+        // Leave the connection unauthenticated; resolvers requiring auth will reject it
+        return Ok(data);
+    };
+
+    let org_id = payload
+        .get("X-Organization-Id")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<uuid::Uuid>().ok())
+        .map(devboard_domain::OrganizationId::from);
+
+    let org_membership = if let Some(org_id) = org_id {
+        let cached = state
+            .membership_cache
+            .get(user_id, org_id)
+            .await
+            .ok()
+            .flatten();
+
+        if let Some(membership) = cached {
+            Some(membership)
+        } else {
+            let db_membership = state
+                .org_membership_repo
+                .find(user_id, org_id)
+                .await
+                .ok()
+                .flatten();
+
+            if let Some(ref m) = db_membership {
+                let _ = state.membership_cache.set(m).await;
+            }
+
+            db_membership
+        }
+    } else {
+        None
+    };
+
+    data.insert(AuthenticatedUser {
+        user_id,
+        org_membership,
+    });
+
+    Ok(data)
 }
 
 async fn playground_handler() -> impl IntoResponse {

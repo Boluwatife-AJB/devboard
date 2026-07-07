@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { publicApi } from "@/lib/api";
+import { getApiErrorMessage, publicApi } from "@/lib/api";
 import {
   setAccessToken,
   setOrganizations,
@@ -51,15 +51,17 @@ export default function SignInForm() {
     {
       mutationFn: login,
       onSuccess: (data) => {
-        // console.log("Login successful:", data);
         setAccessToken(data.access_token);
-        setSelectedOrgId(data.organizations[0].id);
         setOrganizations(data.organizations);
+        // Users registered via invite may not belong to any organization yet
+        if (data.organizations.length > 0) {
+          setSelectedOrgId(data.organizations[0].id);
+        }
         router.push("/");
         toast.success("Login successful");
       },
       onError: (error) => {
-        console.error("Login error:", error);
+        toast.error(getApiErrorMessage(error));
       },
     },
   );

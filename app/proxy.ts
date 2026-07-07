@@ -6,8 +6,13 @@ const PUBLIC_ROUTES = [
   "/forgot-password",
   "/reset-password",
   "/invite",
-  "/invite/:path*",
 ];
+
+function isPublicRoute(pathname: string) {
+  return PUBLIC_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
+}
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -21,7 +26,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (PUBLIC_ROUTES.includes(pathname)) {
+  if (isPublicRoute(pathname)) {
     return NextResponse.next();
   }
 

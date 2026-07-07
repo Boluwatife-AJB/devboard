@@ -31,10 +31,22 @@ export const signinSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
-export const addProjectSchema = z.object({
-  organizationId: z.string().min(1, "Organization Id is required"),
-  teamId: z.string().min(1, "TeamId is required"),
+export const createProjectSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  key: z.string().min(1, "Key is required"),
+  key: z
+    .string()
+    .min(2, "Key must be at least 2 characters")
+    .max(6, "Key must be at most 6 characters")
+    .regex(
+      /^[A-Z][A-Z0-9]*$/,
+      "Key must be uppercase letters and numbers (e.g. CORE)",
+    ),
+  teamId: z.uuid("Team ID must be a valid UUID"),
   description: z.string().optional(),
+});
+
+export const createTaskSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]),
 });
