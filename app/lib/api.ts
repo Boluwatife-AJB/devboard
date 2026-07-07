@@ -1,5 +1,6 @@
 import axios from "axios";
-import { clearAuth, getAccessToken, getSelectedOrgId } from "./auth/cookies";
+import { getAccessToken, getSelectedOrgId } from "./auth/cookies";
+import { logout } from "./auth/session";
 
 /** Extract a human-readable message from an axios/network/unknown error. */
 export function getApiErrorMessage(error: unknown): string {
@@ -69,11 +70,7 @@ privateApi.interceptors.response.use(
     return response;
   },
   (error) => {
-    // error.response is undefined for network errors, so guard it
-    if (error.response?.status === 401) {
-      clearAuth();
-      window.location.href = "/sign-in";
-    }
+    logout();
     return Promise.reject(error);
   },
 );

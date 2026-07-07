@@ -163,7 +163,7 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
                             : "Select a team"}
                       </SelectValue>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent alignItemWithTrigger={false}>
                       <SelectGroup>
                         {teams?.map((team) => (
                           <SelectItem key={team.id} value={team.id}>

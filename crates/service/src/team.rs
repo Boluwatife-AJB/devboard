@@ -162,8 +162,7 @@ impl TeamService {
                 .await
                 .map_err(ServiceError::from)?;
 
-            let caller_is_team_owner =
-                caller_team_m.is_some_and(|m| m.role == TeamRole::Owner);
+            let caller_is_team_owner = caller_team_m.is_some_and(|m| m.role == TeamRole::Owner);
 
             if !caller_is_team_owner && !caller.role.at_least(OrgRole::OrgOwner) {
                 return Err(ServiceError::Forbidden {

@@ -35,8 +35,7 @@ pub trait TeamRepository: Send + Sync {
 
     async fn list_members(&self, team_id: TeamId) -> Result<Vec<TeamMembership>, RepositoryError>;
 
-    async fn remove_member(&self, team_id: TeamId, user_id: UserId)
-    -> Result<(), RepositoryError>;
+    async fn remove_member(&self, team_id: TeamId, user_id: UserId) -> Result<(), RepositoryError>;
 
     async fn delete(&self, id: TeamId) -> Result<(), RepositoryError>;
 }

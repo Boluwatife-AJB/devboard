@@ -167,88 +167,90 @@ export default function ProjectDetails() {
       )}
 
       {tasks && (
-        <KanbanProvider
-          columns={taskStatusColumns}
-          data={boardItems}
-          onDataChange={setBoardItems}
-          onDragEnd={handleDragEnd}
-        >
-          {(column) => (
-            <KanbanBoard
-              id={column.id}
-              key={column.id}
-              className="border-dashed border bg-[#1C1B1B4D] w-72 max-h-[calc(100vh-15rem)] "
-            >
-              <KanbanHeader className="border-0 py-4">
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-[10px] order-2 font-mono bg-[#353534] text-[#C2C6D6]",
-                    )}
-                  >
-                    {
-                      boardItems.filter((item) => item.column === column.id)
-                        .length
-                    }
-                  </Badge>
-                  <span
-                    className="order-1 text-xs uppercase"
-                    style={{ color: column.color }}
-                  >
-                    {column.name}
-                  </span>
-                </div>
-              </KanbanHeader>
-              <KanbanCards id={column.id} className="gap-3">
-                {(item: BoardItem) => (
-                  <KanbanCard
-                    column={column.id}
-                    id={item.id}
-                    key={item.id}
-                    name={item.name}
-                    className="gap-3 rounded-xs border border-[#2A2A2A] bg-[#131313] p-4 shadow-none"
-                    onClick={() =>
-                      router.push(`/projects/${projectId}/tasks/${item.id}`)
-                    }
-                  >
-                    <p className="m-0 text-sm font-medium leading-snug text-white">
-                      {item.task.title}
-                    </p>
-
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className="h-5 rounded-xs border-0 bg-[#353534] px-2 font-mono text-[10px] text-[#C2C6D6]"
-                      >
-                        #{item.task.key}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "h-5 rounded-xs border-[#4A4A4A] bg-transparent px-2 text-[10px] font-semibold uppercase",
-                          priorityStyles[item.task.priority],
-                        )}
-                      >
-                        {priorityLabels[item.task.priority]}
-                      </Badge>
-                    </div>
-
-                    <div className="flex items-center justify-end">
-                      {item.task.assignee && (
-                        <Avatar className="size-6 shrink-0 ring-2 ring-[#131313]">
-                          <AvatarFallback className="text-[10px]">
-                            {initialsOf(item.task.assignee.displayName)}
-                          </AvatarFallback>
-                        </Avatar>
+        <div className="min-w-0 w-full overflow-x-auto">
+          <KanbanProvider
+            columns={taskStatusColumns}
+            data={boardItems}
+            onDataChange={setBoardItems}
+            onDragEnd={handleDragEnd}
+          >
+            {(column) => (
+              <KanbanBoard
+                id={column.id}
+                key={column.id}
+                className="w-72 shrink-0 border-dashed border bg-[#1C1B1B4D] max-h-[calc(100vh-15rem)]"
+              >
+                <KanbanHeader className="border-0 py-4">
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px] order-2 font-mono bg-[#353534] text-[#C2C6D6]",
                       )}
-                    </div>
-                  </KanbanCard>
-                )}
-              </KanbanCards>
-            </KanbanBoard>
-          )}
-        </KanbanProvider>
+                    >
+                      {
+                        boardItems.filter((item) => item.column === column.id)
+                          .length
+                      }
+                    </Badge>
+                    <span
+                      className="order-1 text-xs uppercase"
+                      style={{ color: column.color }}
+                    >
+                      {column.name}
+                    </span>
+                  </div>
+                </KanbanHeader>
+                <KanbanCards id={column.id} className="gap-3">
+                  {(item: BoardItem) => (
+                    <KanbanCard
+                      column={column.id}
+                      id={item.id}
+                      key={item.id}
+                      name={item.name}
+                      className="gap-3 rounded-xs border border-[#2A2A2A] bg-[#131313] p-4 shadow-none"
+                      onClick={() =>
+                        router.push(`/projects/${projectId}/tasks/${item.id}`)
+                      }
+                    >
+                      <p className="m-0 text-sm font-medium leading-snug text-white">
+                        {item.task.title}
+                      </p>
+
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className="h-5 rounded-xs border-0 bg-[#353534] px-2 font-mono text-[10px] text-[#C2C6D6]"
+                        >
+                          #{item.task.key}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "h-5 rounded-xs border-[#4A4A4A] bg-transparent px-2 text-[10px] font-semibold uppercase",
+                            priorityStyles[item.task.priority],
+                          )}
+                        >
+                          {priorityLabels[item.task.priority]}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-end">
+                        {item.task.assignee && (
+                          <Avatar className="size-6 shrink-0 ring-2 ring-[#131313]">
+                            <AvatarFallback className="text-[10px]">
+                              {initialsOf(item.task.assignee.displayName)}
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                      </div>
+                    </KanbanCard>
+                  )}
+                </KanbanCards>
+              </KanbanBoard>
+            )}
+          </KanbanProvider>
+        </div>
       )}
 
       {tasks && tasks.length === 0 && (

@@ -341,6 +341,22 @@ impl TeamRepository for FakeTeamRepo {
             .cloned())
     }
 
+    async fn list_members(&self, team_id: TeamId) -> Result<Vec<TeamMembership>, RepositoryError> {
+        Ok(self
+            .memberships
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|m| m.team_id == team_id)
+            .cloned()
+            .collect())
+    }
+
+    async fn remove_member(&self, team_id: TeamId, user_id: UserId) -> Result<(), RepositoryError> {
+        self.memberships.lock().unwrap().remove(&(team_id, user_id));
+        Ok(())
+    }
+
     async fn delete(&self, _: TeamId) -> Result<(), RepositoryError> {
         Ok(())
     }

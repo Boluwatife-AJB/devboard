@@ -1,10 +1,23 @@
 import { GRAPHQL_HTTP_URL, privateApi } from "@/lib/api";
+import { logout } from "../auth/session";
 
 export interface GraphQLErrorItem {
   message: string;
   extensions?: {
     code?: string;
   };
+}
+
+function handleUnauthenticated(errors: GraphQLErrorItem[]) {
+  const isUnauthenticated = errors.some(
+    (error) => error.extensions?.code === "UNAUTHENTICATED",
+  );
+
+  if (!isUnauthenticated) {
+    return;
+  }
+
+  logout();
 }
 
 export class GraphQLRequestError extends Error {
@@ -34,6 +47,7 @@ export async function graphqlRequest<TData>(
   const { data, errors } = response.data;
 
   if (errors && errors.length > 0) {
+    handleUnauthenticated(errors);
     throw new GraphQLRequestError(errors);
   }
 

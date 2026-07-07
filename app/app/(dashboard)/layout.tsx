@@ -9,11 +9,9 @@ export default function DashboardLayout({
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar />
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 min-w-0">
         <DashboardHeader />
-        <main className="bg-background flex-1 overflow-auto p-8">
-          {children}
-        </main>
+        <main className="min-w-0 flex-1 overflow-auto p-8">{children}</main>
       </div>
     </div>
   );

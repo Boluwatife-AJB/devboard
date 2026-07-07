@@ -8,5 +8,5 @@ pub struct AuthConfig {
 }
 
 fn default_access_token_minutes() -> i64 {
-    30
+    1440
 }

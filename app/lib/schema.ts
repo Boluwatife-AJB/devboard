@@ -38,7 +38,7 @@ export const createProjectSchema = z.object({
     .min(2, "Key must be at least 2 characters")
     .max(6, "Key must be at most 6 characters")
     .regex(
-      /^[A-Z][A-Z0-9]*$/,
+      /^[A-Z][A-Z0-9#_-]*$/,
       "Key must be uppercase letters and numbers (e.g. CORE)",
     ),
   teamId: z.uuid("Please select a team"),

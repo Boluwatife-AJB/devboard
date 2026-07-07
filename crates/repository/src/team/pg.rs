@@ -133,11 +133,7 @@ impl TeamRepository for PgTeamRepository {
     }
 
     #[tracing::instrument(skip(self), fields(team_id = %team_id, user_id = %user_id))]
-    async fn remove_member(
-        &self,
-        team_id: TeamId,
-        user_id: UserId,
-    ) -> Result<(), RepositoryError> {
+    async fn remove_member(&self, team_id: TeamId, user_id: UserId) -> Result<(), RepositoryError> {
         use devboard_db::entities::team_membership::Entity as TmEntity;
 
         let result = TmEntity::delete_by_id((Uuid::from(team_id), Uuid::from(user_id)))

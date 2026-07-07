@@ -6,7 +6,6 @@ export type KanbanStatusColumn = {
   color: string;
 };
 
-/** Kanban columns keyed by the backend TaskStatus enum. */
 export const taskStatusColumns: KanbanStatusColumn[] = [
   { id: "BACKLOG", name: "Backlog", color: "#C2C6D6" },
   { id: "TODO", name: "To Do", color: "#ADC6FF" },

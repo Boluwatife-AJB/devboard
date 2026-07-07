@@ -72,10 +72,7 @@ impl QueryRoot {
             .await
             .map_gql_err()?;
 
-        Ok(teams
-            .into_iter()
-            .map(|t| GqlTeam { inner: t })
-            .collect())
+        Ok(teams.into_iter().map(|t| GqlTeam { inner: t }).collect())
     }
 
     async fn team_members(

@@ -350,10 +350,10 @@ export const KanbanProvider = <
         sensors={sensors}
         {...props}
       >
-        <ScrollArea>
+        <ScrollArea className="w-full">
           <div
             className={cn(
-              "grid size-full px-0.5 auto-cols-fr grid-flow-col gap-72",
+              "grid w-max auto-cols-72 grid-flow-col gap-6",
               className,
             )}
           >

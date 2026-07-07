@@ -22,7 +22,7 @@ export default function DashboardSidebar() {
   };
 
   return (
-    <div className="w-60 flex flex-col border-r border-outline bg-[#131313]">
+    <div className="w-60 shrink-0 flex flex-col border-r border-outline bg-[#131313]">
       {/* Logo Section */}
       <div className="px-6 py-4 h-20 border-b border-outline">
         <div className="flex items-center gap-2 mb-2">
