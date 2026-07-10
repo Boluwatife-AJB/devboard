@@ -1,5 +1,6 @@
 pub mod pg;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use devboard_domain::{ProjectId, Task, TaskId, TaskPriority, TaskStatus, UserId};
 
 use crate::error::RepositoryError;
@@ -15,6 +16,7 @@ pub struct CreateTaskParams {
     pub priority: TaskPriority,
     pub reporter_id: UserId,
     pub assignee_id: Option<UserId>,
+    pub due_date: Option<DateTime<Utc>>,
 }
 
 #[async_trait]
@@ -54,6 +56,12 @@ pub trait TaskRepository: Send + Sync {
         after_id: Option<uuid::Uuid>,
         limit: u64,
     ) -> Result<(Vec<Task>, bool), RepositoryError>;
+
+    async fn update_due_date(
+        &self,
+        id: TaskId,
+        due_date: Option<DateTime<Utc>>,
+    ) -> Result<Task, RepositoryError>;
 }
 
 pub(crate) fn status_to_str(status: &TaskStatus) -> &'static str {
@@ -115,6 +123,7 @@ pub(crate) fn model_to_domain(
         priority: str_to_priority(&model.priority)?,
         assignee_id: model.assignee_id.map(UserId::from),
         reporter_id: UserId::from(model.reporter_id),
+        due_date: model.due_date.map(Into::into),
         created_at: model.created_at.into(),
         updated_at: model.updated_at.into(),
     })

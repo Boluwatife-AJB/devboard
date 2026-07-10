@@ -1,3 +1,4 @@
+pub mod attachment;
 pub mod comment;
 pub mod error;
 pub mod invitation;
@@ -8,6 +9,7 @@ pub mod task;
 pub mod team;
 pub mod user;
 
+pub use attachment::AttachmentRepository;
 pub use comment::CommentRepository;
 pub use error::RepositoryError;
 pub use invitation::{InvitationRepository, NewInvitation};
@@ -18,6 +20,7 @@ pub use task::TaskRepository;
 pub use team::TeamRepository;
 pub use user::UserRepository;
 
+pub use attachment::pg::PgAttachmentRepository;
 pub use comment::pg::PgCommentRepository;
 pub use invitation::pg::PgInvitationRepository;
 pub use org_membership::pg::PgOrgMembershipRepository;

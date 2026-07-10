@@ -4,39 +4,41 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "org_membership")]
+#[sea_orm(table_name = "task_attachment")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub organization_id: Uuid,
-    #[sea_orm(primary_key, auto_increment = false)]
-    pub user_id: Uuid,
-    pub role: String,
-    pub joined_at: DateTimeWithTimeZone,
+    pub id: Uuid,
+    pub task_id: Uuid,
+    pub added_by: Uuid,
+    pub kind: String,
+    pub label: String,
+    pub url: String,
+    pub created_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::organization::Entity",
-        from = "Column::OrganizationId",
-        to = "super::organization::Column::Id",
+        belongs_to = "super::task::Entity",
+        from = "Column::TaskId",
+        to = "super::task::Column::Id",
         on_update = "NoAction",
         on_delete = "Cascade"
     )]
-    Organization,
+    Task,
     #[sea_orm(
         belongs_to = "super::user::Entity",
-        from = "Column::UserId",
+        from = "Column::AddedBy",
         to = "super::user::Column::Id",
         on_update = "NoAction",
-        on_delete = "Cascade"
+        on_delete = "Restrict"
     )]
     User,
 }
 
-impl Related<super::organization::Entity> for Entity {
+impl Related<super::task::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Organization.def()
+        Relation::Task.def()
     }
 }
 

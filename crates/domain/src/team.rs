@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use crate::ids::{OrganizationId, TeamId, UserId};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-
 pub struct Team {
     pub id: TeamId,
     pub organization_id: OrganizationId,

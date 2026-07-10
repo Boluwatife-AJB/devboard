@@ -1,3 +1,4 @@
+pub mod attachment;
 pub mod auth;
 pub mod comment;
 pub mod error;
@@ -8,7 +9,9 @@ pub mod task;
 pub mod team;
 pub mod user;
 
+pub use attachment::AttachmentService;
 pub use auth::{AuthPayload, AuthService};
+pub use comment::CommentService;
 pub use error::ServiceError;
 pub use event_bus::EventBus;
 pub use events::TaskEvent;

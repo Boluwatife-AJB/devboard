@@ -1,6 +1,6 @@
 use async_graphql::{Context, Enum, ID, Object, dataloader::DataLoader};
 use chrono::{DateTime, Utc};
-use devboard_domain::{Task, TaskPriority, TaskStatus};
+use devboard_domain::{ProjectRole, Task, TaskPriority, TaskStatus, TeamRole};
 
 use crate::{GqlUser, UserLoader};
 
@@ -69,6 +69,42 @@ impl From<GqlTaskPriority> for TaskPriority {
         }
     }
 }
+
+#[derive(Enum, Copy, Clone, Eq, PartialEq)]
+pub enum GqlProjectRole {
+    Owner,
+    Admin,
+    Contributor,
+    Viewer,
+}
+
+impl From<GqlProjectRole> for ProjectRole {
+    fn from(r: GqlProjectRole) -> Self {
+        match r {
+            GqlProjectRole::Owner => Self::Owner,
+            GqlProjectRole::Admin => Self::Admin,
+            GqlProjectRole::Contributor => Self::Contributor,
+            GqlProjectRole::Viewer => Self::Viewer,
+        }
+    }
+}
+#[derive(Enum, Copy, Clone, Eq, PartialEq)]
+pub enum GqlTeamRole {
+    Owner,
+    Admin,
+    Member,
+}
+
+impl From<GqlTeamRole> for TeamRole {
+    fn from(r: GqlTeamRole) -> Self {
+        match r {
+            GqlTeamRole::Owner => Self::Owner,
+            GqlTeamRole::Admin => Self::Admin,
+            GqlTeamRole::Member => Self::Member,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct GqlTask {
     pub inner: Task,
@@ -107,6 +143,10 @@ impl GqlTask {
 
     async fn priority(&self) -> GqlTaskPriority {
         GqlTaskPriority::from(self.inner.priority)
+    }
+
+    async fn due_date(&self) -> Option<DateTime<Utc>> {
+        self.inner.due_date
     }
 
     async fn assignee(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<GqlUser>> {

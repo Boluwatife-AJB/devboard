@@ -3,7 +3,10 @@ use std::sync::Arc;
 use async_graphql::{Schema, dataloader::DataLoader};
 
 use devboard_repository::UserRepository;
-use devboard_service::{AuthService, EventBus, ProjectService, TaskService, TeamService};
+use devboard_service::{
+    AttachmentService, AuthService, CommentService, EventBus, ProjectService, TaskService,
+    TeamService,
+};
 
 use crate::{
     UserLoader,
@@ -17,6 +20,8 @@ pub fn build_schema(
     auth_service: Arc<AuthService>,
     task_service: Arc<TaskService>,
     project_service: Arc<ProjectService>,
+    comment_service: Arc<CommentService>,
+    attachment_service: Arc<AttachmentService>,
     team_service: Arc<TeamService>,
     user_repo: Arc<dyn UserRepository>,
     event_bus: EventBus,
@@ -25,6 +30,8 @@ pub fn build_schema(
         auth_service,
         task_service,
         project_service,
+        comment_service,
+        attachment_service,
         team_service,
     };
 

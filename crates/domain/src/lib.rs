@@ -1,3 +1,4 @@
+pub mod attachment;
 pub mod comment;
 pub mod error;
 pub mod ids;
@@ -9,6 +10,7 @@ pub mod task;
 pub mod team;
 pub mod user;
 
+pub use attachment::{AttachmentKind, TaskAttachment};
 pub use comment::Comment;
 pub use error::DomainError;
 pub use ids::*;

@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use async_graphql::ErrorExtensions;
 use devboard_domain::{OrgMembership, UserId};
-use devboard_service::{AuthService, ProjectService, TaskService, TeamService};
+use devboard_service::{
+    AttachmentService, AuthService, CommentService, ProjectService, TaskService, TeamService,
+};
 
 #[derive(Clone)]
 pub struct Services {
@@ -10,6 +12,8 @@ pub struct Services {
     pub task_service: Arc<TaskService>,
     pub project_service: Arc<ProjectService>,
     pub team_service: Arc<TeamService>,
+    pub comment_service: Arc<CommentService>,
+    pub attachment_service: Arc<AttachmentService>,
 }
 
 #[derive(Debug, Clone)]

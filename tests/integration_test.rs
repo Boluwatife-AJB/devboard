@@ -431,6 +431,7 @@ async fn test_create_project_and_tasks_with_sequential_numbering() {
             None,
             TaskPriority::Medium,
             None,
+            None,
         )
         .await
         .expect("first task creation should succeed");
@@ -443,6 +444,7 @@ async fn test_create_project_and_tasks_with_sequential_numbering() {
             "Second task".into(),
             None,
             TaskPriority::High,
+            None,
             None,
         )
         .await
@@ -514,6 +516,7 @@ async fn test_task_status_transitions() {
             "Test task".into(),
             None,
             TaskPriority::Medium,
+            None,
             None,
         )
         .await
@@ -592,6 +595,7 @@ async fn test_rbac_viewer_cannot_delete_task() {
             "Test task".into(),
             None,
             TaskPriority::Medium,
+            None,
             None,
         )
         .await

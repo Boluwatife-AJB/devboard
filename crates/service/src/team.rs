@@ -61,6 +61,52 @@ impl TeamService {
         Ok(team)
     }
 
+    #[tracing::instrument(skip(self), fields(team_id = %team_id))]
+    pub async fn update_team(
+        &self,
+        team_id: TeamId,
+        caller_id: UserId,
+        name: String,
+    ) -> Result<Team, ServiceError> {
+        if name.trim().is_empty() {
+            return Err(ServiceError::Validation {
+                field: "name".into(),
+                message: "team name cannot be empty".into(),
+            });
+        }
+        if name.len() > 100 {
+            return Err(ServiceError::Validation {
+                field: "name".into(),
+                message: "team name cannot exceed 100 characters".into(),
+            });
+        }
+
+        let membership = self
+            .team_repo
+            .get_membership(team_id, caller_id)
+            .await
+            .map_err(ServiceError::from)?
+            .ok_or(ServiceError::Forbidden {
+                reason: "you are not a member of this team".into(),
+            })?;
+
+        if !membership.role.at_least(TeamRole::Admin) {
+            return Err(ServiceError::Forbidden {
+                reason: "requires team Admin role to update team details".into(),
+            });
+        }
+
+        self.team_repo
+            .update(team_id, name)
+            .await
+            .map_err(|err| match err {
+                devboard_repository::RepositoryError::NotFound => ServiceError::TeamNotFound {
+                    id: team_id.to_string(),
+                },
+                other => ServiceError::from(other),
+            })
+    }
+
     #[tracing::instrument(skip(self), fields(team_id = %team_id, org_id = %org_id))]
     pub async fn list_members(
         &self,
@@ -77,36 +123,33 @@ impl TeamService {
 
     #[tracing::instrument(
         skip(self, caller),
-        fields(team_id = %team_id, user_id = %user_id, caller_id = %caller.user_id)
+        fields(team_id = %team_id, user_id = %user_id, caller_id = %caller)
     )]
     pub async fn add_member(
         &self,
         team_id: TeamId,
-        caller: &OrgMembership,
+        caller: UserId,
         user_id: UserId,
         role: TeamRole,
     ) -> Result<TeamMembership, ServiceError> {
-        if role == TeamRole::Owner {
-            return Err(ServiceError::Validation {
-                field: "role".into(),
-                message: "members can only be added as Admin or Member".into(),
+        let caller_membership = self
+            .team_repo
+            .get_membership(team_id, caller)
+            .await
+            .map_err(ServiceError::from)?
+            .ok_or(ServiceError::Forbidden {
+                reason: "you are not a member of this team".into(),
+            })?;
+
+        if !caller_membership.role.at_least(TeamRole::Admin) {
+            return Err(ServiceError::Forbidden {
+                reason: "requires team Admin role to add members".into(),
             });
         }
 
-        self.get_team_in_org(team_id, caller.organisation_id)
-            .await?;
-        self.require_team_admin(team_id, caller).await?;
-
-        // The target user must already belong to the organization
-        let target_org_membership = self
-            .org_membership_repo
-            .find(user_id, caller.organisation_id)
-            .await
-            .map_err(ServiceError::from)?;
-
-        if target_org_membership.is_none() {
+        if role.at_least(caller_membership.role) && role != caller_membership.role {
             return Err(ServiceError::Forbidden {
-                reason: "user is not a member of this organization".into(),
+                reason: "cannot assign a role higher than your own".into(),
             });
         }
 
@@ -119,31 +162,33 @@ impl TeamService {
                         message: "user is already a member of this team".into(),
                     }
                 }
-                devboard_repository::RepositoryError::ForeignKeyViolation => {
-                    ServiceError::UserNotFound {
-                        id: user_id.to_string(),
-                    }
-                }
                 other => ServiceError::from(other),
             })
     }
 
     #[tracing::instrument(
         skip(self, caller),
-        fields(team_id = %team_id, user_id = %user_id, caller_id = %caller.user_id)
+        fields(team_id = %team_id, user_id = %user_id, caller_id = %caller)
     )]
     pub async fn remove_member(
         &self,
         team_id: TeamId,
-        caller: &OrgMembership,
+        caller: UserId,
         user_id: UserId,
     ) -> Result<(), ServiceError> {
-        self.get_team_in_org(team_id, caller.organisation_id)
-            .await?;
+        let caller_membership = self
+            .team_repo
+            .get_membership(team_id, caller)
+            .await
+            .map_err(ServiceError::from)?
+            .ok_or(ServiceError::Forbidden {
+                reason: "you are not a member of this team".into(),
+            })?;
 
-        // Members may leave a team themselves; removing others needs admin rights
-        if caller.user_id != user_id {
-            self.require_team_admin(team_id, caller).await?;
+        if !caller_membership.role.at_least(TeamRole::Admin) {
+            return Err(ServiceError::Forbidden {
+                reason: "requires team Admin role to remove members".into(),
+            });
         }
 
         let target_membership = self
@@ -155,18 +200,10 @@ impl TeamService {
                 id: user_id.to_string(),
             })?;
 
-        if target_membership.role == TeamRole::Owner && caller.user_id != user_id {
-            let caller_team_m = self
-                .team_repo
-                .get_membership(team_id, caller.user_id)
-                .await
-                .map_err(ServiceError::from)?;
-
-            let caller_is_team_owner = caller_team_m.is_some_and(|m| m.role == TeamRole::Owner);
-
-            if !caller_is_team_owner && !caller.role.at_least(OrgRole::OrgOwner) {
+        if target_membership.role == TeamRole::Owner && caller != user_id {
+            if caller_membership.role != TeamRole::Owner {
                 return Err(ServiceError::Forbidden {
-                    reason: "only a team or organization owner can remove a team owner".into(),
+                    reason: "only a team owner can remove a team owner".into(),
                 });
             }
         }
@@ -213,7 +250,7 @@ impl TeamService {
     }
 
     /// Caller must be a team Admin/Owner, or an org Admin/Owner.
-    async fn require_team_admin(
+    async fn _require_team_admin(
         &self,
         team_id: TeamId,
         caller: &OrgMembership,

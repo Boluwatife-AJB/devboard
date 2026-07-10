@@ -21,7 +21,7 @@ export function getStatusColumn(status: TaskStatus) {
 
 export const priorityStyles: Record<TaskPriority, string> = {
   LOW: "text-[#C2C6D6]",
-  MEDIUM: "text-[#ADC6FF]",
+  MEDIUM: "text-[#ADC6FF]", 
   HIGH: "text-[#FFB690]",
   URGENT: "text-[#FF6B6B]",
 };

@@ -101,6 +101,25 @@ impl TeamRepository for PgTeamRepository {
         membership_to_domain(model)
     }
 
+    async fn update(&self, id: TeamId, name: String) -> Result<Team, RepositoryError> {
+        let model = TeamEntity::find_by_id(Uuid::from(id))
+            .one(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?
+            .ok_or(RepositoryError::NotFound)?;
+
+        let mut active: team::ActiveModel = model.into();
+        active.name = ActiveValue::Set(name);
+        active.updated_at = ActiveValue::Set(Utc::now().into());
+
+        let updated = active
+            .update(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        model_to_domain(updated)
+    }
+
     async fn get_membership(
         &self,
         team_id: TeamId,

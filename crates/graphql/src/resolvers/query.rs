@@ -6,7 +6,8 @@ use crate::{
     context::ContextExt,
     error::IntoGraphQLResult,
     types::{
-        GqlOrgMember, GqlProject, GqlTask, GqlTaskStatus, GqlTeam, GqlTeamMember,
+        GqlAttachment, GqlComment, GqlOrgMember, GqlProject, GqlTask, GqlTaskStatus, GqlTeam,
+        GqlTeamMember,
         pagination::{
             ConnectionArgs, PageInfo, TaskConnection, TaskEdge, decode_cursor, encode_cursor,
         },
@@ -238,6 +239,47 @@ impl QueryRoot {
             total_count: edges.len() as i64,
             edges,
         })
+    }
+
+    async fn comments(
+        &self,
+        ctx: &Context<'_>,
+        task_id: ID,
+        project_id: ID,
+    ) -> async_graphql::Result<Vec<GqlComment>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let task_id = parse_id::<TaskId>(&task_id)?;
+        let project_id = parse_id::<ProjectId>(&project_id)?;
+
+        let comments = services
+            .comment_service
+            .list_comments(task_id, project_id, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(comments.into_iter().map(GqlComment::from).collect())
+    }
+    async fn attachments(
+        &self,
+        ctx: &Context<'_>,
+        task_id: ID,
+        project_id: ID,
+    ) -> async_graphql::Result<Vec<GqlAttachment>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let task_id = parse_id::<TaskId>(&task_id)?;
+        let project_id = parse_id::<ProjectId>(&project_id)?;
+
+        let attachments = services
+            .attachment_service
+            .list_attachments(task_id, project_id, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(attachments.into_iter().map(GqlAttachment::from).collect())
     }
 }
 

@@ -27,6 +27,8 @@ pub trait TeamRepository: Send + Sync {
         role: TeamRole,
     ) -> Result<TeamMembership, RepositoryError>;
 
+    async fn update(&self, id: TeamId, name: String) -> Result<Team, RepositoryError>;
+
     async fn get_membership(
         &self,
         team_id: TeamId,

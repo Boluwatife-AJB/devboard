@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "user")]
-#[serde(rename_all = "camelCase")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
@@ -27,6 +26,8 @@ pub enum Relation {
     OrgMembership,
     #[sea_orm(has_many = "super::project_membership::Entity")]
     ProjectMembership,
+    #[sea_orm(has_many = "super::task_attachment::Entity")]
+    TaskAttachment,
 }
 
 impl Related<super::comment::Entity> for Entity {
@@ -50,6 +51,12 @@ impl Related<super::org_membership::Entity> for Entity {
 impl Related<super::project_membership::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ProjectMembership.def()
+    }
+}
+
+impl Related<super::task_attachment::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TaskAttachment.def()
     }
 }
 

@@ -159,6 +159,56 @@ impl ProjectService {
         Ok(project)
     }
 
+    pub async fn update_project(
+        &self,
+        project_id: ProjectId,
+        caller_id: UserId,
+        name: Option<String>,
+        description: Option<String>,
+    ) -> Result<Project, ServiceError> {
+        let project = self
+            .project_repo
+            .find_by_id(project_id)
+            .await?
+            .ok_or_else(|| ServiceError::ProjectNotFound {
+                id: project_id.to_string(),
+            })?;
+
+        let (team_m, project_m) = tokio::try_join!(
+            self.team_repo.get_membership(project.team_id, caller_id),
+            self.project_repo.get_membership(project_id, caller_id),
+        )?;
+
+        if !devboard_domain::has_project_permission(
+            team_m.as_ref(),
+            project_m.as_ref(),
+            ProjectRole::Admin,
+        ) {
+            return Err(ServiceError::Forbidden {
+                reason: "requires Admin access to edit project settings".into(),
+            });
+        }
+
+        if let Some(ref n) = name {
+            if n.trim().is_empty() {
+                return Err(ServiceError::Validation {
+                    field: "name".into(),
+                    message: "project name cannot be empty".into(),
+                });
+            }
+        }
+
+        self.project_repo
+            .update(project_id, name, description)
+            .await
+            .map_err(|err| match err {
+                devboard_repository::RepositoryError::NotFound => ServiceError::ProjectNotFound {
+                    id: project_id.to_string(),
+                },
+                other => ServiceError::from(other),
+            })
+    }
+
     #[tracing::instrument(
       skip(self),
       fields(project_id = %project_id, user_id = %user_id, caller_id = %caller_id)
@@ -207,6 +257,46 @@ impl ProjectService {
                         id: user_id.to_string(),
                     }
                 }
+                other => ServiceError::from(other),
+            })
+    }
+
+    #[tracing::instrument(skip(self), fields(project_id = %project_id))]
+    pub async fn delete_project(
+        &self,
+        project_id: ProjectId,
+        caller_id: UserId,
+    ) -> Result<(), ServiceError> {
+        let project = self
+            .project_repo
+            .find_by_id(project_id)
+            .await?
+            .ok_or_else(|| ServiceError::ProjectNotFound {
+                id: project_id.to_string(),
+            })?;
+
+        let (team_m, project_m) = tokio::try_join!(
+            self.team_repo.get_membership(project.team_id, caller_id),
+            self.project_repo.get_membership(project_id, caller_id),
+        )?;
+
+        if !devboard_domain::has_project_permission(
+            team_m.as_ref(),
+            project_m.as_ref(),
+            ProjectRole::Owner,
+        ) {
+            return Err(ServiceError::Forbidden {
+                reason: "only a project Owner can delete it".into(),
+            });
+        }
+
+        self.project_repo
+            .delete(project_id)
+            .await
+            .map_err(|err| match err {
+                devboard_repository::RepositoryError::NotFound => ServiceError::ProjectNotFound {
+                    id: project_id.to_string(),
+                },
                 other => ServiceError::from(other),
             })
     }

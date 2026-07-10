@@ -16,6 +16,7 @@ pub struct Task {
     pub reporter_id: UserId,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub due_date: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

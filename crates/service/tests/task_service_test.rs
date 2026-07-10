@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 
+use chrono::{DateTime, Utc};
 use devboard_domain::{
     OrganizationId, ProjectId, ProjectMembership, ProjectRole, Task, TaskId, TaskPriority,
     TaskStatus, Team, TeamId, TeamMembership, TeamRole, UserId,
@@ -60,6 +61,7 @@ impl TaskRepository for FakeTaskRepo {
             priority: params.priority,
             reporter_id: params.reporter_id,
             assignee_id: params.assignee_id,
+            due_date: params.due_date,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -93,6 +95,18 @@ impl TaskRepository for FakeTaskRepo {
         let mut tasks = self.tasks.lock().unwrap();
         let task = tasks.get_mut(&id).ok_or(RepositoryError::NotFound)?;
         task.assignee_id = assignee_id;
+        Ok(task.clone())
+    }
+
+    async fn update_due_date(
+        &self,
+        id: TaskId,
+        due_date: Option<DateTime<Utc>>,
+    ) -> Result<Task, RepositoryError> {
+        let mut tasks = self.tasks.lock().unwrap();
+        let task = tasks.get_mut(&id).ok_or(RepositoryError::NotFound)?;
+        task.due_date = due_date;
+        task.updated_at = Utc::now();
         Ok(task.clone())
     }
 
@@ -191,12 +205,14 @@ impl ProjectRepository for FakeProjectRepo {
             .filter_map(|id| projects.get(id).cloned())
             .collect())
     }
+
     async fn find_by_organization(
         &self,
         _: OrganizationId,
     ) -> Result<Vec<devboard_domain::Project>, RepositoryError> {
         Ok(self.projects.lock().unwrap().values().cloned().collect())
     }
+
     async fn create(
         &self,
         id: ProjectId,
@@ -221,6 +237,25 @@ impl ProjectRepository for FakeProjectRepo {
         self.projects.lock().unwrap().insert(id, project.clone());
         Ok(project)
     }
+
+    async fn update(
+        &self, 
+        id: ProjectId, 
+        name: Option<String>, 
+        description: Option<String>
+    ) -> Result<devboard_domain::Project, RepositoryError> {
+        let mut projects = self.projects.lock().unwrap();
+        let project = projects.get_mut(&id).ok_or(RepositoryError::NotFound)?;
+        if let Some(name) = name {
+            project.name = name; 
+        }
+        if let Some(description) = description {
+            project.description = Some(description);
+        }
+        project.updated_at = Utc::now();
+        Ok(project.clone())
+    }
+
     async fn next_task_number(&self, project_id: ProjectId) -> Result<i32, RepositoryError> {
         let mut counters = self.counters.lock().unwrap();
         let n = counters.entry(project_id).or_insert(0);
@@ -269,6 +304,7 @@ impl ProjectRepository for FakeProjectRepo {
 }
 
 struct FakeTeamRepo {
+    teams: Mutex<HashMap<TeamId, Team>>,
     memberships: Mutex<HashMap<(TeamId, UserId), TeamMembership>>,
 }
 
@@ -276,6 +312,7 @@ impl FakeTeamRepo {
     fn new() -> Self {
         Self {
             memberships: Mutex::new(HashMap::new()),
+            teams: Mutex::new(HashMap::new()),
         }
     }
     fn add_membership(&self, m: TeamMembership) {
@@ -328,6 +365,15 @@ impl TeamRepository for FakeTeamRepo {
             .insert((team_id, user_id), m.clone());
         Ok(m)
     }
+
+    async fn update(&self, id:TeamId, name: String) -> Result<Team, RepositoryError> {
+        let mut teams = self.teams.lock().unwrap();
+        let team = teams.get_mut(&id).ok_or(RepositoryError::NotFound)?;
+        team.name = name;
+        team.updated_at = Utc::now();
+        Ok(team.clone())
+    }
+
     async fn get_membership(
         &self,
         team_id: TeamId,
@@ -430,6 +476,7 @@ async fn contributor_can_create_task() {
             None,
             TaskPriority::High,
             None,
+            None
         )
         .await
         .expect("contributor should be able to create tasks");
@@ -459,6 +506,7 @@ async fn viewer_cannot_create_task() {
             None,
             TaskPriority::Low,
             None,
+            None,
         )
         .await;
 
@@ -485,6 +533,7 @@ async fn unauthenticated_user_cannot_create_task() {
             None,
             TaskPriority::Low,
             None,
+            None
         )
         .await;
 
@@ -513,6 +562,7 @@ async fn task_numbers_increment_sequentially() {
             None,
             TaskPriority::Low,
             None,
+            None,
         )
         .await
         .unwrap();
@@ -524,6 +574,7 @@ async fn task_numbers_increment_sequentially() {
             None,
             TaskPriority::Low,
             None,
+            None,
         )
         .await
         .unwrap();
@@ -534,6 +585,7 @@ async fn task_numbers_increment_sequentially() {
             "Third".into(),
             None,
             TaskPriority::Low,
+            None,
             None,
         )
         .await

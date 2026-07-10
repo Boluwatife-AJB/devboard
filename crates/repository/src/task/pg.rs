@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
     QueryOrder, QuerySelect,
@@ -88,6 +88,7 @@ impl TaskRepository for PgTaskRepository {
             status: ActiveValue::Set(status_to_str(&params.status).to_string()),
             priority: ActiveValue::Set(priority_to_str(&params.priority).to_string()),
             reporter_id: ActiveValue::Set(Uuid::from(params.reporter_id)),
+            due_date: ActiveValue::Set(params.due_date.map(|d| d.into())),
             assignee_id: ActiveValue::Set(params.assignee_id.map(Uuid::from)),
             created_at: ActiveValue::Set(now.into()),
             updated_at: ActiveValue::Set(now.into()),
@@ -224,5 +225,28 @@ impl TaskRepository for PgTaskRepository {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok((task, has_more))
+    }
+
+    async fn update_due_date(
+        &self,
+        id: TaskId,
+        due_date: Option<DateTime<Utc>>,
+    ) -> Result<Task, RepositoryError> {
+        let model = TaskEntity::find_by_id(Uuid::from(id))
+            .one(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?
+            .ok_or(RepositoryError::NotFound)?;
+
+        let mut active: task::ActiveModel = model.into();
+        active.due_date = ActiveValue::Set(due_date.map(|d| d.into()));
+        active.updated_at = ActiveValue::Set(Utc::now().into());
+
+        let updated = active
+            .update(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        model_to_domain(updated)
     }
 }

@@ -9,6 +9,7 @@ pub mod organization;
 pub mod project;
 pub mod project_membership;
 pub mod task;
+pub mod task_attachment;
 pub mod team;
 pub mod team_membership;
 pub mod user;

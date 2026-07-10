@@ -44,6 +44,7 @@ impl CommentRepository for PgCommentRepository {
         models.into_iter().map(model_to_domain).collect()
     }
 
+    #[tracing::instrument(skip(self, body), fields(task_id = %task_id, author_id = %author_id))]
     async fn create(
         &self,
         id: CommentId,
@@ -53,7 +54,7 @@ impl CommentRepository for PgCommentRepository {
     ) -> Result<Comment, RepositoryError> {
         let now = Utc::now();
 
-        let active_model = comment::ActiveModel {
+        let active = comment::ActiveModel {
             id: ActiveValue::Set(Uuid::from(id)),
             task_id: ActiveValue::Set(Uuid::from(task_id)),
             author_id: ActiveValue::Set(Uuid::from(author_id)),
@@ -62,7 +63,7 @@ impl CommentRepository for PgCommentRepository {
             edited_at: ActiveValue::Set(None),
         };
 
-        let model = active_model
+        let model = active
             .insert(&self.db)
             .await
             .map_err(RepositoryError::from_db_err)?;
@@ -70,6 +71,10 @@ impl CommentRepository for PgCommentRepository {
         model_to_domain(model)
     }
 
+    #[tracing::instrument(
+        skip(self, body),
+        fields(comment_id = %id)
+    )]
     async fn update_body(&self, id: CommentId, body: String) -> Result<Comment, RepositoryError> {
         let model = CommentEntity::find_by_id(Uuid::from(id))
             .one(&self.db)
@@ -89,6 +94,7 @@ impl CommentRepository for PgCommentRepository {
         model_to_domain(updated)
     }
 
+    #[tracing::instrument(skip(self), fields(comment_id = %id))]
     async fn delete(&self, id: CommentId) -> Result<(), RepositoryError> {
         let result = CommentEntity::delete_by_id(Uuid::from(id))
             .exec(&self.db)

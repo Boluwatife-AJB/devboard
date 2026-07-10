@@ -98,6 +98,37 @@ impl ProjectRepository for PgProjectRepository {
         model_to_domain(model)
     }
 
+    async fn update(
+        &self,
+        id: ProjectId,
+        name: Option<String>,
+        description: Option<String>,
+    ) -> Result<Project, RepositoryError> {
+        let model = ProjectEntity::find_by_id(Uuid::from(id))
+            .one(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?
+            .ok_or(RepositoryError::NotFound)?;
+
+        let mut active: project::ActiveModel = model.into();
+
+        if let Some(n) = name {
+            active.name = ActiveValue::Set(n);
+        }
+
+        if let Some(d) = description {
+            active.description = ActiveValue::Set(Some(d));
+        }
+        active.updated_at = ActiveValue::Set(Utc::now().into());
+
+        let updated = active
+            .update(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        model_to_domain(updated)
+    }
+
     #[tracing::instrument(skip(self), fields(project_id = %project_id))]
     async fn next_task_number(&self, project_id: ProjectId) -> Result<i32, RepositoryError> {
         let sql = r#"

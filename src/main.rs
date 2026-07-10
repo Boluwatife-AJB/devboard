@@ -25,11 +25,13 @@ use devboard_config::AppConfig;
 use devboard_db::{DbConnectOptions, connect};
 use devboard_graphql::{DevBoardSchema, build_schema, context::AuthenticatedUser};
 use devboard_repository::{
-    OrgMembershipRepository, PgInvitationRepository, PgOrgMembershipRepository,
-    PgOrganizationRepository, PgProjectRepository, PgTaskRepository, PgTeamRepository,
-    PgUserRepository,
+    OrgMembershipRepository, PgAttachmentRepository, PgCommentRepository, PgInvitationRepository,
+    PgOrgMembershipRepository, PgOrganizationRepository, PgProjectRepository, PgTaskRepository,
+    PgTeamRepository, PgUserRepository,
 };
-use devboard_service::{AuthService, ProjectService, TaskService, TeamService};
+use devboard_service::{
+    AttachmentService, AuthService, CommentService, ProjectService, TaskService, TeamService,
+};
 
 mod auth_routes;
 use auth_routes::auth_router;
@@ -80,6 +82,8 @@ async fn main() -> anyhow::Result<()> {
     let org_repo = Arc::new(PgOrganizationRepository::new(db.clone()));
     let org_membership_repo = Arc::new(PgOrgMembershipRepository::new(db.clone()));
     let invitation_repo = Arc::new(PgInvitationRepository::new(db.clone()));
+    let comment_repo = Arc::new(PgCommentRepository::new(db.clone()));
+    let attachment_repo = Arc::new(PgAttachmentRepository::new(db.clone()));
 
     let jwt_service = Arc::new(JwtService::new(
         &config.auth.jwt_secret,
@@ -99,7 +103,7 @@ async fn main() -> anyhow::Result<()> {
     let event_bus = devboard_service::EventBus::new();
 
     let task_service = Arc::new(TaskService::new(
-        task_repo,
+        task_repo.clone(),
         project_repo.clone(),
         team_repo.clone(),
         event_bus.clone(),
@@ -112,10 +116,26 @@ async fn main() -> anyhow::Result<()> {
         org_membership_repo.clone(),
     ));
 
+    let comment_service = Arc::new(CommentService::new(
+        comment_repo,
+        task_repo.clone(),
+        project_repo.clone(),
+        team_repo.clone(),
+    ));
+
+    let attachment_service = Arc::new(AttachmentService::new(
+        attachment_repo,
+        task_repo.clone(),
+        project_repo.clone(),
+        team_repo.clone(),
+    ));
+
     let schema = build_schema(
         auth_service.clone(),
         task_service,
         project_service,
+        comment_service,
+        attachment_service,
         team_service,
         user_repo,
         event_bus,

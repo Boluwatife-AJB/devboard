@@ -7,6 +7,7 @@ pub use super::organization::Entity as Organization;
 pub use super::project::Entity as Project;
 pub use super::project_membership::Entity as ProjectMembership;
 pub use super::task::Entity as Task;
+pub use super::task_attachment::Entity as TaskAttachment;
 pub use super::team::Entity as Team;
 pub use super::team_membership::Entity as TeamMembership;
 pub use super::user::Entity as User;
