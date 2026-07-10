@@ -1,7 +1,11 @@
 use std::sync::Arc;
 
 use axum::{
-    Extension, Json, Router, extract::{FromRef, State}, http::StatusCode, response::IntoResponse, routing::post,
+    Extension, Json, Router,
+    extract::{FromRef, State},
+    http::StatusCode,
+    response::IntoResponse,
+    routing::post,
 };
 use devboard_domain::{OrgRole, OrganizationId};
 use devboard_graphql::context::AuthenticatedUser;
