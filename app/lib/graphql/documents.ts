@@ -189,3 +189,23 @@ export const TASK_UPDATED_SUBSCRIPTION = `
     }
   }
 `;
+
+export const UPDATE_PROJECT_MUTATION = `
+  mutation UpdateProject($input: UpdateProjectInput!) {
+    updateProject(input: $input) {
+      ${PROJECT_FIELDS}
+    }
+  }
+`;
+
+export const DELETE_PROJECT_MUTATION = `
+  mutation DeleteProject($projectId: ID!) {
+    deleteProject(projectId: $projectId)
+  }
+`;
+
+export const ADD_PROJECT_MEMBER_MUTATION = `
+  mutation AddProjectMember($input: AddProjectMemberInput!) {
+    addProjectMember(input: $input)
+  }
+`;

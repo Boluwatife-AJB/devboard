@@ -1,6 +1,11 @@
 "use client";
 
-import { PlusIcon, WarningCircleIcon } from "@phosphor-icons/react/dist/ssr";
+import {
+  GearIcon,
+  PlusIcon,
+  WarningCircleIcon,
+} from "@phosphor-icons/react/dist/ssr";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -138,15 +143,26 @@ export default function ProjectDetails() {
             </>
           )}
         </div>
-        <CreateTaskDialog
-          projectId={projectId}
-          trigger={
-            <Button className="h-11 px-4 rounded-xs">
-              <PlusIcon data-icon="inline-start" />
-              Add Task
+        <div className="flex gap-2">
+          <Link href={`/projects/${projectId}/settings`}>
+            <Button
+              variant="outline"
+              className="h-11 px-4 rounded-xs border-[#2A2A2A]"
+            >
+              <GearIcon data-icon="inline-start" />
+              Project Settings
             </Button>
-          }
-        />
+          </Link>
+          <CreateTaskDialog
+            projectId={projectId}
+            trigger={
+              <Button className="h-11 px-4 rounded-xs">
+                <PlusIcon data-icon="inline-start" />
+                Add Task
+              </Button>
+            }
+          />
+        </div>
       </div>
 
       {isPending && <BoardSkeleton />}

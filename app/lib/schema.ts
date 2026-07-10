@@ -57,3 +57,13 @@ export const createTeamSchema = z.object({
     .min(1, "Team name is required")
     .max(100, "Team name must be 100 characters or fewer"),
 });
+
+export const updateProjectSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
+});
+
+export const addProjectMemberSchema = z.object({
+  userId: z.uuid("Please select a member"),
+  roleOverride: z.enum(["OWNER", "ADMIN", "CONTRIBUTOR", "VIEWER"]).optional(),
+});

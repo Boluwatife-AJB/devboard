@@ -3,11 +3,13 @@
 import type { Icon } from "@phosphor-icons/react";
 import type { z } from "zod";
 import type {
+  addProjectMemberSchema,
   createProjectSchema,
   createTaskSchema,
   createTeamSchema,
   signinSchema,
   signupSchema,
+  updateProjectSchema,
 } from "@/lib/schema";
 
 type SignupFormData = z.infer<typeof signupSchema>;
@@ -15,6 +17,8 @@ type SigninFormData = z.infer<typeof signinSchema>;
 type CreateProjectFormData = z.infer<typeof createProjectSchema>;
 type CreateTaskFormData = z.infer<typeof createTaskSchema>;
 type CreateTeamFormData = z.infer<typeof createTeamSchema>;
+type UpdateProjectFormData = z.infer<typeof updateProjectSchema>;
+type AddProjectMemberFormData = z.infer<typeof addProjectMemberSchema>;
 
 interface AuthOrganization {
   id: string;
@@ -64,6 +68,8 @@ type TaskEventKind = "CREATED" | "UPDATED" | "DELETED";
 type TeamRole = "OWNER" | "ADMIN" | "MEMBER";
 
 type OrgRole = "ORG_OWNER" | "ORG_ADMIN" | "ORG_MEMBER";
+
+type ProjectRole = "OWNER" | "ADMIN" | "CONTRIBUTOR" | "VIEWER";
 
 interface ApiUser {
   id: string;
@@ -160,4 +166,16 @@ interface AssignTaskInput {
   taskId: string;
   projectId: string;
   assigneeId?: string | null;
+}
+
+interface UpdateProjectInput {
+  projectId: string;
+  name?: string | null;
+  description?: string | null;
+}
+
+interface AddProjectMemberInput {
+  projectId: string;
+  userId: string;
+  roleOverride?: ProjectRole | null;
 }
