@@ -23,7 +23,10 @@ use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitEx
 use devboard_auth::JwtService;
 use devboard_config::AppConfig;
 use devboard_db::{DbConnectOptions, connect};
-use devboard_graphql::{DevBoardSchema, build_schema, context::AuthenticatedUser};
+use devboard_graphql::{
+    DevBoardSchema, build_schema,
+    context::{AuthenticatedUser, Services},
+};
 use devboard_repository::{
     OrgMembershipRepository, PgAttachmentRepository, PgCommentRepository, PgInvitationRepository,
     PgOrgMembershipRepository, PgOrganizationRepository, PgProjectRepository, PgTaskRepository,
@@ -130,16 +133,16 @@ async fn main() -> anyhow::Result<()> {
         team_repo.clone(),
     ));
 
-    let schema = build_schema(
-        auth_service.clone(),
+    let services = Services {
+        auth_service: auth_service.clone(),
         task_service,
         project_service,
         comment_service,
         attachment_service,
         team_service,
-        user_repo,
-        event_bus,
-    );
+    };
+
+    let schema = build_schema(services, user_repo, event_bus);
 
     let state = AppState {
         schema,

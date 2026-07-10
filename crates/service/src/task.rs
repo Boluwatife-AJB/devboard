@@ -17,6 +17,17 @@ pub struct TaskService {
     event_bus: EventBus,
 }
 
+#[derive(Debug)]
+pub struct CreateTaskCommand {
+    pub project_id: ProjectId,
+    pub reporter_id: UserId,
+    pub title: String,
+    pub description: Option<String>,
+    pub priority: TaskPriority,
+    pub assignee_id: Option<UserId>,
+    pub due_date: Option<DateTime<Utc>>,
+}
+
 impl TaskService {
     pub fn new(
         task_repo: Arc<dyn TaskRepository>,
@@ -103,36 +114,27 @@ impl TaskService {
     #[tracing::instrument(
       skip(self),
       fields(
-        project_id = %project_id,
-        reporter_id = %reporter_id,
+        project_id = %cmd.project_id,
+        reporter_id = %cmd.reporter_id,
       )
     )]
-    pub async fn create_task(
-        &self,
-        project_id: ProjectId,
-        reporter_id: UserId,
-        title: String,
-        description: Option<String>,
-        priority: TaskPriority,
-        assignee_id: Option<UserId>,
-        due_date: Option<DateTime<Utc>>,
-    ) -> Result<Task, ServiceError> {
-        validate_task_title(&title)?;
+    pub async fn create_task(&self, cmd: CreateTaskCommand) -> Result<Task, ServiceError> {
+        validate_task_title(&cmd.title)?;
 
-        self.require_project_permission(reporter_id, project_id, ProjectRole::Contributor)
+        self.require_project_permission(cmd.reporter_id, cmd.project_id, ProjectRole::Contributor)
             .await?;
 
-        if let Some(aid) = assignee_id {
-            self.validate_assignee(aid, project_id).await?;
+        if let Some(aid) = cmd.assignee_id {
+            self.validate_assignee(aid, cmd.project_id).await?;
         }
 
         let task_number = self
             .project_repo
-            .next_task_number(project_id)
+            .next_task_number(cmd.project_id)
             .await
             .map_err(|err| match err {
                 devboard_repository::RepositoryError::NotFound => ServiceError::ProjectNotFound {
-                    id: project_id.to_string(),
+                    id: cmd.project_id.to_string(),
                 },
                 other => ServiceError::from(other),
             })?;
@@ -143,21 +145,21 @@ impl TaskService {
             .task_repo
             .create(CreateTaskParams {
                 id: task_id,
-                project_id,
+                project_id: cmd.project_id,
                 task_number,
-                title,
-                description,
+                title: cmd.title,
+                description: cmd.description,
                 status: TaskStatus::Backlog,
-                priority,
-                reporter_id,
-                assignee_id,
-                due_date,
+                priority: cmd.priority,
+                reporter_id: cmd.reporter_id,
+                assignee_id: cmd.assignee_id,
+                due_date: cmd.due_date,
             })
             .await
             .map_err(ServiceError::from)?;
 
         self.event_bus.publish_task(TaskEvent::Created {
-            project_id,
+            project_id: cmd.project_id,
             task: task.clone(),
         });
 

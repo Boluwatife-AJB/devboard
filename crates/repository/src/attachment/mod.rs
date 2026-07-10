@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use async_trait::async_trait;
 
 use devboard_db::entities::task_attachment::Model;
@@ -25,10 +27,9 @@ pub trait AttachmentRepository: Send + Sync {
 }
 
 pub(crate) fn model_to_domain(model: Model) -> Result<TaskAttachment, RepositoryError> {
-    let kind =
-        AttachmentKind::from_str(&model.kind).ok_or_else(|| RepositoryError::InvalidData {
-            message: format!("unknown attachment kind: {}", model.kind),
-        })?;
+    let kind = AttachmentKind::from_str(&model.kind).map_err(|_| RepositoryError::InvalidData {
+        message: format!("unknown attachment kind: {}", model.kind),
+    })?;
 
     Ok(TaskAttachment {
         id: AttachmentId::from(model.id),

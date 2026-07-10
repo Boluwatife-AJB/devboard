@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -19,13 +21,17 @@ impl AttachmentKind {
             AttachmentKind::GithubPr => "GithubPr",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Option<Self> {
+impl FromStr for AttachmentKind {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "LINK" => Some(Self::Link),
-            "GITHUB_ISSUE" => Some(Self::GithubIssue),
-            "GITHUB_PR" => Some(Self::GithubPr),
-            _ => None,
+            "LINK" => Ok(Self::Link),
+            "GITHUB_ISSUE" => Ok(Self::GithubIssue),
+            "GITHUB_PR" => Ok(Self::GithubPr),
+            _ => Err(()),
         }
     }
 }

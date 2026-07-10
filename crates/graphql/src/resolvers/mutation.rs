@@ -3,6 +3,7 @@ use async_graphql::{Context, ID, Object};
 use devboard_domain::{
     AttachmentId, AttachmentKind, CommentId, OrganizationId, ProjectId, TaskId, TeamId, UserId,
 };
+use devboard_service::task::CreateTaskCommand;
 
 use crate::{
     context::ContextExt,
@@ -221,15 +222,15 @@ impl MutationRoot {
 
         let task = services
             .task_service
-            .create_task(
+            .create_task(CreateTaskCommand {
                 project_id,
-                auth.user_id,
-                input.title,
-                input.description,
+                reporter_id: auth.user_id,
+                title: input.title,
+                description: input.description,
                 priority,
                 assignee_id,
-                input.due_date,
-            )
+                due_date: input.due_date,
+            })
             .await
             .map_gql_err()?;
 

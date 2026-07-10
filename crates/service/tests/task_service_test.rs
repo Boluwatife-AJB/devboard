@@ -11,6 +11,7 @@ use devboard_domain::{
 use devboard_repository::task::CreateTaskParams;
 use devboard_repository::{ProjectRepository, RepositoryError, TaskRepository, TeamRepository};
 use devboard_service::EventBus;
+use devboard_service::task::CreateTaskCommand;
 
 struct FakeTaskRepo {
     tasks: Mutex<HashMap<TaskId, Task>>,
@@ -239,15 +240,15 @@ impl ProjectRepository for FakeProjectRepo {
     }
 
     async fn update(
-        &self, 
-        id: ProjectId, 
-        name: Option<String>, 
-        description: Option<String>
+        &self,
+        id: ProjectId,
+        name: Option<String>,
+        description: Option<String>,
     ) -> Result<devboard_domain::Project, RepositoryError> {
         let mut projects = self.projects.lock().unwrap();
         let project = projects.get_mut(&id).ok_or(RepositoryError::NotFound)?;
         if let Some(name) = name {
-            project.name = name; 
+            project.name = name;
         }
         if let Some(description) = description {
             project.description = Some(description);
@@ -366,7 +367,7 @@ impl TeamRepository for FakeTeamRepo {
         Ok(m)
     }
 
-    async fn update(&self, id:TeamId, name: String) -> Result<Team, RepositoryError> {
+    async fn update(&self, id: TeamId, name: String) -> Result<Team, RepositoryError> {
         let mut teams = self.teams.lock().unwrap();
         let team = teams.get_mut(&id).ok_or(RepositoryError::NotFound)?;
         team.name = name;
@@ -469,15 +470,15 @@ async fn contributor_can_create_task() {
     });
 
     let task = service
-        .create_task(
+        .create_task(CreateTaskCommand {
             project_id,
-            user_id,
-            "Fix the bug".into(),
-            None,
-            TaskPriority::High,
-            None,
-            None
-        )
+            reporter_id: user_id,
+            title: "Fix the bug".into(),
+            description: None,
+            priority: TaskPriority::High,
+            assignee_id: None,
+            due_date: None,
+        })
         .await
         .expect("contributor should be able to create tasks");
 
@@ -499,15 +500,15 @@ async fn viewer_cannot_create_task() {
     });
 
     let result = service
-        .create_task(
+        .create_task(CreateTaskCommand {
             project_id,
-            user_id,
-            "Sneaky task".into(),
-            None,
-            TaskPriority::Low,
-            None,
-            None,
-        )
+            reporter_id: user_id,
+            title: "Sneaky task".into(),
+            description: None,
+            priority: TaskPriority::Low,
+            assignee_id: None,
+            due_date: None,
+        })
         .await;
 
     assert!(
@@ -526,15 +527,15 @@ async fn unauthenticated_user_cannot_create_task() {
     let stranger = UserId::new();
 
     let result = service
-        .create_task(
+        .create_task(CreateTaskCommand {
             project_id,
-            stranger,
-            "Ghost task".into(),
-            None,
-            TaskPriority::Low,
-            None,
-            None
-        )
+            reporter_id: stranger,
+            title: "Ghost task".into(),
+            description: None,
+            priority: TaskPriority::Low,
+            assignee_id: None,
+            due_date: None,
+        })
         .await;
 
     assert!(matches!(
@@ -555,39 +556,40 @@ async fn task_numbers_increment_sequentially() {
     });
 
     let t1 = service
-        .create_task(
+        .create_task(CreateTaskCommand {
             project_id,
-            user_id,
-            "First".into(),
-            None,
-            TaskPriority::Low,
-            None,
-            None,
-        )
+            reporter_id: user_id,
+            title: "First".into(),
+            description: None,
+            priority: TaskPriority::Low,
+            assignee_id: None,
+            due_date: None,
+        })
         .await
         .unwrap();
+
     let t2 = service
-        .create_task(
+        .create_task(CreateTaskCommand {
             project_id,
-            user_id,
-            "Second".into(),
-            None,
-            TaskPriority::Low,
-            None,
-            None,
-        )
+            reporter_id: user_id,
+            title: "Second".into(),
+            description: None,
+            priority: TaskPriority::Low,
+            assignee_id: None,
+            due_date: None,
+        })
         .await
         .unwrap();
     let t3 = service
-        .create_task(
+        .create_task(CreateTaskCommand {
             project_id,
-            user_id,
-            "Third".into(),
-            None,
-            TaskPriority::Low,
-            None,
-            None,
-        )
+            reporter_id: user_id,
+            title: "Third".into(),
+            description: None,
+            priority: TaskPriority::Low,
+            assignee_id: None,
+            due_date: None,
+        })
         .await
         .unwrap();
 

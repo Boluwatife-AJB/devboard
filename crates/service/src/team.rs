@@ -200,12 +200,13 @@ impl TeamService {
                 id: user_id.to_string(),
             })?;
 
-        if target_membership.role == TeamRole::Owner && caller != user_id {
-            if caller_membership.role != TeamRole::Owner {
-                return Err(ServiceError::Forbidden {
-                    reason: "only a team owner can remove a team owner".into(),
-                });
-            }
+        if target_membership.role == TeamRole::Owner
+            && caller != user_id
+            && caller_membership.role != TeamRole::Owner
+        {
+            return Err(ServiceError::Forbidden {
+                reason: "only a team owner can remove a team owner".into(),
+            });
         }
 
         self.team_repo

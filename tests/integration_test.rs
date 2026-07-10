@@ -10,6 +10,7 @@ use devboard_repository::{
 };
 use devboard_service::{
     AuthService, EventBus, ProjectService, ServiceError, TaskService, auth::RegistrationIntent,
+    task::CreateTaskCommand,
 };
 use migration::{Migrator, MigratorTrait};
 use tokio::sync::OnceCell;
@@ -424,29 +425,29 @@ async fn test_create_project_and_tasks_with_sequential_numbering() {
 
     let t1 = app
         .task_service
-        .create_task(
-            project.id,
-            user_id,
-            "First task".into(),
-            None,
-            TaskPriority::Medium,
-            None,
-            None,
-        )
+        .create_task(CreateTaskCommand {
+            project_id: project.id,
+            reporter_id: user_id,
+            title: "First task".into(),
+            description: None,
+            priority: TaskPriority::Medium,
+            assignee_id: None,
+            due_date: None,
+        })
         .await
         .expect("first task creation should succeed");
 
     let t2 = app
         .task_service
-        .create_task(
-            project.id,
-            user_id,
-            "Second task".into(),
-            None,
-            TaskPriority::High,
-            None,
-            None,
-        )
+        .create_task(CreateTaskCommand {
+            project_id: project.id,
+            reporter_id: user_id,
+            title: "Second task".into(),
+            description: None,
+            priority: TaskPriority::High,
+            assignee_id: None,
+            due_date: None,
+        })
         .await
         .expect("second task creation should succeed");
 
@@ -510,15 +511,15 @@ async fn test_task_status_transitions() {
 
     let task = app
         .task_service
-        .create_task(
-            project.id,
-            user_id,
-            "Test task".into(),
-            None,
-            TaskPriority::Medium,
-            None,
-            None,
-        )
+        .create_task(CreateTaskCommand {
+            project_id: project.id,
+            reporter_id: user_id,
+            title: "Test task".into(),
+            description: None,
+            priority: TaskPriority::Medium,
+            assignee_id: None,
+            due_date: None,
+        })
         .await
         .expect("task creation should succeed");
 
@@ -589,15 +590,15 @@ async fn test_rbac_viewer_cannot_delete_task() {
 
     let task = app
         .task_service
-        .create_task(
-            project.id,
-            owner_id,
-            "Test task".into(),
-            None,
-            TaskPriority::Medium,
-            None,
-            None,
-        )
+        .create_task(CreateTaskCommand {
+            project_id: project.id,
+            reporter_id: owner_id,
+            title: "Test task".into(),
+            description: None,
+            priority: TaskPriority::Medium,
+            assignee_id: None,
+            due_date: None,
+        })
         .await
         .expect("task creation should succeed");
 

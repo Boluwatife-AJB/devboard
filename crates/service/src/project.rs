@@ -189,13 +189,13 @@ impl ProjectService {
             });
         }
 
-        if let Some(ref n) = name {
-            if n.trim().is_empty() {
-                return Err(ServiceError::Validation {
-                    field: "name".into(),
-                    message: "project name cannot be empty".into(),
-                });
-            }
+        if let Some(ref n) = name
+            && n.trim().is_empty()
+        {
+            return Err(ServiceError::Validation {
+                field: "name".into(),
+                message: "project name cannot be empty".into(),
+            });
         }
 
         self.project_repo
