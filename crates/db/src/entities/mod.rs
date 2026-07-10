@@ -3,10 +3,13 @@
 pub mod prelude;
 
 pub mod comment;
+pub mod invitation;
+pub mod org_membership;
 pub mod organization;
 pub mod project;
 pub mod project_membership;
 pub mod task;
+pub mod task_attachment;
 pub mod team;
 pub mod team_membership;
 pub mod user;

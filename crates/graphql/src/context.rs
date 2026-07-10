@@ -1,26 +1,33 @@
 use std::sync::Arc;
 
-use devboard_auth::Claims;
-use devboard_domain::UserId;
-use devboard_service::{AuthService, ProjectService, TaskService};
+use async_graphql::ErrorExtensions;
+use devboard_domain::{OrgMembership, UserId};
+use devboard_service::{
+    AttachmentService, AuthService, CommentService, ProjectService, TaskService, TeamService,
+};
 
 #[derive(Clone)]
 pub struct Services {
     pub auth_service: Arc<AuthService>,
     pub task_service: Arc<TaskService>,
     pub project_service: Arc<ProjectService>,
+    pub team_service: Arc<TeamService>,
+    pub comment_service: Arc<CommentService>,
+    pub attachment_service: Arc<AttachmentService>,
 }
 
 #[derive(Debug, Clone)]
 pub struct AuthenticatedUser {
     pub user_id: UserId,
-    pub claims: Claims,
+    pub org_membership: Option<OrgMembership>,
 }
 
 impl AuthenticatedUser {
-    pub fn from_claims(claims: Claims) -> Result<Self, devboard_auth::AuthError> {
-        let user_id = claims.user_id()?;
-        Ok(Self { user_id, claims })
+    pub fn require_org(&self) -> async_graphql::Result<OrgMembership> {
+        self.org_membership.clone().ok_or_else(|| {
+            async_graphql::Error::new("X-Organization-Id header required")
+                .extend_with(|_, e| e.set("code", "ORG_CONTEXT_REQUIRED"))
+        })
     }
 }
 

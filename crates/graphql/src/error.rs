@@ -13,7 +13,8 @@ pub fn to_graphql_error(err: ServiceError) -> Error {
         | ServiceError::TaskNotFound { .. }
         | ServiceError::CommentNotFound { .. }
         | ServiceError::TeamNotFound { .. }
-        | ServiceError::OrganizationNotFound { .. } => (err.to_string(), "NOT_FOUND"),
+        | ServiceError::OrganizationNotFound { .. }
+        | ServiceError::InvitationNotFound { .. } => (err.to_string(), "NOT_FOUND"),
         ServiceError::Conflict { message } => (message.clone(), "CONFLICT"),
         ServiceError::Validation { field, message } => {
             (format!("{field}: {message}"), "VALIDATION_ERROR")

@@ -27,11 +27,17 @@ pub trait TeamRepository: Send + Sync {
         role: TeamRole,
     ) -> Result<TeamMembership, RepositoryError>;
 
+    async fn update(&self, id: TeamId, name: String) -> Result<Team, RepositoryError>;
+
     async fn get_membership(
         &self,
         team_id: TeamId,
         user_id: UserId,
     ) -> Result<Option<TeamMembership>, RepositoryError>;
+
+    async fn list_members(&self, team_id: TeamId) -> Result<Vec<TeamMembership>, RepositoryError>;
+
+    async fn remove_member(&self, team_id: TeamId, user_id: UserId) -> Result<(), RepositoryError>;
 
     async fn delete(&self, id: TeamId) -> Result<(), RepositoryError>;
 }

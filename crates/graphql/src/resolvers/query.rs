@@ -1,12 +1,13 @@
 use async_graphql::{Context, ID, Object};
-use devboard_domain::{ProjectId, TaskId, TaskStatus};
+use devboard_domain::{ProjectId, TaskId, TaskStatus, TeamId};
 
 use crate::{
     GqlUser,
     context::ContextExt,
     error::IntoGraphQLResult,
     types::{
-        GqlProject, GqlTask, GqlTaskStatus,
+        GqlAttachment, GqlComment, GqlOrgMember, GqlProject, GqlTask, GqlTaskStatus, GqlTeam,
+        GqlTeamMember,
         pagination::{
             ConnectionArgs, PageInfo, TaskConnection, TaskEdge, decode_cursor, encode_cursor,
         },
@@ -49,18 +50,71 @@ impl QueryRoot {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
-        let org_id = auth
-            .claims
-            .organization_id()
-            .map_err(|_| async_graphql::Error::new("invalid token claims"))?;
+        let memberships = auth.require_org()?;
 
         let projects = services
             .project_service
-            .list_projects(org_id, auth.user_id)
+            .list_projects(memberships.organisation_id, auth.user_id)
             .await
             .map_gql_err()?;
 
         Ok(projects.into_iter().map(GqlProject::from).collect())
+    }
+
+    async fn teams(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<GqlTeam>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let membership = auth.require_org()?;
+
+        let teams = services
+            .team_service
+            .list_teams(membership.organisation_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(teams.into_iter().map(|t| GqlTeam { inner: t }).collect())
+    }
+
+    async fn team_members(
+        &self,
+        ctx: &Context<'_>,
+        team_id: ID,
+    ) -> async_graphql::Result<Vec<GqlTeamMember>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let membership = auth.require_org()?;
+        let team_id = parse_id::<TeamId>(&team_id)?;
+
+        let members = services
+            .team_service
+            .list_members(team_id, membership.organisation_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(members
+            .into_iter()
+            .map(|m| GqlTeamMember { inner: m })
+            .collect())
+    }
+
+    async fn org_members(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<GqlOrgMember>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let membership = auth.require_org()?;
+
+        let members = services
+            .team_service
+            .list_org_members(membership.organisation_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(members
+            .into_iter()
+            .map(|m| GqlOrgMember { inner: m })
+            .collect())
     }
 
     async fn tasks(
@@ -185,6 +239,47 @@ impl QueryRoot {
             total_count: edges.len() as i64,
             edges,
         })
+    }
+
+    async fn comments(
+        &self,
+        ctx: &Context<'_>,
+        task_id: ID,
+        project_id: ID,
+    ) -> async_graphql::Result<Vec<GqlComment>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let task_id = parse_id::<TaskId>(&task_id)?;
+        let project_id = parse_id::<ProjectId>(&project_id)?;
+
+        let comments = services
+            .comment_service
+            .list_comments(task_id, project_id, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(comments.into_iter().map(GqlComment::from).collect())
+    }
+    async fn attachments(
+        &self,
+        ctx: &Context<'_>,
+        task_id: ID,
+        project_id: ID,
+    ) -> async_graphql::Result<Vec<GqlAttachment>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let task_id = parse_id::<TaskId>(&task_id)?;
+        let project_id = parse_id::<ProjectId>(&project_id)?;
+
+        let attachments = services
+            .attachment_service
+            .list_attachments(task_id, project_id, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(attachments.into_iter().map(GqlAttachment::from).collect())
     }
 }
 

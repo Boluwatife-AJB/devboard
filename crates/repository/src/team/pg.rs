@@ -101,6 +101,25 @@ impl TeamRepository for PgTeamRepository {
         membership_to_domain(model)
     }
 
+    async fn update(&self, id: TeamId, name: String) -> Result<Team, RepositoryError> {
+        let model = TeamEntity::find_by_id(Uuid::from(id))
+            .one(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?
+            .ok_or(RepositoryError::NotFound)?;
+
+        let mut active: team::ActiveModel = model.into();
+        active.name = ActiveValue::Set(name);
+        active.updated_at = ActiveValue::Set(Utc::now().into());
+
+        let updated = active
+            .update(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        model_to_domain(updated)
+    }
+
     async fn get_membership(
         &self,
         team_id: TeamId,
@@ -114,6 +133,38 @@ impl TeamRepository for PgTeamRepository {
             .map_err(RepositoryError::from_db_err)?;
 
         model.map(membership_to_domain).transpose()
+    }
+
+    #[tracing::instrument(skip(self), fields(team_id = %team_id))]
+    async fn list_members(&self, team_id: TeamId) -> Result<Vec<TeamMembership>, RepositoryError> {
+        use devboard_db::entities::team_membership::Entity as TmEntity;
+
+        let models = TmEntity::find()
+            .filter(team_membership::Column::TeamId.eq(Uuid::from(team_id)))
+            .all(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        models
+            .into_iter()
+            .map(membership_to_domain)
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    #[tracing::instrument(skip(self), fields(team_id = %team_id, user_id = %user_id))]
+    async fn remove_member(&self, team_id: TeamId, user_id: UserId) -> Result<(), RepositoryError> {
+        use devboard_db::entities::team_membership::Entity as TmEntity;
+
+        let result = TmEntity::delete_by_id((Uuid::from(team_id), Uuid::from(user_id)))
+            .exec(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        if result.rows_affected == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        Ok(())
     }
 
     #[tracing::instrument(skip(self), fields(team_id = %id))]

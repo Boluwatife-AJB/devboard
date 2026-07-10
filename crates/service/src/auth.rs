@@ -1,8 +1,14 @@
+use chrono::{Duration, Utc};
 use std::sync::Arc;
 
 use devboard_auth::{JwtService, hash_password, verify_password};
-use devboard_domain::{OrganizationId, PublicUser, UserId};
-use devboard_repository::UserRepository;
+use devboard_domain::{InvitationId, OrgRole, OrgSummary, OrganizationId, PublicUser, UserId};
+use devboard_email::{EmailProvider, templates::InviteEmailData};
+use devboard_repository::{
+    OrganizationRepository, UserRepository,
+    invitation::{InvitationRepository, NewInvitation},
+    org_membership::OrgMembershipRepository,
+};
 
 use crate::error::ServiceError;
 
@@ -10,16 +16,44 @@ use crate::error::ServiceError;
 pub struct AuthPayload {
     pub access_token: String,
     pub user: PublicUser,
+    pub organizations: Vec<OrgSummary>,
+}
+
+#[derive(Debug, Clone)]
+pub enum RegistrationIntent {
+    CreateOrganization { name: String, slug: String },
+    AcceptInvite { token: String },
 }
 
 pub struct AuthService {
     user_repo: Arc<dyn UserRepository>,
+    org_repo: Arc<dyn OrganizationRepository>,
+    org_membership_repo: Arc<dyn OrgMembershipRepository>,
+    invitation_repo: Arc<dyn InvitationRepository>,
+    email_provider: Arc<dyn EmailProvider>,
     jwt: Arc<JwtService>,
+    app_base_url: String,
 }
 
 impl AuthService {
-    pub fn new(user_repo: Arc<dyn UserRepository>, jwt: Arc<JwtService>) -> Self {
-        Self { user_repo, jwt }
+    pub fn new(
+        user_repo: Arc<dyn UserRepository>,
+        org_repo: Arc<dyn OrganizationRepository>,
+        org_membership_repo: Arc<dyn OrgMembershipRepository>,
+        invitation_repo: Arc<dyn InvitationRepository>,
+        email_provider: Arc<dyn EmailProvider>,
+        jwt: Arc<JwtService>,
+        app_base_url: String,
+    ) -> Self {
+        Self {
+            user_repo,
+            org_repo,
+            org_membership_repo,
+            invitation_repo,
+            email_provider,
+            jwt,
+            app_base_url,
+        }
     }
 
     #[tracing::instrument(
@@ -31,18 +65,18 @@ impl AuthService {
         email: String,
         display_name: String,
         password: String,
-        organization_id: OrganizationId,
+        intent: RegistrationIntent,
     ) -> Result<AuthPayload, ServiceError> {
         validate_email(&email)?;
         validate_password(&password)?;
 
         let password_hash = hash_password(password).await.map_err(ServiceError::from)?;
 
-        let id = UserId::new();
+        let user_id = UserId::new();
 
         let user = self
             .user_repo
-            .create(id, email, display_name, password_hash)
+            .create(user_id, email.clone(), display_name, password_hash)
             .await
             .map_err(|err| match err {
                 devboard_repository::RepositoryError::UniqueViolation { .. } => {
@@ -53,15 +87,17 @@ impl AuthService {
                 other => ServiceError::from(other),
             })?;
 
-        let token = self
-            .jwt
-            .issue(user.id, organization_id)
-            .map_err(ServiceError::from)?;
+        match intent {
+            RegistrationIntent::CreateOrganization { name, slug } => {
+                self.handle_create_org(user.id, name, slug).await?;
+            }
+            RegistrationIntent::AcceptInvite { token } => {
+                self.handle_accept_invite_for_new_user(user.id, &email, &token)
+                    .await?;
+            }
+        }
 
-        Ok(AuthPayload {
-            access_token: token,
-            user: PublicUser::from(user),
-        })
+        self.build_auth_payload(user.into()).await
     }
 
     #[tracing::instrument(
@@ -72,7 +108,6 @@ impl AuthService {
         &self,
         email: String,
         password: String,
-        organization_id: OrganizationId,
     ) -> Result<AuthPayload, ServiceError> {
         let user = self
             .user_repo
@@ -85,15 +120,146 @@ impl AuthService {
             .await
             .map_err(|_| ServiceError::InvalidCredentials)?;
 
-        let token = self
-            .jwt
-            .issue(user.id, organization_id)
-            .map_err(ServiceError::from)?;
+        self.build_auth_payload(user.into()).await
+    }
 
-        Ok(AuthPayload {
-            access_token: token,
-            user: PublicUser::from(user),
+    #[tracing::instrument(skip(self), fields(user_id = %user_id))]
+    pub async fn accept_invite_for_existing_user(
+        &self,
+        user_id: UserId,
+        token: &str,
+    ) -> Result<OrgSummary, ServiceError> {
+        let invitation = self.invitation_repo.find_by_token(token).await?.ok_or(
+            ServiceError::InvitationNotFound {
+                id: "invitation".into(),
+            },
+        )?;
+
+        if !invitation.is_valid() {
+            return Err(ServiceError::Conflict {
+                message: "this invitation has expired or already been used".into(),
+            });
+        }
+
+        let user = self
+            .user_repo
+            .find_by_id(user_id)
+            .await?
+            .ok_or(ServiceError::Unauthenticated)?;
+
+        if user.email.to_lowercase() != invitation.email.to_lowercase() {
+            return Err(ServiceError::Forbidden {
+                reason: "this invitation was sent to a different email address".into(),
+            });
+        }
+
+        let membership = self
+            .org_membership_repo
+            .create(user_id, invitation.organization_id, invitation.role)
+            .await
+            .map_err(|err| match err {
+                devboard_repository::RepositoryError::UniqueViolation { .. } => {
+                    ServiceError::Conflict {
+                        message: "you are already a member of this organization".into(),
+                    }
+                }
+                other => ServiceError::from(other),
+            })?;
+
+        self.invitation_repo.mark_accepted(invitation.id).await?;
+
+        let org = self
+            .org_repo
+            .find_by_id(invitation.organization_id)
+            .await?
+            .ok_or_else(|| ServiceError::Internal("org not found".into()))?;
+
+        Ok(OrgSummary {
+            id: org.id,
+            name: org.name,
+            slug: org.slug,
+            role: membership.role,
         })
+    }
+
+    #[tracing::instrument(
+        skip(self),
+        fields(caller_id = %caller_id, email = %email)
+    )]
+    pub async fn create_invite(
+        &self,
+        caller_id: UserId,
+        org_id: OrganizationId,
+        email: String,
+        role: OrgRole,
+    ) -> Result<(), ServiceError> {
+        let caller_membership = self
+            .org_membership_repo
+            .find(caller_id, org_id)
+            .await?
+            .ok_or(ServiceError::Forbidden {
+                reason: "you are not a member of this organization".into(),
+            })?;
+
+        if !caller_membership.role.at_least(OrgRole::OrgAdmin) {
+            return Err(ServiceError::Forbidden {
+                reason: "requires OrgAdmin role to invite members".into(),
+            });
+        }
+
+        if let Some(existing) = self
+            .invitation_repo
+            .find_pending_by_org_and_email(org_id, &email)
+            .await?
+            && existing.is_valid()
+        {
+            return Err(ServiceError::Conflict {
+                message: "a pending invitation for this email already exists".into(),
+            });
+        }
+
+        let token = generate_invite_token();
+        let expires_at = Utc::now() + Duration::hours(48);
+
+        let _invitation = self
+            .invitation_repo
+            .create(NewInvitation {
+                id: InvitationId::new(),
+                org_id,
+                invited_by: caller_id,
+                email: email.clone(),
+                role,
+                token: token.clone(),
+                expires_at,
+            })
+            .await?;
+
+        let org = self
+            .org_repo
+            .find_by_id(org_id)
+            .await?
+            .ok_or_else(|| ServiceError::Internal("org not found".into()))?;
+
+        let inviter = self
+            .user_repo
+            .find_by_id(caller_id)
+            .await?
+            .ok_or_else(|| ServiceError::Internal("user not found".into()))?;
+
+        let invite_url = format!("{}/accept-invite?token={}", self.app_base_url, token);
+
+        self.email_provider
+            .send_invite(InviteEmailData {
+                invitee_email: email,
+                org_name: org.name,
+                inviter_name: inviter.display_name,
+                invite_url,
+                expires_hours: 48,
+            })
+            .await
+            .map_err(|e| ServiceError::Internal(e.to_string()))?;
+
+        Ok(())
     }
 
     pub fn verify_token(&self, token: &str) -> Result<devboard_auth::Claims, ServiceError> {
@@ -107,8 +273,97 @@ impl AuthService {
             .map(PublicUser::from)
             .ok_or_else(|| ServiceError::UserNotFound { id: id.to_string() })
     }
+
+    async fn handle_create_org(
+        &self,
+        user_id: UserId,
+        name: String,
+        slug: String,
+    ) -> Result<(), ServiceError> {
+        validate_org_slug(&slug)?;
+
+        let org_id = OrganizationId::new();
+
+        self.org_repo
+            .create(org_id, name, slug)
+            .await
+            .map_err(|err| match err {
+                devboard_repository::RepositoryError::UniqueViolation { .. } => {
+                    ServiceError::Conflict {
+                        message: "an organization with this slug already exists".into(),
+                    }
+                }
+                other => ServiceError::from(other),
+            })?;
+
+        self.org_membership_repo
+            .create(user_id, org_id, OrgRole::OrgOwner)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn handle_accept_invite_for_new_user(
+        &self,
+        user_id: UserId,
+        user_email: &str,
+        token: &str,
+    ) -> Result<(), ServiceError> {
+        let invitation = self.invitation_repo.find_by_token(token).await?.ok_or(
+            ServiceError::InvitationNotFound {
+                id: "invitation".into(),
+            },
+        )?;
+
+        if !invitation.is_valid() {
+            return Err(ServiceError::Conflict {
+                message: "this invitation has expired or has been used".into(),
+            });
+        }
+
+        if invitation.email.to_lowercase() != user_email.to_lowercase() {
+            return Err(ServiceError::Forbidden {
+                reason: "this invitation was sent to a different email address".into(),
+            });
+        }
+
+        self.org_membership_repo
+            .create(user_id, invitation.organization_id, invitation.role)
+            .await?;
+
+        self.invitation_repo.mark_accepted(invitation.id).await?;
+
+        Ok(())
+    }
+
+    async fn build_auth_payload(&self, user: PublicUser) -> Result<AuthPayload, ServiceError> {
+        let token = self.jwt.issue(user.id).map_err(ServiceError::from)?;
+
+        let organizations = self
+            .org_membership_repo
+            .find_all_for_user(user.id)
+            .await
+            .map_err(ServiceError::from)?;
+
+        Ok(AuthPayload {
+            access_token: token,
+            user,
+            organizations,
+        })
+    }
 }
 
+fn generate_invite_token() -> String {
+    use std::fmt::Write;
+    let mut bytes = [0u8; 32];
+    getrandom::fill(&mut bytes).expect("failed to get random bytes");
+    bytes.iter().fold(String::new(), |mut s, b| {
+        write!(s, "{:02x}", b).unwrap();
+        s
+    })
+}
+
+// Validation helpers
 fn validate_email(email: &str) -> Result<(), ServiceError> {
     if email.is_empty() {
         return Err(ServiceError::Validation {
@@ -132,6 +387,25 @@ fn validate_password(password: &str) -> Result<(), ServiceError> {
         return Err(ServiceError::Validation {
             field: "password".into(),
             message: "password must be at least 8 characters".into(),
+        });
+    }
+    Ok(())
+}
+
+fn validate_org_slug(slug: &str) -> Result<(), ServiceError> {
+    if slug.is_empty() {
+        return Err(ServiceError::Validation {
+            field: "slug".into(),
+            message: "slug is required".into(),
+        });
+    }
+    if !slug
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    {
+        return Err(ServiceError::Validation {
+            field: "slug".into(),
+            message: "slug must contain only lowercase letters and hypens".into(),
         });
     }
     Ok(())

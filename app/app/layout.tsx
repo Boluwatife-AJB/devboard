@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Inter, JetBrains_Mono } from "next/font/google";
-import "./globals.css";
+import AppProvider from "@/components/providers/app-provider";
 import { cn } from "@/lib/utils";
+import "./globals.css";
 
 const geistHeading = Geist({ subsets: ["latin"], variable: "--font-heading" });
 
@@ -42,7 +43,9 @@ export default function RootLayout({
         jetBrainsMono.variable,
       )}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <AppProvider>{children}</AppProvider>
+      </body>
     </html>
   );
 }

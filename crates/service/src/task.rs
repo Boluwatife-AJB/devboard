@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use chrono::{DateTime, Utc};
 use devboard_domain::{
     ProjectId, ProjectRole, Task, TaskId, TaskPriority, TaskStatus, UserId, has_project_permission,
 };
@@ -14,6 +15,17 @@ pub struct TaskService {
     project_repo: Arc<dyn ProjectRepository>,
     team_repo: Arc<dyn TeamRepository>,
     event_bus: EventBus,
+}
+
+#[derive(Debug)]
+pub struct CreateTaskCommand {
+    pub project_id: ProjectId,
+    pub reporter_id: UserId,
+    pub title: String,
+    pub description: Option<String>,
+    pub priority: TaskPriority,
+    pub assignee_id: Option<UserId>,
+    pub due_date: Option<DateTime<Utc>>,
 }
 
 impl TaskService {
@@ -102,31 +114,27 @@ impl TaskService {
     #[tracing::instrument(
       skip(self),
       fields(
-        project_id = %project_id,
-        reporter_id = %reporter_id,
+        project_id = %cmd.project_id,
+        reporter_id = %cmd.reporter_id,
       )
     )]
-    pub async fn create_task(
-        &self,
-        project_id: ProjectId,
-        reporter_id: UserId,
-        title: String,
-        description: Option<String>,
-        priority: TaskPriority,
-        assignee_id: Option<UserId>,
-    ) -> Result<Task, ServiceError> {
-        validate_task_title(&title)?;
+    pub async fn create_task(&self, cmd: CreateTaskCommand) -> Result<Task, ServiceError> {
+        validate_task_title(&cmd.title)?;
 
-        self.require_project_permission(reporter_id, project_id, ProjectRole::Contributor)
+        self.require_project_permission(cmd.reporter_id, cmd.project_id, ProjectRole::Contributor)
             .await?;
+
+        if let Some(aid) = cmd.assignee_id {
+            self.validate_assignee(aid, cmd.project_id).await?;
+        }
 
         let task_number = self
             .project_repo
-            .next_task_number(project_id)
+            .next_task_number(cmd.project_id)
             .await
             .map_err(|err| match err {
                 devboard_repository::RepositoryError::NotFound => ServiceError::ProjectNotFound {
-                    id: project_id.to_string(),
+                    id: cmd.project_id.to_string(),
                 },
                 other => ServiceError::from(other),
             })?;
@@ -137,23 +145,46 @@ impl TaskService {
             .task_repo
             .create(CreateTaskParams {
                 id: task_id,
-                project_id,
+                project_id: cmd.project_id,
                 task_number,
-                title,
-                description,
+                title: cmd.title,
+                description: cmd.description,
                 status: TaskStatus::Backlog,
-                priority,
-                reporter_id,
-                assignee_id,
+                priority: cmd.priority,
+                reporter_id: cmd.reporter_id,
+                assignee_id: cmd.assignee_id,
+                due_date: cmd.due_date,
             })
-            .await?;
+            .await
+            .map_err(ServiceError::from)?;
 
         self.event_bus.publish_task(TaskEvent::Created {
-            project_id,
+            project_id: cmd.project_id,
             task: task.clone(),
         });
 
         Ok(task)
+    }
+
+    pub async fn update_due_date(
+        &self,
+        task_id: TaskId,
+        caller_id: UserId,
+        project_id: ProjectId,
+        due_date: Option<DateTime<Utc>>,
+    ) -> Result<Task, ServiceError> {
+        self.require_project_permission(caller_id, project_id, ProjectRole::Contributor)
+            .await?;
+
+        self.task_repo
+            .update_due_date(task_id, due_date)
+            .await
+            .map_err(|err| match err {
+                devboard_repository::RepositoryError::NotFound => ServiceError::TaskNotFound {
+                    id: task_id.to_string(),
+                },
+                other => ServiceError::from(other),
+            })
     }
 
     #[tracing::instrument(
@@ -273,6 +304,40 @@ impl TaskService {
         if !authorized {
             return Err(ServiceError::Forbidden {
                 reason: format!("requires {:?} access to project {}", required, project_id),
+            });
+        }
+
+        Ok(())
+    }
+
+    async fn validate_assignee(
+        &self,
+        assignee_id: UserId,
+        project_id: ProjectId,
+    ) -> Result<(), ServiceError> {
+        let project = self
+            .project_repo
+            .find_by_id(project_id)
+            .await?
+            .ok_or_else(|| ServiceError::ProjectNotFound {
+                id: project_id.to_string(),
+            })?;
+
+        let (team_m, project_m) = tokio::try_join!(
+            self.team_repo.get_membership(project.team_id, assignee_id),
+            self.project_repo.get_membership(project_id, assignee_id),
+        )?;
+
+        let has_access = devboard_domain::has_project_permission(
+            team_m.as_ref(),
+            project_m.as_ref(),
+            ProjectRole::Viewer,
+        );
+
+        if !has_access {
+            return Err(ServiceError::Validation {
+                field: "assignee_id".into(),
+                message: "assignee must be a project member".into(),
             });
         }
 

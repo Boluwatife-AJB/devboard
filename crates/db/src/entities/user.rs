@@ -3,10 +3,8 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "user")]
-#[serde(rename_all = "camelCase")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
@@ -16,10 +14,68 @@ pub struct Model {
     pub password_hash: String,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
-    #[sea_orm(has_many)]
-    pub comments: HasMany<super::comment::Entity>,
-    #[sea_orm(has_many, via = "project_membership")]
-    pub projects: HasMany<super::project::Entity>,
+}
+
+#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+pub enum Relation {
+    #[sea_orm(has_many = "super::comment::Entity")]
+    Comment,
+    #[sea_orm(has_many = "super::invitation::Entity")]
+    Invitation,
+    #[sea_orm(has_many = "super::org_membership::Entity")]
+    OrgMembership,
+    #[sea_orm(has_many = "super::project_membership::Entity")]
+    ProjectMembership,
+    #[sea_orm(has_many = "super::task_attachment::Entity")]
+    TaskAttachment,
+}
+
+impl Related<super::comment::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Comment.def()
+    }
+}
+
+impl Related<super::invitation::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Invitation.def()
+    }
+}
+
+impl Related<super::org_membership::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OrgMembership.def()
+    }
+}
+
+impl Related<super::project_membership::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ProjectMembership.def()
+    }
+}
+
+impl Related<super::task_attachment::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TaskAttachment.def()
+    }
+}
+
+impl Related<super::organization::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::org_membership::Relation::Organization.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::org_membership::Relation::User.def().rev())
+    }
+}
+
+impl Related<super::project::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::project_membership::Relation::Project.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::project_membership::Relation::User.def().rev())
+    }
 }
 
 impl ActiveModelBehavior for ActiveModel {}

@@ -11,6 +11,8 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
+use devboard_cache::OrgMembershipCache;
+use devboard_email::{EmailProvider, provider::ResendEmailProvider};
 use migration::{Migrator, MigratorTrait};
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -21,11 +23,18 @@ use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitEx
 use devboard_auth::JwtService;
 use devboard_config::AppConfig;
 use devboard_db::{DbConnectOptions, connect};
-use devboard_graphql::{DevBoardSchema, build_schema, context::AuthenticatedUser};
-use devboard_repository::{
-    PgProjectRepository, PgTaskRepository, PgTeamRepository, PgUserRepository,
+use devboard_graphql::{
+    DevBoardSchema, build_schema,
+    context::{AuthenticatedUser, Services},
 };
-use devboard_service::{AuthService, ProjectService, TaskService};
+use devboard_repository::{
+    OrgMembershipRepository, PgAttachmentRepository, PgCommentRepository, PgInvitationRepository,
+    PgOrgMembershipRepository, PgOrganizationRepository, PgProjectRepository, PgTaskRepository,
+    PgTeamRepository, PgUserRepository,
+};
+use devboard_service::{
+    AttachmentService, AuthService, CommentService, ProjectService, TaskService, TeamService,
+};
 
 mod auth_routes;
 use auth_routes::auth_router;
@@ -34,6 +43,8 @@ use auth_routes::auth_router;
 struct AppState {
     schema: DevBoardSchema,
     auth_service: Arc<AuthService>,
+    membership_cache: OrgMembershipCache,
+    org_membership_repo: Arc<dyn OrgMembershipRepository>,
 }
 
 #[tokio::main]
@@ -56,22 +67,46 @@ async fn main() -> anyhow::Result<()> {
         .await
         .context("failed to run database migrations")?;
 
+    let redis = devboard_cache::connect_cache(&config.redis.url)
+        .await
+        .context("failed to connect to Redis")?;
+
+    let membership_cache = devboard_cache::OrgMembershipCache::new(redis);
+
+    let email_provider: Arc<dyn EmailProvider> = Arc::new(ResendEmailProvider::new(
+        &config.email.resend_api_key,
+        config.email.from_address.clone(),
+    ));
+
     let user_repo = Arc::new(PgUserRepository::new(db.clone()));
     let task_repo = Arc::new(PgTaskRepository::new(db.clone()));
     let project_repo = Arc::new(PgProjectRepository::new(db.clone()));
     let team_repo = Arc::new(PgTeamRepository::new(db.clone()));
+    let org_repo = Arc::new(PgOrganizationRepository::new(db.clone()));
+    let org_membership_repo = Arc::new(PgOrgMembershipRepository::new(db.clone()));
+    let invitation_repo = Arc::new(PgInvitationRepository::new(db.clone()));
+    let comment_repo = Arc::new(PgCommentRepository::new(db.clone()));
+    let attachment_repo = Arc::new(PgAttachmentRepository::new(db.clone()));
 
     let jwt_service = Arc::new(JwtService::new(
         &config.auth.jwt_secret,
         config.auth.access_token_minutes,
     ));
 
-    let auth_service = Arc::new(AuthService::new(user_repo.clone(), jwt_service.clone()));
+    let auth_service = Arc::new(AuthService::new(
+        user_repo.clone(),
+        org_repo.clone(),
+        org_membership_repo.clone(),
+        invitation_repo.clone(),
+        email_provider,
+        jwt_service,
+        config.email.app_base_url.clone(),
+    ));
 
     let event_bus = devboard_service::EventBus::new();
 
     let task_service = Arc::new(TaskService::new(
-        task_repo,
+        task_repo.clone(),
         project_repo.clone(),
         team_repo.clone(),
         event_bus.clone(),
@@ -79,17 +114,41 @@ async fn main() -> anyhow::Result<()> {
 
     let project_service = Arc::new(ProjectService::new(project_repo.clone(), team_repo.clone()));
 
-    let schema = build_schema(
-        auth_service.clone(),
+    let team_service = Arc::new(TeamService::new(
+        team_repo.clone(),
+        org_membership_repo.clone(),
+    ));
+
+    let comment_service = Arc::new(CommentService::new(
+        comment_repo,
+        task_repo.clone(),
+        project_repo.clone(),
+        team_repo.clone(),
+    ));
+
+    let attachment_service = Arc::new(AttachmentService::new(
+        attachment_repo,
+        task_repo.clone(),
+        project_repo.clone(),
+        team_repo.clone(),
+    ));
+
+    let services = Services {
+        auth_service: auth_service.clone(),
         task_service,
         project_service,
-        user_repo,
-        event_bus,
-    );
+        comment_service,
+        attachment_service,
+        team_service,
+    };
+
+    let schema = build_schema(services, user_repo, event_bus);
 
     let state = AppState {
         schema,
-        auth_service,
+        auth_service: auth_service.clone(),
+        membership_cache,
+        org_membership_repo: org_membership_repo.clone(),
     };
 
     let app = build_router(state);
@@ -125,7 +184,7 @@ fn build_router(state: AppState) -> Router {
         .route("/health", get(health_handler))
         .layer(middleware::from_fn_with_state(
             state.clone(),
-            jwt_middleware,
+            auth_middleware,
         ))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
@@ -154,16 +213,73 @@ async fn graphql_ws_handler(
     let schema = state.schema.clone();
 
     ws.protocols(ALL_WEBSOCKET_PROTOCOLS)
-        .on_upgrade(move |socket| GraphQLWebSocket::new(socket, schema, protocol).serve())
+        .on_upgrade(move |socket| {
+            GraphQLWebSocket::new(socket, schema, protocol)
+                .on_connection_init(move |payload| ws_connection_init(state, payload))
+                .serve()
+        })
+}
 
-    // ws.on_upgrade(move |socket| {
-    //     async_graphql_axum::GraphQLWebSocket::new(
-    //       socket,
-    //       schema,
-    //       async_graphql::http::WebSocketProtocols::GraphQLWS,
-    //       )
-    //       .serve()
-    // })
+/// Browsers cannot set headers on WebSocket upgrade requests, so subscription
+/// clients pass auth via the graphql-ws `connection_init` payload instead.
+async fn ws_connection_init(
+    state: AppState,
+    payload: serde_json::Value,
+) -> async_graphql::Result<async_graphql::Data> {
+    let mut data = async_graphql::Data::default();
+
+    let user_id = payload
+        .get("Authorization")
+        .and_then(|v| v.as_str())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .and_then(|token| state.auth_service.verify_token(token).ok())
+        .and_then(|claims| claims.user_id().ok());
+
+    let Some(user_id) = user_id else {
+        // Leave the connection unauthenticated; resolvers requiring auth will reject it
+        return Ok(data);
+    };
+
+    let org_id = payload
+        .get("X-Organization-Id")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<uuid::Uuid>().ok())
+        .map(devboard_domain::OrganizationId::from);
+
+    let org_membership = if let Some(org_id) = org_id {
+        let cached = state
+            .membership_cache
+            .get(user_id, org_id)
+            .await
+            .ok()
+            .flatten();
+
+        if let Some(membership) = cached {
+            Some(membership)
+        } else {
+            let db_membership = state
+                .org_membership_repo
+                .find(user_id, org_id)
+                .await
+                .ok()
+                .flatten();
+
+            if let Some(ref m) = db_membership {
+                let _ = state.membership_cache.set(m).await;
+            }
+
+            db_membership
+        }
+    } else {
+        None
+    };
+
+    data.insert(AuthenticatedUser {
+        user_id,
+        org_membership,
+    });
+
+    Ok(data)
 }
 
 async fn playground_handler() -> impl IntoResponse {
@@ -180,34 +296,66 @@ async fn health_handler() -> impl IntoResponse {
     }))
 }
 
-async fn jwt_middleware(
+async fn auth_middleware(
     State(state): State<AppState>,
     mut req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> axum::response::Response {
     use devboard_graphql::context::AuthenticatedUser;
 
-    if let Some(auth_header) = req
+    let user_id = req
         .headers()
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
-    {
-        match state.auth_service.verify_token(auth_header) {
-            Ok(claims) => {
-                if let Ok(auth_user) = AuthenticatedUser::from_claims(claims) {
-                    req.extensions_mut().insert(auth_user);
-                }
-            }
-            Err(err) => {
-                tracing::debug!(
-                  error = %err,
-                  "invalid or expired JWT - continuing unauthenticated"
-                );
-            }
-        }
-    }
+        .and_then(|token| state.auth_service.verify_token(token).ok())
+        .and_then(|claims| claims.user_id().ok());
 
+    let Some(user_id) = user_id else {
+        return next.run(req).await;
+    };
+
+    let org_id = req
+        .headers()
+        .get("x-organization-id")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse::<uuid::Uuid>().ok())
+        .map(devboard_domain::OrganizationId::from);
+
+    let org_membership = if let Some(org_id) = org_id {
+        let cached = state
+            .membership_cache
+            .get(user_id, org_id)
+            .await
+            .ok()
+            .flatten();
+
+        if let Some(membership) = cached {
+            Some(membership)
+        } else {
+            let db_membership = state
+                .org_membership_repo
+                .find(user_id, org_id)
+                .await
+                .ok()
+                .flatten();
+
+            if let Some(ref m) = db_membership {
+                let _ = state.membership_cache.set(m).await;
+            }
+
+            db_membership
+        }
+    } else {
+        None
+    };
+
+    let auth_user = AuthenticatedUser {
+        user_id,
+        org_membership,
+    };
+
+    req.extensions_mut().insert(auth_user);
     next.run(req).await
 }
 

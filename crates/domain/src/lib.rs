@@ -1,6 +1,8 @@
+pub mod attachment;
 pub mod comment;
 pub mod error;
 pub mod ids;
+pub mod invitation;
 pub mod organization;
 pub mod project;
 pub mod rbac;
@@ -8,10 +10,12 @@ pub mod task;
 pub mod team;
 pub mod user;
 
+pub use attachment::{AttachmentKind, TaskAttachment};
 pub use comment::Comment;
 pub use error::DomainError;
 pub use ids::*;
-pub use organization::Organization;
+pub use invitation::*;
+pub use organization::{OrgMembership, OrgRole, OrgSummary, Organization};
 pub use project::*;
 pub use rbac::*;
 pub use task::*;

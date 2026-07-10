@@ -7,17 +7,31 @@ import {
   EyeIcon,
   LockKeyIcon,
 } from "@phosphor-icons/react/dist/ssr";
+import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { getApiErrorMessage, publicApi } from "@/lib/api";
+import {
+  setAccessToken,
+  setOrganizations,
+  setSelectedOrgId,
+} from "@/lib/auth/cookies";
 import { signinSchema } from "@/lib/schema";
-import type { SigninFormData } from "@/types";
+import type { AuthResponse, SigninFormData } from "@/types";
 import { Button } from "../ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
 
+const login = async (data: SigninFormData): Promise<AuthResponse> => {
+  const response = await publicApi.post("/auth/login", data);
+  return response.data;
+};
+
 export default function SignInForm() {
-  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
 
   const {
@@ -33,21 +47,29 @@ export default function SignInForm() {
     },
   });
 
+  const { mutate: loginMutation, isPending: isLoginPending } = useMutation({
+    mutationFn: login,
+    onSuccess: (data) => {
+      setAccessToken(data.access_token);
+      setOrganizations(data.organizations);
+      // Users registered via invite may not belong to any organization yet
+      if (data.organizations.length > 0) {
+        setSelectedOrgId(data.organizations[0].id);
+      }
+      router.push("/");
+      toast.success("Login successful");
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error));
+    },
+  });
+
   const handleShowPassword = () => {
     setShowPassword(!showPassword);
   };
 
-  const onSubmit = async (data: SigninFormData) => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      console.log("Form submitted:", data);
-    } catch (error) {
-      console.error("Signin error:", error);
-    } finally {
-      setIsLoading(false);
-    }
+  const onSubmit = (data: SigninFormData) => {
+    loginMutation(data);
   };
 
   return (
@@ -135,10 +157,10 @@ export default function SignInForm() {
 
           <Button
             type="submit"
-            disabled={isLoading || !isValid}
+            disabled={isLoginPending || !isValid}
             className="w-full bg-devboard-primary text-white hover:bg-devboard-primary/90 font-semibold py-6 rounded-xs transition-colors mt-5"
           >
-            {isLoading ? "Signing in..." : "Sign in"}
+            {isLoginPending ? "Signing in..." : "Sign in"}
           </Button>
 
           <p className="text-center text-sm text-muted-foreground mt-3">

@@ -1,6 +1,6 @@
 use async_graphql::{ID, InputObject};
 
-use crate::types::GqlTaskStatus;
+use crate::types::task::GqlProjectRole;
 
 #[derive(InputObject)]
 pub struct CreateProjectInput {
@@ -15,5 +15,12 @@ pub struct CreateProjectInput {
 pub struct AddProjectMemberInput {
     pub project_id: ID,
     pub user_id: ID,
-    pub role_override: Option<GqlTaskStatus>,
+    pub role_override: Option<GqlProjectRole>,
+}
+
+#[derive(InputObject)]
+pub struct UpdateProjectInput {
+    pub project_id: ID,
+    pub name: Option<String>,
+    pub description: Option<String>,
 }

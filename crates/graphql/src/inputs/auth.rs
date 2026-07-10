@@ -1,4 +1,4 @@
-use async_graphql::{ID, InputObject, SimpleObject};
+use async_graphql::{InputObject, SimpleObject};
 
 use crate::GqlUser;
 
@@ -7,18 +7,24 @@ pub struct RegisterInput {
     pub email: String,
     pub display_name: String,
     pub password: String,
-    pub organization_id: ID,
+    pub create_org: Option<CreateOrgInput>,
+    pub invite_token: Option<String>,
 }
 
 #[derive(InputObject)]
 pub struct LoginInput {
     pub email: String,
     pub password: String,
-    pub organization_id: ID,
 }
 
 #[derive(SimpleObject)]
 pub struct AuthPayloadGql {
     pub access_token: String,
     pub user: GqlUser,
+}
+
+#[derive(InputObject)]
+pub struct CreateOrgInput {
+    pub name: String,
+    pub slug: String,
 }

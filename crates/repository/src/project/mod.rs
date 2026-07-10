@@ -28,6 +28,13 @@ pub trait ProjectRepository: Send + Sync {
         description: Option<String>,
     ) -> Result<Project, RepositoryError>;
 
+    async fn update(
+        &self,
+        id: ProjectId,
+        name: Option<String>,
+        description: Option<String>,
+    ) -> Result<Project, RepositoryError>;
+
     async fn next_task_number(&self, project_id: ProjectId) -> Result<i32, RepositoryError>;
 
     async fn add_member(

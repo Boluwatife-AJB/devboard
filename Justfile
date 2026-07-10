@@ -70,7 +70,7 @@ generate-entities:
     -u {{database_url}} \
     -o crates/db/src/entities \
     --with-serde both \
-    --date-time-crate-chrono
+    --date-time-crate chrono
 
 run: 
     DATABASE_URL="{{database_url}}" JWT_SECRET="{{jwt_secret}}" cargo run

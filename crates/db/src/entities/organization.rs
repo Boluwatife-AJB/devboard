@@ -3,10 +3,8 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "organization")]
-#[serde(rename_all = "camelCase")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
@@ -15,10 +13,51 @@ pub struct Model {
     pub slug: String,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
-    #[sea_orm(has_many)]
-    pub projects: HasMany<super::project::Entity>,
-    #[sea_orm(has_many)]
-    pub teams: HasMany<super::team::Entity>,
+}
+
+#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+pub enum Relation {
+    #[sea_orm(has_many = "super::invitation::Entity")]
+    Invitation,
+    #[sea_orm(has_many = "super::org_membership::Entity")]
+    OrgMembership,
+    #[sea_orm(has_many = "super::project::Entity")]
+    Project,
+    #[sea_orm(has_many = "super::team::Entity")]
+    Team,
+}
+
+impl Related<super::invitation::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Invitation.def()
+    }
+}
+
+impl Related<super::org_membership::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OrgMembership.def()
+    }
+}
+
+impl Related<super::project::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Project.def()
+    }
+}
+
+impl Related<super::team::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Team.def()
+    }
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::org_membership::Relation::User.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::org_membership::Relation::Organization.def().rev())
+    }
 }
 
 impl ActiveModelBehavior for ActiveModel {}
