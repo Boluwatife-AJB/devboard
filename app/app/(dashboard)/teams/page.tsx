@@ -60,7 +60,9 @@ export default function Teams() {
           </h2>
           <p className="text-sm text-white">
             {teams
-              ? `${teams.length} team${teams.length === 1 ? "" : "s"} in your organization.`
+              ? `${teams.length} team${
+                  teams.length === 1 ? "" : "s"
+                } in your organization.`
               : "Loading your organization's teams..."}
           </p>
         </div>
@@ -117,7 +119,7 @@ export default function Teams() {
       {teams && teams.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {teams.map((team) => (
-            <Card key={team.id} className="rounded-xs py-8!">
+            <Card key={team.id} className="rounded-xs !py-8!">
               <CardHeader className="mx-6 px-0!">
                 <CardTitle className="flex items-center gap-3">
                   <div className="flex items-center justify-center size-10 rounded-xs bg-[#4D8EFF4D]">

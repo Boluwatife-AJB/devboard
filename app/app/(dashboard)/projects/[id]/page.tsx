@@ -178,7 +178,7 @@ export default function ProjectDetails() {
               <KanbanBoard
                 id={column.id}
                 key={column.id}
-                className="w-72 shrink-0 border-dashed border bg-[#1C1B1B4D] max-h-[calc(100vh-15rem)]"
+                className="w-72 shrink-0 border-dashed border bg-[#1C1B1B4D] h-full max-h-[calc(100vh-20rem)]"
               >
                 <KanbanHeader className="border-0 py-4">
                   <div className="flex items-center gap-2">

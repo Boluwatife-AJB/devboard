@@ -47,24 +47,22 @@ export default function SignInForm() {
     },
   });
 
-  const { mutateAsync: loginMutation, isPending: isLoginPending } = useMutation(
-    {
-      mutationFn: login,
-      onSuccess: (data) => {
-        setAccessToken(data.access_token);
-        setOrganizations(data.organizations);
-        // Users registered via invite may not belong to any organization yet
-        if (data.organizations.length > 0) {
-          setSelectedOrgId(data.organizations[0].id);
-        }
-        router.push("/");
-        toast.success("Login successful");
-      },
-      onError: (error) => {
-        toast.error(getApiErrorMessage(error));
-      },
+  const { mutate: loginMutation, isPending: isLoginPending } = useMutation({
+    mutationFn: login,
+    onSuccess: (data) => {
+      setAccessToken(data.access_token);
+      setOrganizations(data.organizations);
+      // Users registered via invite may not belong to any organization yet
+      if (data.organizations.length > 0) {
+        setSelectedOrgId(data.organizations[0].id);
+      }
+      router.push("/");
+      toast.success("Login successful");
     },
-  );
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error));
+    },
+  });
 
   const handleShowPassword = () => {
     setShowPassword(!showPassword);

@@ -66,11 +66,11 @@ privateApi.interceptors.request.use(
 
 // For 401 errors, redirect to the sign-in page
 privateApi.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
-    logout();
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      logout();
+    }
     return Promise.reject(error);
   },
 );

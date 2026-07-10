@@ -22,6 +22,19 @@ impl InviteEmailData {
     }
 
     pub fn html_body(&self) -> String {
+        fn esc(s: &str) -> String {
+            s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&#39;")
+                .replace("'", "&apos;")
+                .replace('"', "&quot;")
+        }
+
+        let org = esc(&self.org_name);
+        let inviter = esc(&self.inviter_name);
+        let url = esc(&self.invite_url);
+
         format!(
             r#"<!DOCTYPE html>
         <html>
@@ -38,9 +51,9 @@ impl InviteEmailData {
         </p>
         </body>
         </html>"#,
-            org = self.org_name,
-            inviter = self.inviter_name,
-            url = self.invite_url,
+            org = org,
+            inviter = inviter,
+            url = url,
             hours = self.expires_hours
         )
     }

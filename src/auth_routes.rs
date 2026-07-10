@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    Extension, Json, Router, extract::State, http::StatusCode, response::IntoResponse,
-    routing::post,
+    Extension, Json, Router, extract::{FromRef, State}, http::StatusCode, response::IntoResponse, routing::post,
 };
 use devboard_domain::{OrgRole, OrganizationId};
 use devboard_graphql::context::AuthenticatedUser;
@@ -11,6 +10,12 @@ use serde::{Deserialize, Serialize};
 use devboard_service::{AuthPayload, AuthService, ServiceError, auth::RegistrationIntent};
 
 use crate::AppState;
+
+impl FromRef<AppState> for Arc<AuthService> {
+    fn from_ref(state: &AppState) -> Self {
+        state.auth_service.clone()
+    }
+}
 
 #[derive(Deserialize)]
 pub struct RegisterRequest {
@@ -69,13 +74,12 @@ pub struct ErrorResponse {
     pub code: String,
 }
 
-pub fn auth_router(auth_service: Arc<AuthService>) -> Router<AppState> {
+pub fn auth_router() -> Router<AppState> {
     Router::new()
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
         .route("/auth/invite", post(create_invite))
         .route("/auth/accept-invite", post(accept_invite_existing))
-        .with_state(auth_service)
 }
 
 async fn register(
@@ -125,9 +129,12 @@ async fn login(
 
 async fn create_invite(
     State(auth_service): State<Arc<AuthService>>,
-    Extension(auth_user): Extension<AuthenticatedUser>,
+    auth_user: Option<Extension<AuthenticatedUser>>,
     Json(body): Json<InviteRequest>,
 ) -> impl IntoResponse {
+    let Some(Extension(auth_user)) = auth_user else {
+        return service_error_to_response(ServiceError::Unauthenticated).into_response();
+    };
     let org_id = match body.org_id.parse::<uuid::Uuid>() {
         Ok(id) => OrganizationId::from(id),
         Err(_) => {
@@ -172,16 +179,19 @@ async fn create_invite(
 
 async fn accept_invite_existing(
     State(auth_service): State<Arc<AuthService>>,
-    Extension(auth_user): Extension<AuthenticatedUser>,
+    auth_user: Option<Extension<AuthenticatedUser>>,
     Json(body): Json<serde_json::Value>,
 ) -> impl IntoResponse {
+    let Some(Extension(auth_user)) = auth_user else {
+        return service_error_to_response(ServiceError::Unauthenticated).into_response();
+    };
     let token = match body["token"].as_str() {
         Some(t) => t.to_string(),
         None => {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse {
-                    error: "token is require".into(),
+                    error: "token is required".into(),
                     code: "MISSING_TOKEN".into(),
                 }),
             )

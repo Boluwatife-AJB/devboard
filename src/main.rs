@@ -177,7 +177,7 @@ fn build_router(state: AppState) -> Router {
         .allow_origin(Any);
 
     Router::new()
-        .merge(auth_router(state.auth_service.clone()))
+        .merge(auth_router())
         .route("/graphql", post(graphql_handler))
         .route("/graphql/ws", get(graphql_ws_handler))
         .route("/playground", get(playground_handler))
