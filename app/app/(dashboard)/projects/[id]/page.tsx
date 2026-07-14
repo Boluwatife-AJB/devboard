@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  ChatTextIcon,
   GearIcon,
+  PaperclipIcon,
   PlusIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react/dist/ssr";
@@ -252,7 +254,18 @@ export default function ProjectDetails() {
                         </Badge>
                       </div>
 
-                      <div className="flex items-center justify-end">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 text-[#C2C6D6]">
+                          <span className="flex items-center gap-1 text-xs">
+                            <ChatTextIcon className="size-3.5" />
+                            {item.task.commentCount}
+                          </span>
+                          <span className="flex items-center gap-1 text-xs">
+                            <PaperclipIcon className="size-3.5" />
+                            {item.task.attachmentCount}
+                          </span>
+                        </div>
+
                         {item.task.assignee && (
                           <Avatar className="size-6 shrink-0 ring-2 ring-[#131313]">
                             <AvatarFallback className="text-[10px]">

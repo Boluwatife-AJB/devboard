@@ -1,7 +1,10 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use chrono::Utc;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    QuerySelect,
 };
 
 use devboard_db::entities::comment::{self, Entity as CommentEntity};
@@ -42,6 +45,32 @@ impl CommentRepository for PgCommentRepository {
             .map_err(RepositoryError::from_db_err)?;
 
         models.into_iter().map(model_to_domain).collect()
+    }
+
+    #[tracing::instrument(skip(self), fields(count = task_ids.len()))]
+    async fn count_by_task_ids(
+        &self,
+        task_ids: Vec<TaskId>,
+    ) -> Result<HashMap<TaskId, i64>, RepositoryError> {
+        if task_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let uuids: Vec<Uuid> = task_ids.iter().copied().map(Uuid::from).collect();
+        let task_id_rows: Vec<Uuid> = CommentEntity::find()
+            .filter(comment::Column::TaskId.is_in(uuids))
+            .select_only()
+            .column(comment::Column::TaskId)
+            .into_tuple()
+            .all(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        let mut counts = HashMap::new();
+        for task_id in task_id_rows {
+            *counts.entry(TaskId::from(task_id)).or_insert(0) += 1;
+        }
+        Ok(counts)
     }
 
     #[tracing::instrument(skip(self, body), fields(task_id = %task_id, author_id = %author_id))]

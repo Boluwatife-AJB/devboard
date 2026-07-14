@@ -26,6 +26,8 @@ const TASK_FIELDS = `
     createdAt
   }
   reporterId
+  commentCount
+  attachmentCount
   createdAt
   updatedAt
 `;

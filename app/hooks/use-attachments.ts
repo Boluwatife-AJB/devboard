@@ -49,6 +49,10 @@ export function useAddAttachment(projectId: string) {
       queryClient.invalidateQueries({
         queryKey: attachmentKeys.list(projectId, attachment.taskId),
       });
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) });
+      queryClient.invalidateQueries({
+        queryKey: taskKeys.detail(projectId, attachment.taskId),
+      });
     },
   });
 }
@@ -70,6 +74,10 @@ export function useRemoveAttachment(projectId: string, taskId: string) {
         (attachments) =>
           attachments?.filter((attachment) => attachment.id !== attachmentId),
       );
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) });
+      queryClient.invalidateQueries({
+        queryKey: taskKeys.detail(projectId, taskId),
+      });
     },
   });
 }

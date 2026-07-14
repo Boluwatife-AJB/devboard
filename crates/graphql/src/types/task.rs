@@ -2,7 +2,9 @@ use async_graphql::{Context, Enum, ID, Object, dataloader::DataLoader};
 use chrono::{DateTime, Utc};
 use devboard_domain::{ProjectRole, Task, TaskPriority, TaskStatus, TeamRole};
 
-use crate::{GqlUser, UserLoader};
+use crate::{
+    AttachmentCountLoader, CommentCountLoader, GqlUser, UserLoader,
+};
 
 #[derive(Enum, Copy, Clone, Eq, PartialEq)]
 pub enum GqlTaskStatus {
@@ -158,6 +160,18 @@ impl GqlTask {
         let user = loader.load_one(assignee_id).await?;
 
         Ok(user.map(GqlUser::from))
+    }
+
+    async fn comment_count(&self, ctx: &Context<'_>) -> async_graphql::Result<i32> {
+        let loader = ctx.data::<DataLoader<CommentCountLoader>>()?;
+        let count = loader.load_one(self.inner.id).await?.unwrap_or(0);
+        Ok(count as i32)
+    }
+
+    async fn attachment_count(&self, ctx: &Context<'_>) -> async_graphql::Result<i32> {
+        let loader = ctx.data::<DataLoader<AttachmentCountLoader>>()?;
+        let count = loader.load_one(self.inner.id).await?.unwrap_or(0);
+        Ok(count as i32)
     }
 
     async fn reporter_id(&self) -> ID {

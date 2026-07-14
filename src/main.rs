@@ -120,14 +120,14 @@ async fn main() -> anyhow::Result<()> {
     ));
 
     let comment_service = Arc::new(CommentService::new(
-        comment_repo,
+        comment_repo.clone(),
         task_repo.clone(),
         project_repo.clone(),
         team_repo.clone(),
     ));
 
     let attachment_service = Arc::new(AttachmentService::new(
-        attachment_repo,
+        attachment_repo.clone(),
         task_repo.clone(),
         project_repo.clone(),
         team_repo.clone(),
@@ -142,7 +142,13 @@ async fn main() -> anyhow::Result<()> {
         team_service,
     };
 
-    let schema = build_schema(services, user_repo, event_bus);
+    let schema = build_schema(
+        services,
+        user_repo,
+        comment_repo,
+        attachment_repo,
+        event_bus,
+    );
 
     let state = AppState {
         schema,

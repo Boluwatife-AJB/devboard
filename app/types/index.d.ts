@@ -126,6 +126,8 @@ interface ApiTask {
   dueDate: string | null;
   assignee: ApiUser | null;
   reporterId: string;
+  commentCount: number;
+  attachmentCount: number;
   createdAt: string;
   updatedAt: string;
 }
