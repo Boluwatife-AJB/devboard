@@ -18,6 +18,7 @@ const TASK_FIELDS = `
   description
   status
   priority
+  dueDate
   assignee {
     id
     email
@@ -27,6 +28,16 @@ const TASK_FIELDS = `
   reporterId
   createdAt
   updatedAt
+`;
+
+const ATTACHMENT_FIELDS = `
+  id
+  taskId
+  addedBy
+  kind
+  label
+  url
+  createdAt
 `;
 
 const TEAM_FIELDS = `
@@ -151,6 +162,28 @@ export const CREATE_TASK_MUTATION = `
   mutation CreateTask($input: CreateTaskInput!) {
     createTask(input: $input) {
       ${TASK_FIELDS}
+    }
+  }
+`;
+
+export const ADD_ATTACHMENT_MUTATION = `
+  mutation AddAttachment($input: AddAttachmentInput!) {
+    addAttachment(input: $input) {
+      ${ATTACHMENT_FIELDS}
+    }
+  }
+`;
+
+export const REMOVE_ATTACHMENT_MUTATION = `
+  mutation RemoveAttachment($attachmentId: ID!, $projectId: ID!) {
+    removeAttachment(attachmentId: $attachmentId, projectId: $projectId)
+  }
+`;
+
+export const ATTACHMENTS_QUERY = `
+  query Attachments($taskId: ID!, $projectId: ID!) {
+    attachments(taskId: $taskId, projectId: $projectId) {
+      ${ATTACHMENT_FIELDS}
     }
   }
 `;

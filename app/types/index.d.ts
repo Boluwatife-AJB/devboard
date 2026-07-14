@@ -63,6 +63,8 @@ type TaskStatus =
 
 type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
+type AttachmentKind = "LINK" | "GITHUB_ISSUE" | "GITHUB_PR";
+
 type TaskEventKind = "CREATED" | "UPDATED" | "DELETED";
 
 type TeamRole = "OWNER" | "ADMIN" | "MEMBER";
@@ -121,10 +123,21 @@ interface ApiTask {
   description: string | null;
   status: TaskStatus;
   priority: TaskPriority;
+  dueDate: string | null;
   assignee: ApiUser | null;
   reporterId: string;
   createdAt: string;
   updatedAt: string;
+}
+
+interface ApiAttachment {
+  id: string;
+  taskId: string;
+  addedBy: string;
+  kind: AttachmentKind;
+  label: string;
+  url: string;
+  createdAt: string;
 }
 
 interface TaskUpdatedEvent {
@@ -154,6 +167,15 @@ interface CreateTaskInput {
   description?: string | null;
   priority?: TaskPriority | null;
   assigneeId?: string | null;
+  dueDate?: string | null;
+}
+
+interface AddAttachmentInput {
+  taskId: string;
+  projectId: string;
+  kind: AttachmentKind;
+  label: string;
+  url: string;
 }
 
 interface UpdateTaskStatusInput {

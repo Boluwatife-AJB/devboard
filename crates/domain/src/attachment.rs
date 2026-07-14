@@ -18,7 +18,7 @@ impl AttachmentKind {
         match self {
             AttachmentKind::Link => "LINK",
             AttachmentKind::GithubIssue => "GITHUB_ISSUE",
-            AttachmentKind::GithubPr => "GithubPr",
+            AttachmentKind::GithubPr => "GITHUB_PR",
         }
     }
 }

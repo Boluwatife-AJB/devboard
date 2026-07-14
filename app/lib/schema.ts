@@ -45,10 +45,35 @@ export const createProjectSchema = z.object({
   description: z.string().optional(),
 });
 
+export const attachmentKindSchema = z.enum([
+  "LINK",
+  "GITHUB_ISSUE",
+  "GITHUB_PR",
+]);
+
+export const taskAttachmentSchema = z.object({
+  kind: attachmentKindSchema,
+  label: z
+    .string()
+    .min(1, "Label is required")
+    .max(255, "Label must be 255 characters or fewer"),
+  url: z
+    .string()
+    .min(1, "URL is required")
+    .max(2048, "URL must be 2048 characters or fewer")
+    .refine(
+      (value) => value.startsWith("http://") || value.startsWith("https://"),
+      "URL must start with http:// or https://",
+    ),
+});
+
 export const createTaskSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]),
+  assigneeId: z.string().optional(),
+  dueDate: z.string().optional(),
+  attachments: z.array(taskAttachmentSchema).default([]),
 });
 
 export const createTeamSchema = z.object({

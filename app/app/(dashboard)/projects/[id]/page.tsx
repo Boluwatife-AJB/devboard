@@ -155,6 +155,7 @@ export default function ProjectDetails() {
           </Link>
           <CreateTaskDialog
             projectId={projectId}
+            teamId={project?.teamId ?? ""}
             trigger={
               <Button className="h-11 px-4 rounded-xs">
                 <PlusIcon data-icon="inline-start" />
