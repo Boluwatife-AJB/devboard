@@ -21,8 +21,7 @@ pub fn build_schema(
     event_bus: EventBus,
 ) -> DevBoardSchema {
     let user_loader = DataLoader::new(UserLoader::new(user_repo), tokio::spawn);
-    let comment_count_loader =
-        DataLoader::new(CommentCountLoader::new(comment_repo), tokio::spawn);
+    let comment_count_loader = DataLoader::new(CommentCountLoader::new(comment_repo), tokio::spawn);
     let attachment_count_loader =
         DataLoader::new(AttachmentCountLoader::new(attachment_repo), tokio::spawn);
 

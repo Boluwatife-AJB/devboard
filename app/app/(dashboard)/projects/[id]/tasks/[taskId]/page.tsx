@@ -336,9 +336,9 @@ export default function TaskDetailsPage() {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-[#8A8A8A]">Updated</p>
+                    <p className="text-xs text-[#8A8A8A]">Due Date</p>
                     <p className="text-sm text-white">
-                      {formatDate(task.updatedAt)}
+                      {task.dueDate ? formatDate(task.dueDate) : "No due date"}
                     </p>
                   </div>
                 </div>

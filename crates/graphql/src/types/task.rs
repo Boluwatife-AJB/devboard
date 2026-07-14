@@ -2,9 +2,7 @@ use async_graphql::{Context, Enum, ID, Object, dataloader::DataLoader};
 use chrono::{DateTime, Utc};
 use devboard_domain::{ProjectRole, Task, TaskPriority, TaskStatus, TeamRole};
 
-use crate::{
-    AttachmentCountLoader, CommentCountLoader, GqlUser, UserLoader,
-};
+use crate::{AttachmentCountLoader, CommentCountLoader, GqlUser, UserLoader};
 
 #[derive(Enum, Copy, Clone, Eq, PartialEq)]
 pub enum GqlTaskStatus {
