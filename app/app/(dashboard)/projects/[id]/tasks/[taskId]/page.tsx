@@ -10,6 +10,8 @@ import {
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { TaskAttachments } from "@/components/projects/task-attachments";
+import { TaskComments } from "@/components/projects/task-comments";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -251,9 +253,13 @@ export default function TaskDetailsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            <TaskComments projectId={projectId} taskId={taskId} />
           </div>
 
           <div className="space-y-8">
+            <TaskAttachments projectId={projectId} taskId={taskId} />
+
             <Card className="gap-0 rounded-xs border border-[#2A2A2A] bg-[#131313] py-0 ring-0">
               <CardContent className="space-y-5 p-5">
                 <h2 className="text-sm font-semibold text-white">Attributes</h2>

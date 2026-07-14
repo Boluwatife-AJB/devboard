@@ -4,6 +4,7 @@ import type { Icon } from "@phosphor-icons/react";
 import type { z } from "zod";
 import type {
   addProjectMemberSchema,
+  createCommentSchema,
   createProjectSchema,
   createTaskSchema,
   createTeamSchema,
@@ -17,6 +18,7 @@ type SigninFormData = z.infer<typeof signinSchema>;
 type CreateProjectFormData = z.infer<typeof createProjectSchema>;
 type CreateTaskFormData = z.infer<typeof createTaskSchema>;
 type CreateTeamFormData = z.infer<typeof createTeamSchema>;
+type CreateCommentFormData = z.infer<typeof createCommentSchema>;
 type UpdateProjectFormData = z.infer<typeof updateProjectSchema>;
 type AddProjectMemberFormData = z.infer<typeof addProjectMemberSchema>;
 
@@ -142,6 +144,17 @@ interface ApiAttachment {
   createdAt: string;
 }
 
+interface ApiComment {
+  id: string;
+  taskId: string;
+  authorId: string;
+  body: string;
+  isEdited: boolean;
+  createdAt: string;
+  editedAt: string | null;
+  author: ApiUser | null;
+}
+
 interface TaskUpdatedEvent {
   kind: TaskEventKind;
   task: ApiTask | null;
@@ -178,6 +191,12 @@ interface AddAttachmentInput {
   kind: AttachmentKind;
   label: string;
   url: string;
+}
+
+interface CreateCommentInput {
+  taskId: string;
+  projectId: string;
+  body: string;
 }
 
 interface UpdateTaskStatusInput {

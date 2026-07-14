@@ -57,6 +57,27 @@ const USER_FIELDS = `
   createdAt
 `;
 
+const COMMENT_FIELDS = `
+  id
+  taskId
+  authorId
+  body
+  isEdited
+  createdAt
+  editedAt
+  author {
+    ${USER_FIELDS}
+  }
+`;
+
+export const ME_QUERY = `
+  query Me {
+    me {
+      ${USER_FIELDS}
+    }
+  }
+`;
+
 export const TEAMS_QUERY = `
   query Teams {
     teams {
@@ -187,6 +208,28 @@ export const ATTACHMENTS_QUERY = `
     attachments(taskId: $taskId, projectId: $projectId) {
       ${ATTACHMENT_FIELDS}
     }
+  }
+`;
+
+export const COMMENTS_QUERY = `
+  query Comments($taskId: ID!, $projectId: ID!) {
+    comments(taskId: $taskId, projectId: $projectId) {
+      ${COMMENT_FIELDS}
+    }
+  }
+`;
+
+export const CREATE_COMMENT_MUTATION = `
+  mutation CreateComment($input: CreateCommentInput!) {
+    createComment(input: $input) {
+      ${COMMENT_FIELDS}
+    }
+  }
+`;
+
+export const DELETE_COMMENT_MUTATION = `
+  mutation DeleteComment($commentId: ID!, $projectId: ID!) {
+    deleteComment(commentId: $commentId, projectId: $projectId)
   }
 `;
 

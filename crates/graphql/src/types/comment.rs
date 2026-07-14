@@ -1,6 +1,8 @@
-use async_graphql::{ID, Object};
+use async_graphql::{Context, ID, Object, dataloader::DataLoader};
 use chrono::{DateTime, Utc};
 use devboard_domain::Comment;
+
+use crate::{GqlUser, UserLoader};
 
 pub struct GqlComment {
     pub inner: Comment,
@@ -18,6 +20,12 @@ impl GqlComment {
 
     async fn author_id(&self) -> ID {
         ID(self.inner.author_id.to_string())
+    }
+
+    async fn author(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<GqlUser>> {
+        let loader = ctx.data::<DataLoader<UserLoader>>()?;
+        let user = loader.load_one(self.inner.author_id).await?;
+        Ok(user.map(GqlUser::from))
     }
 
     async fn body(&self) -> &str {

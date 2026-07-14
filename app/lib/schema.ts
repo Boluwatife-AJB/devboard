@@ -76,6 +76,14 @@ export const createTaskSchema = z.object({
   attachments: z.array(taskAttachmentSchema).default([]),
 });
 
+export const createCommentSchema = z.object({
+  body: z
+    .string()
+    .trim()
+    .min(1, "Comment cannot be empty")
+    .max(50000, "Comment is too long"),
+});
+
 export const createTeamSchema = z.object({
   name: z
     .string()
