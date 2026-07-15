@@ -6,9 +6,10 @@ members = [
   "crates/db",
   "crates/domain", 
   "crates/email",
-  "crates/graphql",
+  "crates/graphql", "crates/presence",
   "crates/repository",
   "crates/service",
+  "crates/presence",
   "migration"
 ]
 resolver = "2"
@@ -32,6 +33,7 @@ devboard-service = { path = "crates/service" }
 devboard-domain = { path = "crates/domain" }
 devboard-email = { path = "crates/email" }
 devboard-cache = { path = "crates/cache" }
+devboard-presence = { path = "crates/presence" }
 migration = { path = "migration" }
 axum = { workspace = true }
 anyhow = { workspace = true }
