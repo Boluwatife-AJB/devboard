@@ -2,8 +2,14 @@
 
 pub mod prelude;
 
+pub mod channel;
+pub mod channel_member;
 pub mod comment;
+pub mod dm_message;
+pub mod dm_thread;
 pub mod invitation;
+pub mod message;
+pub mod message_reaction;
 pub mod org_membership;
 pub mod organization;
 pub mod project;

@@ -18,10 +18,20 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::channel::Entity")]
+    Channel,
+    #[sea_orm(has_many = "super::channel_member::Entity")]
+    ChannelMember,
     #[sea_orm(has_many = "super::comment::Entity")]
     Comment,
+    #[sea_orm(has_many = "super::dm_message::Entity")]
+    DmMessage,
     #[sea_orm(has_many = "super::invitation::Entity")]
     Invitation,
+    #[sea_orm(has_many = "super::message::Entity")]
+    Message,
+    #[sea_orm(has_many = "super::message_reaction::Entity")]
+    MessageReaction,
     #[sea_orm(has_many = "super::org_membership::Entity")]
     OrgMembership,
     #[sea_orm(has_many = "super::project_membership::Entity")]
@@ -30,15 +40,39 @@ pub enum Relation {
     TaskAttachment,
 }
 
+impl Related<super::channel_member::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ChannelMember.def()
+    }
+}
+
 impl Related<super::comment::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Comment.def()
     }
 }
 
+impl Related<super::dm_message::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::DmMessage.def()
+    }
+}
+
 impl Related<super::invitation::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Invitation.def()
+    }
+}
+
+impl Related<super::message::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Message.def()
+    }
+}
+
+impl Related<super::message_reaction::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MessageReaction.def()
     }
 }
 
@@ -57,6 +91,15 @@ impl Related<super::project_membership::Entity> for Entity {
 impl Related<super::task_attachment::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TaskAttachment.def()
+    }
+}
+
+impl Related<super::channel::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::channel_member::Relation::Channel.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::channel_member::Relation::User.def().rev())
     }
 }
 
