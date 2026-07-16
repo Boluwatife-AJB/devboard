@@ -9,7 +9,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     #[sea_orm(unique_key = "idx_channel_org_slug_unique")]
-    pub organisation_id: Uuid,
+    pub organization_id: Uuid,
     pub created_by: Uuid,
     #[sea_orm(unique_key = "idx_channel_org_slug_unique")]
     pub slug: String,
@@ -29,7 +29,7 @@ pub enum Relation {
     Message,
     #[sea_orm(
         belongs_to = "super::organization::Entity",
-        from = "Column::OrganisationId",
+        from = "Column::OrganizationId",
         to = "super::organization::Column::Id",
         on_update = "NoAction",
         on_delete = "Cascade"

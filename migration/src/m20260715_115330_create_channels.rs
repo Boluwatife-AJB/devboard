@@ -16,7 +16,7 @@ impl MigrationTrait for Migration {
                     .table(Channel::Table)
                     .if_not_exists()
                     .col(ColumnDef::new(Channel::Id).uuid().not_null().primary_key())
-                    .col(ColumnDef::new(Channel::OrganisationId).uuid().not_null())
+                    .col(ColumnDef::new(Channel::OrganizationId).uuid().not_null())
                     .col(ColumnDef::new(Channel::CreatedBy).uuid().not_null())
                     .col(ColumnDef::new(Channel::Slug).string().not_null())
                     .col(ColumnDef::new(Channel::Name).string().not_null())
@@ -42,7 +42,7 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_channel_org")
-                            .from(Channel::Table, Channel::OrganisationId)
+                            .from(Channel::Table, Channel::OrganizationId)
                             .to(Organization::Table, Organization::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
@@ -63,7 +63,7 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .name("idx_channel_org_slug_unique")
                     .table(Channel::Table)
-                    .col(Channel::OrganisationId)
+                    .col(Channel::OrganizationId)
                     .col(Channel::Slug)
                     .unique()
                     .to_owned(),
@@ -76,7 +76,7 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .name("idx_channel_org_id")
                     .table(Channel::Table)
-                    .col(Channel::OrganisationId)
+                    .col(Channel::OrganizationId)
                     .to_owned(),
             )
             .await
@@ -93,7 +93,7 @@ impl MigrationTrait for Migration {
 pub enum Channel {
     Table,
     Id,
-    OrganisationId,
+    OrganizationId,
     CreatedBy,
     Slug,
     Name,
