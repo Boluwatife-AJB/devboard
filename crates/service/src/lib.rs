@@ -4,9 +4,11 @@ pub mod comment;
 pub mod error;
 pub mod event_bus;
 pub mod events;
+pub mod messaging;
 pub mod project;
 pub mod task;
 pub mod team;
+pub mod unfurl;
 pub mod user;
 
 pub use attachment::AttachmentService;

@@ -6,10 +6,10 @@ members = [
   "crates/db",
   "crates/domain", 
   "crates/email",
-  "crates/graphql", "crates/presence",
+  "crates/graphql", 
+  "crates/presence",
   "crates/repository",
   "crates/service",
-  "crates/presence",
   "migration"
 ]
 resolver = "2"
