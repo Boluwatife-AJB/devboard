@@ -157,6 +157,13 @@ impl MessagingService {
             .map_err(ServiceError::from)
     }
 
+    pub async fn list_dm_threads(&self, caller_id: UserId) -> Result<Vec<DmThread>, ServiceError> {
+        self.dm_repo
+            .find_user_threads(caller_id)
+            .await
+            .map_err(ServiceError::from)
+    }
+
     pub async fn send_message(
         &self,
         channel_id: ChannelId,

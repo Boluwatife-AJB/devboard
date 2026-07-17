@@ -11,8 +11,9 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
-use devboard_cache::OrgMembershipCache;
+use devboard_cache::{MessageBus, OrgMembershipCache};
 use devboard_email::{EmailProvider, provider::ResendEmailProvider};
+use devboard_presence::PresenceService;
 use migration::{Migrator, MigratorTrait};
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -31,9 +32,11 @@ use devboard_repository::{
     OrgMembershipRepository, PgAttachmentRepository, PgCommentRepository, PgInvitationRepository,
     PgOrgMembershipRepository, PgOrganizationRepository, PgProjectRepository, PgTaskRepository,
     PgTeamRepository, PgUserRepository,
+    messaging::pg::{PgChannelRepository, PgDmRepository, PgMessageRepository},
 };
 use devboard_service::{
-    AttachmentService, AuthService, CommentService, ProjectService, TaskService, TeamService,
+    AttachmentService, AuthService, CommentService, MessagingService, ProjectService, TaskService,
+    TeamService, retention, unfurl,
 };
 
 mod auth_routes;
@@ -45,6 +48,7 @@ struct AppState {
     auth_service: Arc<AuthService>,
     membership_cache: OrgMembershipCache,
     org_membership_repo: Arc<dyn OrgMembershipRepository>,
+    messaging_service: Arc<MessagingService>,
 }
 
 #[tokio::main]
@@ -71,12 +75,15 @@ async fn main() -> anyhow::Result<()> {
         .await
         .context("failed to connect to Redis")?;
 
-    let membership_cache = devboard_cache::OrgMembershipCache::new(redis);
+    let membership_cache = devboard_cache::OrgMembershipCache::new(redis.clone());
 
     let email_provider: Arc<dyn EmailProvider> = Arc::new(ResendEmailProvider::new(
         &config.email.resend_api_key,
         config.email.from_address.clone(),
     ));
+
+    let message_bus = Arc::new(MessageBus::new(redis.clone()));
+    let presence_service = Arc::new(PresenceService::new(redis));
 
     let user_repo = Arc::new(PgUserRepository::new(db.clone()));
     let task_repo = Arc::new(PgTaskRepository::new(db.clone()));
@@ -87,6 +94,11 @@ async fn main() -> anyhow::Result<()> {
     let invitation_repo = Arc::new(PgInvitationRepository::new(db.clone()));
     let comment_repo = Arc::new(PgCommentRepository::new(db.clone()));
     let attachment_repo = Arc::new(PgAttachmentRepository::new(db.clone()));
+    let channel_repo = Arc::new(PgChannelRepository::new(db.clone()));
+    let message_repo = Arc::new(PgMessageRepository::new(db.clone()));
+    let dm_repo = Arc::new(PgDmRepository::new(db.clone()));
+
+    let unfurl_tx = unfurl::spawn_unfurl_worker(message_repo.clone());
 
     let jwt_service = Arc::new(JwtService::new(
         &config.auth.jwt_secret,
@@ -133,6 +145,18 @@ async fn main() -> anyhow::Result<()> {
         team_repo.clone(),
     ));
 
+    let messaging_service = Arc::new(MessagingService::new(
+        channel_repo.clone(),
+        message_repo.clone(),
+        dm_repo.clone(),
+        org_membership_repo.clone(),
+        message_bus,
+        presence_service,
+        unfurl_tx,
+    ));
+
+    retention::spawn_retention_job(channel_repo.clone());
+
     let services = Services {
         auth_service: auth_service.clone(),
         task_service,
@@ -140,6 +164,7 @@ async fn main() -> anyhow::Result<()> {
         comment_service,
         attachment_service,
         team_service,
+        messaging_service: messaging_service.clone(),
     };
 
     let schema = build_schema(
@@ -155,6 +180,7 @@ async fn main() -> anyhow::Result<()> {
         auth_service: auth_service.clone(),
         membership_cache,
         org_membership_repo: org_membership_repo.clone(),
+        messaging_service: messaging_service.clone(),
     };
 
     let app = build_router(state);

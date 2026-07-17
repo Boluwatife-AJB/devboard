@@ -7,17 +7,25 @@ use axum::{
     response::IntoResponse,
     routing::post,
 };
-use devboard_domain::{OrgRole, OrganizationId};
+use devboard_domain::{OrgRole, OrganizationId, PresenceStatus};
 use devboard_graphql::context::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
 
-use devboard_service::{AuthPayload, AuthService, ServiceError, auth::RegistrationIntent};
+use devboard_service::{
+    AuthPayload, AuthService, MessagingService, ServiceError, auth::RegistrationIntent,
+};
 
 use crate::AppState;
 
 impl FromRef<AppState> for Arc<AuthService> {
     fn from_ref(state: &AppState) -> Self {
         state.auth_service.clone()
+    }
+}
+
+impl FromRef<AppState> for Arc<MessagingService> {
+    fn from_ref(state: &AppState) -> Self {
+        state.messaging_service.clone()
     }
 }
 
@@ -84,6 +92,7 @@ pub fn auth_router() -> Router<AppState> {
         .route("/auth/login", post(login))
         .route("/auth/invite", post(create_invite))
         .route("/auth/accept-invite", post(accept_invite_existing))
+        .route("/presence/heartbeat", post(presence_heartbeat))
 }
 
 async fn register(
@@ -221,6 +230,34 @@ async fn accept_invite_existing(
         )
             .into_response(),
         Err(err) => service_error_to_response(err).into_response(),
+    }
+}
+
+async fn presence_heartbeat(
+    State(messaging_service): State<Arc<MessagingService>>,
+    auth_user: Option<Extension<AuthenticatedUser>>,
+    Json(body): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let Some(Extension(auth_user)) = auth_user else {
+        return service_error_to_response(ServiceError::Unauthenticated).into_response();
+    };
+
+    let status = match body["status"].as_str() {
+        Some("AWAY") => PresenceStatus::Away,
+        Some("ONLINE") => PresenceStatus::Online,
+        _ => PresenceStatus::Online,
+    };
+
+    match messaging_service.heartbeat(auth_user.user_id, status).await {
+        Ok(_) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+                code: "HEARTBEAT_FAILED".into(),
+            }),
+        )
+            .into_response(),
     }
 }
 

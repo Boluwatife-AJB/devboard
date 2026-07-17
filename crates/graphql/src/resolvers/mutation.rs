@@ -123,7 +123,7 @@ impl MutationRoot {
 
         let team = services
             .team_service
-            .create_team(membership.organisation_id, auth.user_id, input.name)
+            .create_team(membership.organization_id, auth.user_id, input.name)
             .await
             .map_gql_err()?;
 

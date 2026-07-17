@@ -54,7 +54,7 @@ impl QueryRoot {
 
         let projects = services
             .project_service
-            .list_projects(memberships.organisation_id, auth.user_id)
+            .list_projects(memberships.organization_id, auth.user_id)
             .await
             .map_gql_err()?;
 
@@ -69,7 +69,7 @@ impl QueryRoot {
 
         let teams = services
             .team_service
-            .list_teams(membership.organisation_id)
+            .list_teams(membership.organization_id)
             .await
             .map_gql_err()?;
 
@@ -89,7 +89,7 @@ impl QueryRoot {
 
         let members = services
             .team_service
-            .list_members(team_id, membership.organisation_id)
+            .list_members(team_id, membership.organization_id)
             .await
             .map_gql_err()?;
 
@@ -107,7 +107,7 @@ impl QueryRoot {
 
         let members = services
             .team_service
-            .list_org_members(membership.organisation_id)
+            .list_org_members(membership.organization_id)
             .await
             .map_gql_err()?;
 

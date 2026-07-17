@@ -36,7 +36,7 @@ impl OrgMembershipCache {
 
     pub async fn set(&self, membership: &OrgMembership) -> Result<(), CacheError> {
         let mut conn = self.pool.clone();
-        let key = Self::key(membership.user_id, membership.organisation_id);
+        let key = Self::key(membership.user_id, membership.organization_id);
         let value = serde_json::to_string(membership)?;
 
         let _: () = conn.set_ex(&key, value, MEMBERSHIP_TTL_SECONDS).await?;

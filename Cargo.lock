@@ -1481,6 +1481,7 @@ dependencies = [
  "devboard-domain",
  "devboard-repository",
  "devboard-service",
+ "futures-util",
  "serde",
  "serde_json",
  "thiserror",
