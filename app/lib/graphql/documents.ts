@@ -70,6 +70,71 @@ const COMMENT_FIELDS = `
   }
 `;
 
+const CHANNEL_FIELDS = `
+  id
+  slug
+  name
+  description
+  kind
+  createdAt
+`;
+
+const MESSAGE_EMBED_FIELDS = `
+  kind
+  url
+  title
+  description
+  imageUrl
+  siteName
+  repo
+  sha
+  number
+  state
+`;
+
+const CHANNEL_MESSAGE_FIELDS = `
+  id
+  channelId
+  authorId
+  isEdited
+  body
+  createdAt
+  editedAt
+  embeds {
+    ${MESSAGE_EMBED_FIELDS}
+  }
+`;
+
+const DM_THREAD_FIELDS = `
+  id
+  participantA
+  participantB
+  createdAt
+`;
+
+const DM_MESSAGE_FIELDS = `
+  id
+  threadId
+  authorId
+  body
+  createdAt
+  editedAt
+  isEdited
+  isRead
+  readByRecipientAt
+`;
+
+const REACTION_FIELDS = `
+  emoji
+  count
+  reactedByMe
+`;
+
+const PRESENCE_FIELDS = `
+  userId
+  status
+`;
+
 export const ME_QUERY = `
   query Me {
     me {
@@ -287,3 +352,129 @@ export const ADD_PROJECT_MEMBER_MUTATION = `
     addProjectMember(input: $input)
   }
 `;
+
+export const CHANNEL_QUERY = `
+  query Channel($id: ID!) {
+    channel(id: $id) {
+      ${CHANNEL_FIELDS}
+    }
+  }
+`;
+
+export const CHANNEL_MESSAGES_QUERY = `
+  query ChannelMessages($channelId: ID!, $beforeId: ID, $limit: Int) {
+    channelMessages(channelId: $channelId, beforeId: $beforeId, limit: $limit) {
+      ${CHANNEL_MESSAGE_FIELDS}
+    }
+  }
+`;
+
+export const CREATE_CHANNEL_MUTATION = `
+  mutation CreateChannel($slug: String!, $name: String!, $description: String!) {
+    createChannel(slug: $slug, name: $name, description: $description) {
+      ${CHANNEL_FIELDS}
+    }
+  }
+`;
+
+export const JOIN_CHANNEL_MUTATION = `
+  mutation JoinChannel($channelId: ID!) {
+    joinChannel(channelId: $channelId) {
+      ${CHANNEL_FIELDS}
+    }
+  }
+`;
+
+export const SEND_MESSAGE_MUTATION = `
+  mutation SendMessage($channelId: ID!, $body: String!) {
+    sendMessage(channelId: $channelId, body: $body) {
+      ${CHANNEL_MESSAGE_FIELDS}
+    }
+  }
+`;
+
+// export const DELETE_CHANNEL_MUTATION = `
+//   mutation DeleteChannel($id: ID!) {
+//     deleteChannel(id: $id)
+//   }
+// `;
+
+export const ADD_REACTION_MUTATION = `
+  mutation AddReaction($messageId: ID!, $emoji: String!) {
+    addReaction(messageId: $messageId, emoji: $emoji) {
+      ${REACTION_FIELDS}
+    }
+  }
+`;
+
+export const REMOVE_REACTION_MUTATION = `
+  mutation RemoveReaction($messageId: ID!, $emoji: String!) {
+    removeReaction(messageId: $messageId, emoji: $emoji) {
+      ${REACTION_FIELDS}
+    }
+  }
+`;
+
+export const OPEN_DM_MUTATION = `
+  mutation OpenDm($otherUserId: ID!) {
+    openDm(otherUserId: $otherUserId) {
+      ${DM_THREAD_FIELDS}
+    }
+  }
+`;
+
+export const DM_THREADS_QUERY = `
+  query DmThreads {
+    dmThreads {
+      ${DM_THREAD_FIELDS}
+    }
+  }
+`;
+
+export const DM_MESSAGES_QUERY = `
+  query DmMessages($threadId: ID!) {
+    dmMessages(threadId: $threadId) {
+      ${DM_MESSAGE_FIELDS}
+    }
+  }
+`;
+
+export const SEND_DM_MUTATION = `
+  mutation SendDm($threadId: ID!, $body: String!) {
+    sendDm(threadId: $threadId, body: $body) {
+      ${DM_MESSAGE_FIELDS}
+    }
+  }
+`;
+
+export const CHANNEL_MESSAGES_SUBSCRIPTION = `
+  subscription ChannelMessages($channelId: ID!) {
+    channelMessages(channelId: $channelId) {
+      ${CHANNEL_MESSAGE_FIELDS}
+    }
+  }
+`;
+
+export const DM_RECEIVED_SUBSCRIPTION = `
+  subscription DmMessages($threadId: ID!) {
+    dmMessages(threadId: $threadId) {
+      ${DM_MESSAGE_FIELDS}
+    }
+  }
+`;
+
+export const PRESENCE_SUBSCRIPTION = `
+  subscription Presence {
+    presence {
+      ${PRESENCE_FIELDS}
+    }
+  }
+`;
+
+// export const MESSAGE_REACTIONS_SUBSCRIPTION = `
+//   subscription MessageReactions($messageId: ID!) {
+//     messageReactions(messageId: $messageId) {
+//       ${REACTION_FIELDS}
+//     }
+//   }
+// `;

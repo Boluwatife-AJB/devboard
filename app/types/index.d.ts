@@ -281,3 +281,19 @@ type SharedFile = {
   date: string;
   kind: "pdf" | "image" | "code";
 };
+
+interface ApiChannel {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  kind: "PRIVATE" | "OPEN";
+  createdAt: string;
+}
+
+interface CreateChannelInput {
+  slug: string;
+  name: string;
+  description: string;
+  kind: "PRIVATE" | "OPEN";
+}

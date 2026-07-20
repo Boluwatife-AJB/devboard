@@ -9,10 +9,14 @@ use tokio_stream::StreamExt;
 use crate::{
     context::ContextExt,
     error::IntoGraphQLResult,
+    inputs::{
+        CreateChannelInput, DeleteMessageInput, EditMessageInput, MarkChannelAsReadInput,
+        ReactionInput, SendDmInput, SendMessageInput,
+    },
     resolvers::query::parse_id,
     types::{
-        GqlChannel, GqlChannelKind, GqlDmMessage, GqlDmThread, GqlMessage, GqlMessageEvent,
-        GqlReactionSummary, GqlUserPresence,
+        GqlChannel, GqlDmMessage, GqlDmThread, GqlMessage, GqlMessageEvent, GqlReactionSummary,
+        GqlUserPresence,
     },
 };
 
@@ -102,25 +106,25 @@ impl MessagingMutation {
     async fn create_channel(
         &self,
         ctx: &Context<'_>,
-        slug: String,
-        name: String,
-        description: Option<String>,
-        kind: Option<GqlChannelKind>,
+        input: CreateChannelInput,
     ) -> async_graphql::Result<GqlChannel> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
         let org = auth.require_org()?;
 
-        let channel_kind = kind.map(ChannelKind::from).unwrap_or(ChannelKind::Open);
+        let channel_kind = input
+            .kind
+            .map(ChannelKind::from)
+            .unwrap_or(ChannelKind::Open);
 
         let channel = services
             .messaging_service
             .create_channel(
                 org.organization_id,
                 auth.user_id,
-                slug,
-                name,
-                description,
+                input.slug,
+                input.name,
+                input.description,
                 channel_kind,
             )
             .await
@@ -148,17 +152,16 @@ impl MessagingMutation {
     async fn send_message(
         &self,
         ctx: &Context<'_>,
-        channel_id: ID,
-        body: String,
+        input: SendMessageInput,
     ) -> async_graphql::Result<GqlMessage> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
-        let channel_id = parse_id::<ChannelId>(&channel_id)?;
+        let channel_id = parse_id::<ChannelId>(&input.channel_id)?;
 
         let message = services
             .messaging_service
-            .send_message(channel_id, auth.user_id, body)
+            .send_message(channel_id, auth.user_id, input.body)
             .await
             .map_gql_err()?;
 
@@ -168,17 +171,16 @@ impl MessagingMutation {
     async fn edit_message(
         &self,
         ctx: &Context<'_>,
-        message_id: ID,
-        body: String,
+        input: EditMessageInput,
     ) -> async_graphql::Result<GqlMessage> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
-        let message_id = parse_id::<MessageId>(&message_id)?;
+        let message_id = parse_id::<MessageId>(&input.message_id)?;
 
         let message = services
             .messaging_service
-            .edit_message(message_id, auth.user_id, body)
+            .edit_message(message_id, auth.user_id, input.body)
             .await
             .map_gql_err()?;
 
@@ -188,14 +190,13 @@ impl MessagingMutation {
     async fn delete_message(
         &self,
         ctx: &Context<'_>,
-        message_id: ID,
-        org_id: ID,
+        input: DeleteMessageInput,
     ) -> async_graphql::Result<bool> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
-        let message_id = parse_id::<MessageId>(&message_id)?;
-        let org_id = parse_id::<OrganizationId>(&org_id)?;
+        let message_id = parse_id::<MessageId>(&input.message_id)?;
+        let org_id = parse_id::<OrganizationId>(&input.org_id)?;
 
         services
             .messaging_service
@@ -209,17 +210,16 @@ impl MessagingMutation {
     async fn add_reaction(
         &self,
         ctx: &Context<'_>,
-        message_id: ID,
-        emoji: String,
+        input: ReactionInput,
     ) -> async_graphql::Result<Vec<GqlReactionSummary>> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
-        let message_id = parse_id::<MessageId>(&message_id)?;
+        let message_id = parse_id::<MessageId>(&input.message_id)?;
 
         let reactions = services
             .messaging_service
-            .add_reaction(message_id, auth.user_id, emoji)
+            .add_reaction(message_id, auth.user_id, input.emoji)
             .await
             .map_gql_err()?;
 
@@ -232,17 +232,16 @@ impl MessagingMutation {
     async fn remove_reaction(
         &self,
         ctx: &Context<'_>,
-        message_id: ID,
-        emoji: String,
+        input: ReactionInput,
     ) -> async_graphql::Result<Vec<GqlReactionSummary>> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
-        let message_id = parse_id::<MessageId>(&message_id)?;
+        let message_id = parse_id::<MessageId>(&input.message_id)?;
 
         let reactions = services
             .messaging_service
-            .remove_reaction(message_id, auth.user_id, emoji)
+            .remove_reaction(message_id, auth.user_id, input.emoji)
             .await
             .map_gql_err()?;
 
@@ -255,14 +254,13 @@ impl MessagingMutation {
     async fn mark_channel_read(
         &self,
         ctx: &Context<'_>,
-        channel_id: ID,
-        last_message_id: ID,
+        input: MarkChannelAsReadInput,
     ) -> async_graphql::Result<bool> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
-        let channel_id = parse_id::<ChannelId>(&channel_id)?;
-        let last_message_id = parse_id::<MessageId>(&last_message_id)?;
+        let channel_id = parse_id::<ChannelId>(&input.channel_id)?;
+        let last_message_id = parse_id::<MessageId>(&input.last_message_id)?;
 
         services
             .messaging_service
@@ -296,17 +294,16 @@ impl MessagingMutation {
     async fn send_dm(
         &self,
         ctx: &Context<'_>,
-        thread_id: ID,
-        body: String,
+        input: SendDmInput,
     ) -> async_graphql::Result<GqlDmMessage> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
-        let thread_id = parse_id::<DmThreadId>(&thread_id)?;
+        let thread_id = parse_id::<DmThreadId>(&input.thread_id)?;
 
         let message = services
             .messaging_service
-            .send_dm(thread_id, auth.user_id, body)
+            .send_dm(thread_id, auth.user_id, input.body)
             .await
             .map_gql_err()?;
 

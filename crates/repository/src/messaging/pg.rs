@@ -134,8 +134,8 @@ impl ChannelRepository for PgChannelRepository {
     ) -> Result<Vec<Channel>, RepositoryError> {
         let sql = r#"
             SELECT c.*
-            FROM channels c
-            JOIN channel_members cm 
+            FROM channel c
+            JOIN channel_member cm 
               ON c.id = cm.channel_id
             WHERE cm.user_id = $1 
               AND c.organization_id = $2
