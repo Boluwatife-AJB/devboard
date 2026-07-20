@@ -1,23 +1,26 @@
-use async_graphql::{Context, ID, Object};
-use devboard_domain::{ProjectId, TaskId, TaskStatus, TeamId};
+use async_graphql::{Context, ID, MergedObject, Object};
+use devboard_domain::{
+    ChannelId, DmMessageId, DmThreadId, MessageId, ProjectId, TaskId, TaskStatus, TeamId,
+};
 
 use crate::{
     GqlUser,
     context::ContextExt,
     error::IntoGraphQLResult,
     types::{
-        GqlAttachment, GqlComment, GqlOrgMember, GqlProject, GqlTask, GqlTaskStatus, GqlTeam,
-        GqlTeamMember,
+        GqlAttachment, GqlChannel, GqlComment, GqlDmMessage, GqlDmThread, GqlMessage, GqlOrgMember,
+        GqlProject, GqlTask, GqlTaskStatus, GqlTeam, GqlTeamMember,
         pagination::{
             ConnectionArgs, PageInfo, TaskConnection, TaskEdge, decode_cursor, encode_cursor,
         },
     },
 };
 
-pub struct QueryRoot;
+#[derive(Default)]
+pub struct CoreQuery;
 
 #[Object]
-impl QueryRoot {
+impl CoreQuery {
     async fn me(&self, ctx: &Context<'_>) -> async_graphql::Result<GqlUser> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
@@ -288,3 +291,95 @@ pub fn parse_id<T: From<uuid::Uuid>>(id: &ID) -> async_graphql::Result<T> {
         .map(T::from)
         .map_err(|_| async_graphql::Error::new(format!("invalid ID format: {}", id.as_str())))
 }
+
+#[derive(Default)]
+pub struct MessagingQueryFields;
+
+#[Object]
+impl MessagingQueryFields {
+    async fn channels(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<GqlChannel>> {
+        let auth = ctx.authenticated_user()?;
+        let org_id = auth.require_org()?.organization_id;
+        let services = ctx.services()?;
+
+        let channels = services
+            .messaging_service
+            .list_channels(org_id, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(channels.into_iter().map(GqlChannel::from).collect())
+    }
+
+    async fn channel_messages(
+        &self,
+        ctx: &Context<'_>,
+        channel_id: ID,
+        before_id: Option<ID>,
+        limit: Option<i32>,
+    ) -> async_graphql::Result<Vec<GqlMessage>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let channel_id = parse_id::<ChannelId>(&channel_id)?;
+        let before_id = before_id.map(|id| parse_id::<MessageId>(&id)).transpose()?;
+
+        let messages = services
+            .messaging_service
+            .list_messages(
+                channel_id,
+                auth.user_id,
+                before_id,
+                limit.unwrap_or(50) as u64,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(messages.into_iter().map(GqlMessage::from).collect())
+    }
+
+    async fn dm_threads(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<GqlDmThread>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let threads = services
+            .messaging_service
+            .list_dm_threads(auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(threads.into_iter().map(GqlDmThread::from).collect())
+    }
+
+    async fn dm_messages(
+        &self,
+        ctx: &Context<'_>,
+        thread_id: ID,
+        before_id: Option<ID>,
+        limit: Option<i32>,
+    ) -> async_graphql::Result<Vec<GqlDmMessage>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let thread_id = parse_id::<DmThreadId>(&thread_id)?;
+        let before_id = before_id
+            .map(|id| parse_id::<DmMessageId>(&id))
+            .transpose()?;
+
+        let messages = services
+            .messaging_service
+            .list_dm_messages(
+                thread_id,
+                auth.user_id,
+                before_id,
+                limit.unwrap_or(50) as u64,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(messages.into_iter().map(GqlDmMessage::from).collect())
+    }
+}
+
+#[derive(MergedObject, Default)]
+pub struct QueryRoot(pub CoreQuery, pub MessagingQueryFields);

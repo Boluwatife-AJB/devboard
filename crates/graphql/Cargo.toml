@@ -8,6 +8,7 @@ devboard-domain = { path = "../domain" }
 devboard-service = { path = "../service" }
 devboard-repository = { path = "../repository" }
 devboard-auth = { path = "../auth" }
+devboard-cache = { path = "../cache" }
 async-graphql = { workspace = true }
 async-graphql-axum = { workspace = true }
 async-stream = "0.3.6"

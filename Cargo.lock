@@ -1478,6 +1478,7 @@ dependencies = [
  "base64",
  "chrono",
  "devboard-auth",
+ "devboard-cache",
  "devboard-domain",
  "devboard-repository",
  "devboard-service",

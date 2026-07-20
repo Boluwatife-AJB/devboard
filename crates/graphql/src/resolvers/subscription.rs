@@ -1,18 +1,25 @@
-use async_graphql::{Context, ID, Subscription};
+use async_graphql::{Context, ID, MergedSubscription, Subscription};
+use devboard_cache::MessageBus;
 use tokio_stream::{Stream, StreamExt, wrappers::errors::BroadcastStreamRecvError};
 
-use devboard_domain::ProjectId;
+use devboard_domain::{ChannelId, DmThreadId, MessageId, ProjectId};
 use devboard_service::{EventBus, TaskEvent};
 
 use crate::{
     context::ContextExt,
-    types::{GqlTask, TaskEventKind, TaskUpdatedEvent},
+    error::IntoGraphQLResult,
+    resolvers::query::parse_id,
+    types::{
+        GqlDmMessage, GqlMessageEvent, GqlReactionEvent, GqlTask, GqlUserPresence, TaskEventKind,
+        TaskUpdatedEvent,
+    },
 };
 
-pub struct SubscriptionRoot;
+#[derive(Default)]
+pub struct CoreSubscription;
 
 #[Subscription]
-impl SubscriptionRoot {
+impl CoreSubscription {
     async fn task_updated<'ctx>(
         &self,
         ctx: &Context<'ctx>,
@@ -95,3 +102,98 @@ fn task_event_to_gql(event: TaskEvent, project_key: &str) -> TaskUpdatedEvent {
         },
     }
 }
+
+#[derive(Default)]
+pub struct MessagingSubscriptionFields;
+
+#[Subscription]
+impl MessagingSubscriptionFields {
+    async fn channel_messages<'ctx>(
+        &self,
+        ctx: &Context<'ctx>,
+        channel_id: ID,
+    ) -> async_graphql::Result<impl Stream<Item = GqlMessageEvent> + 'ctx> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let channel_id_parsed = parse_id::<ChannelId>(&channel_id)?;
+
+        services
+            .messaging_service
+            .list_messages(channel_id_parsed, auth.user_id, None, 1)
+            .await
+            .map_gql_err()?;
+
+        let _message_bus = ctx.data::<MessageBus>()?;
+
+        let event_bus = ctx.data::<EventBus>()?;
+        let receiver = event_bus.subscribe_tasks();
+
+        let stream = tokio_stream::wrappers::BroadcastStream::new(receiver)
+            .filter_map(move |_result| None::<GqlMessageEvent>);
+
+        Ok(stream)
+    }
+
+    async fn message_reactions<'ctx>(
+        &self,
+        ctx: &Context<'ctx>,
+        message_id: ID,
+    ) -> async_graphql::Result<impl Stream<Item = GqlReactionEvent> + 'ctx> {
+        let _auth = ctx.authenticated_user()?;
+
+        let _message_id_parsed = parse_id::<MessageId>(&message_id)?;
+
+        let event_bus = ctx.data::<EventBus>()?;
+        let receiver = event_bus.subscribe_tasks();
+
+        let stream = tokio_stream::wrappers::BroadcastStream::new(receiver)
+            .filter_map(move |_result| None::<GqlReactionEvent>);
+
+        Ok(stream)
+    }
+
+    async fn dm_received<'ctx>(
+        &self,
+        ctx: &Context<'ctx>,
+        thread_id: ID,
+    ) -> async_graphql::Result<impl Stream<Item = GqlDmMessage> + 'ctx> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let thread_id_parsed = parse_id::<DmThreadId>(&thread_id)?;
+
+        services
+            .messaging_service
+            .list_dm_messages(thread_id_parsed, auth.user_id, None, 1)
+            .await
+            .map_gql_err()?;
+
+        let event_bus = ctx.data::<EventBus>()?;
+        let receiver = event_bus.subscribe_tasks();
+
+        let stream = tokio_stream::wrappers::BroadcastStream::new(receiver)
+            .filter_map(move |_| None::<GqlDmMessage>);
+
+        Ok(stream)
+    }
+
+    async fn presence<'ctx>(
+        &self,
+        ctx: &Context<'ctx>,
+    ) -> async_graphql::Result<impl Stream<Item = GqlUserPresence> + 'ctx> {
+        let auth = ctx.authenticated_user()?;
+        auth.require_org()?;
+
+        let event_bus = ctx.data::<EventBus>()?;
+        let receiver = event_bus.subscribe_tasks();
+
+        let stream = tokio_stream::wrappers::BroadcastStream::new(receiver)
+            .filter_map(move |_| None::<GqlUserPresence>);
+
+        Ok(stream)
+    }
+}
+
+#[derive(MergedSubscription, Default)]
+pub struct SubscriptionRoot(pub CoreSubscription, pub MessagingSubscriptionFields);

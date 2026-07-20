@@ -150,7 +150,7 @@ async fn main() -> anyhow::Result<()> {
         message_repo.clone(),
         dm_repo.clone(),
         org_membership_repo.clone(),
-        message_bus,
+        message_bus.clone(),
         presence_service,
         unfurl_tx,
     ));
@@ -173,6 +173,7 @@ async fn main() -> anyhow::Result<()> {
         comment_repo,
         attachment_repo,
         event_bus,
+        message_bus,
     );
 
     let state = AppState {
