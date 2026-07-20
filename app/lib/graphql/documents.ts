@@ -353,9 +353,9 @@ export const ADD_PROJECT_MEMBER_MUTATION = `
   }
 `;
 
-export const CHANNEL_QUERY = `
-  query Channel($id: ID!) {
-    channel(id: $id) {
+export const CHANNELS_QUERY = `
+  query Channels {
+    channels {
       ${CHANNEL_FIELDS}
     }
   }
@@ -370,8 +370,8 @@ export const CHANNEL_MESSAGES_QUERY = `
 `;
 
 export const CREATE_CHANNEL_MUTATION = `
-  mutation CreateChannel($slug: String!, $name: String!, $description: String!) {
-    createChannel(slug: $slug, name: $name, description: $description) {
+  mutation CreateChannel($input: CreateChannelInput!) {
+    createChannel(input: $input) {
       ${CHANNEL_FIELDS}
     }
   }
@@ -379,39 +379,51 @@ export const CREATE_CHANNEL_MUTATION = `
 
 export const JOIN_CHANNEL_MUTATION = `
   mutation JoinChannel($channelId: ID!) {
-    joinChannel(channelId: $channelId) {
-      ${CHANNEL_FIELDS}
-    }
+    joinChannel(channelId: $channelId)
   }
 `;
 
 export const SEND_MESSAGE_MUTATION = `
-  mutation SendMessage($channelId: ID!, $body: String!) {
-    sendMessage(channelId: $channelId, body: $body) {
+  mutation SendMessage($input: SendMessageInput!) {
+    sendMessage(input: $input) {
       ${CHANNEL_MESSAGE_FIELDS}
     }
   }
 `;
 
-// export const DELETE_CHANNEL_MUTATION = `
-//   mutation DeleteChannel($id: ID!) {
-//     deleteChannel(id: $id)
-//   }
-// `;
+export const EDIT_MESSAGE_MUTATION = `
+  mutation EditMessage($input: EditMessageInput!) {
+    editMessage(input: $input) {
+      ${CHANNEL_MESSAGE_FIELDS}
+    }
+  }
+`;
+
+export const DELETE_MESSAGE_MUTATION = `
+  mutation DeleteMessage($input: DeleteMessageInput!) {
+    deleteMessage(input: $input)
+  }
+`;
 
 export const ADD_REACTION_MUTATION = `
-  mutation AddReaction($messageId: ID!, $emoji: String!) {
-    addReaction(messageId: $messageId, emoji: $emoji) {
+  mutation AddReaction($input: ReactionInput!) {
+    addReaction(input: $input) {
       ${REACTION_FIELDS}
     }
   }
 `;
 
 export const REMOVE_REACTION_MUTATION = `
-  mutation RemoveReaction($messageId: ID!, $emoji: String!) {
-    removeReaction(messageId: $messageId, emoji: $emoji) {
+  mutation RemoveReaction($input: ReactionInput!) {
+    removeReaction(input: $input) {
       ${REACTION_FIELDS}
     }
+  }
+`;
+
+export const MARK_CHANNEL_AS_READ_MUTATION = `
+  mutation MarkChannelAsRead($input: MarkChannelAsReadInput!) {
+    markChannelAsRead(input: $input)
   }
 `;
 
@@ -432,32 +444,47 @@ export const DM_THREADS_QUERY = `
 `;
 
 export const DM_MESSAGES_QUERY = `
-  query DmMessages($threadId: ID!) {
-    dmMessages(threadId: $threadId) {
+  query DmMessages($threadId: ID!, $beforeId: ID, $limit: Int) {
+    dmMessages(threadId: $threadId, beforeId: $beforeId, limit: $limit) {
       ${DM_MESSAGE_FIELDS}
     }
   }
 `;
 
 export const SEND_DM_MUTATION = `
-  mutation SendDm($threadId: ID!, $body: String!) {
-    sendDm(threadId: $threadId, body: $body) {
+  mutation SendDm($input: SendDmInput!) {
+    sendDm(input: $input) {
       ${DM_MESSAGE_FIELDS}
     }
+  }
+`;
+
+export const MARK_DM_AS_READ_MUTATION = `
+  mutation MarkDmAsRead($threadId: ID!) {
+    markDmAsRead(threadId: $threadId)
+  }
+`;
+
+const MESSAGE_EVENT_FIELDS = `
+  kind
+  channelId
+  messageId
+  message {
+    ${CHANNEL_MESSAGE_FIELDS}
   }
 `;
 
 export const CHANNEL_MESSAGES_SUBSCRIPTION = `
   subscription ChannelMessages($channelId: ID!) {
     channelMessages(channelId: $channelId) {
-      ${CHANNEL_MESSAGE_FIELDS}
+      ${MESSAGE_EVENT_FIELDS}
     }
   }
 `;
 
 export const DM_RECEIVED_SUBSCRIPTION = `
-  subscription DmMessages($threadId: ID!) {
-    dmMessages(threadId: $threadId) {
+  subscription DmReceived($threadId: ID!) {
+    dmReceived(threadId: $threadId) {
       ${DM_MESSAGE_FIELDS}
     }
   }
@@ -471,10 +498,11 @@ export const PRESENCE_SUBSCRIPTION = `
   }
 `;
 
-// export const MESSAGE_REACTIONS_SUBSCRIPTION = `
-//   subscription MessageReactions($messageId: ID!) {
-//     messageReactions(messageId: $messageId) {
-//       ${REACTION_FIELDS}
-//     }
-//   }
-// `;
+export const MESSAGE_REACTIONS_SUBSCRIPTION = `
+  subscription MessageReactions($messageId: ID!) {
+    messageReactions(messageId: $messageId) {
+      channelId
+      messageId
+    }
+  }
+`;

@@ -282,18 +282,120 @@ type SharedFile = {
   kind: "pdf" | "image" | "code";
 };
 
+type ChannelKind = "OPEN" | "PRIVATE";
+
+type PresenceStatus = "ONLINE" | "AWAY" | "OFFLINE";
+
+type MessageEventKind = "NEW" | "EDITED" | "DELETED";
+
 interface ApiChannel {
   id: string;
   slug: string;
   name: string;
-  description: string;
-  kind: "PRIVATE" | "OPEN";
+  description: string | null;
+  kind: ChannelKind;
   createdAt: string;
 }
 
 interface CreateChannelInput {
   slug: string;
   name: string;
-  description: string;
-  kind: "PRIVATE" | "OPEN";
+  description?: string | null;
+  kind?: ChannelKind | null;
+}
+
+interface ApiMessageEmbed {
+  kind: string;
+  url: string;
+  title?: string | null;
+  description?: string | null;
+  imageUrl?: string | null;
+  siteName?: string | null;
+  repo?: string | null;
+  sha?: string | null;
+  number?: number | null;
+  state?: string | null;
+}
+
+interface ApiMessage {
+  id: string;
+  channelId: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+  editedAt?: string | null;
+  isEdited: boolean;
+  embeds: ApiMessageEmbed[];
+}
+
+interface SendMessageInput {
+  channelId: string;
+  body: string;
+}
+
+interface EditMessageInput {
+  messageId: string;
+  body: string;
+}
+
+interface DeleteMessageInput {
+  messageId: string;
+  orgId: string;
+}
+
+interface ReactionInput {
+  messageId: string;
+  emoji: string;
+}
+
+interface ApiReactionSummary {
+  emoji: string;
+  count: number;
+  reactedByMe: boolean;
+}
+
+interface MarkChannelAsReadInput {
+  channelId: string;
+  lastMessageId: string;
+}
+
+interface ApiDmThread {
+  id: string;
+  participantA: string;
+  participantB: string;
+  createdAt: string;
+}
+
+interface ApiDmMessage {
+  id: string;
+  threadId: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+  editedAt?: string | null;
+  isEdited: boolean;
+  isRead: boolean;
+  readByRecipientAt?: string | null;
+}
+
+interface SendDmInput {
+  threadId: string;
+  body: string;
+}
+
+interface ApiMessageEvent {
+  kind: MessageEventKind | string;
+  channelId: string;
+  messageId: string;
+  message: ApiMessage | null;
+}
+
+interface ApiReactionEvent {
+  channelId: string;
+  messageId: string;
+}
+
+interface ApiUserPresence {
+  userId: string;
+  status: PresenceStatus;
 }

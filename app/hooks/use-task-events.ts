@@ -7,10 +7,6 @@ import { getWsClient } from "@/lib/graphql/ws";
 import type { ApiTask, TaskUpdatedEvent } from "@/types";
 import { taskKeys } from "./use-tasks";
 
-/**
- * Subscribes to the `taskUpdated` GraphQL subscription for a project and
- * keeps the React Query task caches in sync with events from other clients.
- */
 export function useTaskEvents(projectId: string) {
   const queryClient = useQueryClient();
 
