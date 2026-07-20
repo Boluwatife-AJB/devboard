@@ -222,3 +222,62 @@ interface AddProjectMemberInput {
   userId: string;
   roleOverride?: ProjectRole | null;
 }
+
+type MessageChannel = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  memberCount: number;
+  subtitle: string;
+};
+
+type DirectMessage = {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  status: "online" | "away" | "offline";
+};
+
+type ChatMessage =
+  | {
+      id: string;
+      type: "text";
+      author: string;
+      initials: string;
+      avatarColor: string;
+      isSelf: boolean;
+      timestamp: string;
+      body: string;
+      read?: boolean;
+      reactions?: { emoji: string; count: number }[];
+    }
+  | {
+      id: string;
+      type: "commit";
+      author: string;
+      initials: string;
+      avatarColor: string;
+      isSelf: boolean;
+      timestamp: string;
+      body: string;
+      commitHash: string;
+      commitMessage: string;
+    };
+
+type ChannelMember = {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  status: "online" | "offline";
+};
+
+type SharedFile = {
+  id: string;
+  name: string;
+  size: string;
+  date: string;
+  kind: "pdf" | "image" | "code";
+};
