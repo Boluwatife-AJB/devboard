@@ -4,6 +4,7 @@ import type { Icon } from "@phosphor-icons/react";
 import type { z } from "zod";
 import type {
   addProjectMemberSchema,
+  createChannelSchema,
   createCommentSchema,
   createProjectSchema,
   createTaskSchema,
@@ -21,6 +22,7 @@ type CreateTeamFormData = z.infer<typeof createTeamSchema>;
 type CreateCommentFormData = z.infer<typeof createCommentSchema>;
 type UpdateProjectFormData = z.infer<typeof updateProjectSchema>;
 type AddProjectMemberFormData = z.infer<typeof addProjectMemberSchema>;
+type CreateChannelFormData = z.infer<typeof createChannelSchema>;
 
 interface AuthOrganization {
   id: string;
@@ -287,6 +289,10 @@ type ChannelKind = "OPEN" | "PRIVATE";
 type PresenceStatus = "ONLINE" | "AWAY" | "OFFLINE";
 
 type MessageEventKind = "NEW" | "EDITED" | "DELETED";
+
+type ActiveConversation =
+  | { type: "channel"; id: string }
+  | { type: "dm"; id: string };
 
 interface ApiChannel {
   id: string;

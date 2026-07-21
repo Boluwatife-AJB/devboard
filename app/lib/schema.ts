@@ -100,3 +100,13 @@ export const addProjectMemberSchema = z.object({
   userId: z.uuid("Please select a member"),
   roleOverride: z.enum(["OWNER", "ADMIN", "CONTRIBUTOR", "VIEWER"]).optional(),
 });
+
+export const createChannelSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Channel name is required")
+    .max(100, "Channel name must be 100 characters or fewer")
+    .regex(/[a-zA-Z0-9]/, "Channel name must contain letters or numbers"),
+  description: z.string().optional(),
+  kind: z.enum(["OPEN", "PRIVATE"]),
+});
