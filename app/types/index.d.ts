@@ -77,6 +77,8 @@ type OrgRole = "ORG_OWNER" | "ORG_ADMIN" | "ORG_MEMBER";
 
 type ProjectRole = "OWNER" | "ADMIN" | "CONTRIBUTOR" | "VIEWER";
 
+type UiPresence = "online" | "away" | "offline";
+
 interface ApiUser {
   id: string;
   email: string;
@@ -404,4 +406,14 @@ interface ApiReactionEvent {
 interface ApiUserPresence {
   userId: string;
   status: PresenceStatus;
+}
+
+interface DisplayMessage {
+  id: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+  isEdited: boolean;
+  isRead?: boolean;
+  embeds?: ApiMessageEmbed[];
 }
