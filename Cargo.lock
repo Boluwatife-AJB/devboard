@@ -1410,12 +1410,15 @@ dependencies = [
 name = "devboard-cache"
 version = "0.1.0"
 dependencies = [
+ "async-stream",
  "devboard-domain",
+ "futures-util",
  "redis",
  "serde",
  "serde_json",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tracing",
  "uuid",
 ]

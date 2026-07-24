@@ -8,20 +8,20 @@ import { EmptyChatPane } from "@/components/messages/list-states";
 import { WorkspaceNav } from "@/components/messages/workspace-nav";
 import { useMe } from "@/hooks/use-me";
 import { useChannels, useDmThreads } from "@/hooks/use-messaging";
-import { usePresenceEvents } from "@/hooks/use-messaging-events";
+import { useOrgPresence } from "@/hooks/use-presence";
 import { useOrgMembers } from "@/hooks/use-teams";
 import { toUiPresence } from "@/lib/message-utils";
 import { cn } from "@/lib/utils";
-import type { ActiveConversation, ApiUser, PresenceStatus } from "@/types";
+import type { ActiveConversation, ApiUser } from "@/types";
 
 export function MessagesView() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [activeConversation, setActiveConversation] =
     useState<ActiveConversation | null>(null);
-  const [presence, setPresence] = useState<Record<string, PresenceStatus>>({});
 
   const { data: me } = useMe();
   const { data: members = [] } = useOrgMembers();
+  const { data: presence = {} } = useOrgPresence();
   const {
     data: channels = [],
     isLoading: channelsLoading,
@@ -32,15 +32,6 @@ export function MessagesView() {
     isLoading: dmsLoading,
     error: dmsError,
   } = useDmThreads();
-
-  usePresenceEvents(
-    useCallback((update: { userId: string; status: PresenceStatus }) => {
-      setPresence((current) => ({
-        ...current,
-        [update.userId]: update.status,
-      }));
-    }, []),
-  );
 
   const memberById = useMemo(() => {
     const map = new Map<string, ApiUser>();

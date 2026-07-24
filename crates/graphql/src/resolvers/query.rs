@@ -10,6 +10,7 @@ use crate::{
     types::{
         GqlAttachment, GqlChannel, GqlComment, GqlDmMessage, GqlDmThread, GqlInvitation,
         GqlMessage, GqlOrgMember, GqlProject, GqlTask, GqlTaskStatus, GqlTeam, GqlTeamMember,
+        GqlUserPresence,
         pagination::{
             ConnectionArgs, PageInfo, TaskConnection, TaskEdge, decode_cursor, encode_cursor,
         },
@@ -403,6 +404,21 @@ impl MessagingQueryFields {
             .map_gql_err()?;
 
         Ok(messages.into_iter().map(GqlDmMessage::from).collect())
+    }
+
+    /// Current presence snapshot for every member of the selected organization.
+    async fn org_presence(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<GqlUserPresence>> {
+        let auth = ctx.authenticated_user()?;
+        let org_id = auth.require_org()?.organization_id;
+        let services = ctx.services()?;
+
+        let presence = services
+            .messaging_service
+            .list_org_presence(auth.user_id, org_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(presence.into_iter().map(GqlUserPresence::from).collect())
     }
 }
 

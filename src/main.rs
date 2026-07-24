@@ -74,11 +74,11 @@ async fn main() -> anyhow::Result<()> {
         .await
         .context("failed to run database migrations")?;
 
-    let redis = devboard_cache::connect_cache(&config.redis.url)
+    let cache = devboard_cache::connect_cache(&config.redis.url)
         .await
         .context("failed to connect to Redis")?;
 
-    let membership_cache = devboard_cache::OrgMembershipCache::new(redis.clone());
+    let membership_cache = devboard_cache::OrgMembershipCache::new(cache.pool.clone());
 
     let email_provider: Arc<dyn EmailProvider> = if config.email.resend_api_key == "dev" {
         tracing::warn!("RESEND_API_KEY is 'dev' - invite emails will be logged, not sent");
@@ -90,8 +90,8 @@ async fn main() -> anyhow::Result<()> {
         ))
     };
 
-    let message_bus = Arc::new(MessageBus::new(redis.clone()));
-    let presence_service = Arc::new(PresenceService::new(redis));
+    let message_bus = Arc::new(MessageBus::new(cache.pool.clone(), cache.client));
+    let presence_service = Arc::new(PresenceService::new(cache.pool));
 
     let user_repo = Arc::new(PgUserRepository::new(db.clone()));
     let task_repo = Arc::new(PgTaskRepository::new(db.clone()));

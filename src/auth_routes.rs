@@ -286,22 +286,30 @@ async fn presence_heartbeat(
         return service_error_to_response(ServiceError::Unauthenticated).into_response();
     };
 
+    let Some(membership) = auth_user.org_membership.as_ref() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "X-Organization-Id header is required".into(),
+                code: "MISSING_ORG".into(),
+            }),
+        )
+            .into_response();
+    };
+
     let status = match body["status"].as_str() {
         Some("AWAY") => PresenceStatus::Away,
         Some("ONLINE") => PresenceStatus::Online,
+        Some("OFFLINE") => PresenceStatus::Offline,
         _ => PresenceStatus::Online,
     };
 
-    match messaging_service.heartbeat(auth_user.user_id, status).await {
+    match messaging_service
+        .heartbeat(auth_user.user_id, membership.organization_id, status)
+        .await
+    {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-                code: "HEARTBEAT_FAILED".into(),
-            }),
-        )
-            .into_response(),
+        Err(err) => service_error_to_response(err).into_response(),
     }
 }
 

@@ -523,6 +523,14 @@ export const PRESENCE_SUBSCRIPTION = `
   }
 `;
 
+export const ORG_PRESENCE_QUERY = `
+  query OrgPresence {
+    orgPresence {
+      ${PRESENCE_FIELDS}
+    }
+  }
+`;
+
 export const MESSAGE_REACTIONS_SUBSCRIPTION = `
   subscription MessageReactions($messageId: ID!) {
     messageReactions(messageId: $messageId) {

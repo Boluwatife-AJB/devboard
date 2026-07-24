@@ -16,7 +16,7 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -38,12 +38,11 @@ import {
   canManageInvitations,
   usePendingInvitations,
 } from "@/hooks/use-invitations";
-import { useMe } from "@/hooks/use-me";
-import { usePresenceEvents } from "@/hooks/use-messaging-events";
+import { useOrgPresence } from "@/hooks/use-presence";
 import { useOrgMembers } from "@/hooks/use-teams";
 import { toUiPresence } from "@/lib/message-utils";
 import { cn } from "@/lib/utils";
-import type { OrgRole, UiPresence } from "@/types";
+import type { OrgRole } from "@/types";
 import { type MemberRow, membersColumns, roleLabels } from "./members-columns";
 
 const PAGE_SIZE = 8;
@@ -76,7 +75,6 @@ function exportCsv(rows: MemberRow[]) {
 
 export function MembersTable() {
   const { data: members, isPending, isError } = useOrgMembers();
-  const { data: me } = useMe();
   // Resolve after mount, canManageInvitations reads cookies/localStorage,
   // which aren't available during SSR, so a useState initializer would stick at false.
   const [canManage, setCanManage] = useState(false);
@@ -84,18 +82,7 @@ export function MembersTable() {
     setCanManage(canManageInvitations());
   }, []);
   const { data: invitations } = usePendingInvitations(canManage);
-
-  const [presenceMap, setPresenceMap] = useState<Record<string, UiPresence>>(
-    {},
-  );
-  usePresenceEvents(
-    useCallback((presence) => {
-      setPresenceMap((prev) => ({
-        ...prev,
-        [presence.userId]: toUiPresence(presence.status),
-      }));
-    }, []),
-  );
+  const { data: orgPresence } = useOrgPresence();
 
   const rows = useMemo<MemberRow[]>(() => {
     const memberRows: MemberRow[] = (members ?? []).map((member) => ({
@@ -104,10 +91,7 @@ export function MembersTable() {
       name: member.user?.displayName ?? "Unknown user",
       email: member.user?.email ?? "—",
       role: member.role,
-      status:
-        member.userId === me?.id
-          ? "online"
-          : (presenceMap[member.userId] ?? "offline"),
+      status: toUiPresence(orgPresence?.[member.userId]),
     }));
 
     const inviteRows: MemberRow[] = (invitations ?? []).map((invitation) => ({
@@ -121,7 +105,7 @@ export function MembersTable() {
     }));
 
     return [...memberRows, ...inviteRows];
-  }, [members, me?.id, presenceMap, invitations]);
+  }, [members, orgPresence, invitations]);
 
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 

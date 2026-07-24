@@ -1,8 +1,10 @@
 use devboard_domain::{
     ChannelId, DmMessage, DmThreadId, Message, MessageId, OrganizationId, PresenceStatus, UserId,
 };
+use futures_util::StreamExt;
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
+use tokio_stream::Stream;
 
 use crate::{CacheError, CachePool};
 
@@ -30,6 +32,7 @@ pub enum MessagingEvent {
         message: DmMessage,
     },
     PresenceChanged {
+        org_id: OrganizationId,
         user_id: UserId,
         status: PresenceStatus,
     },
@@ -49,11 +52,12 @@ pub fn org_presence_topic(org_id: OrganizationId) -> String {
 
 pub struct MessageBus {
     pool: CachePool,
+    client: redis::Client,
 }
 
 impl MessageBus {
-    pub fn new(pool: CachePool) -> Self {
-        Self { pool }
+    pub fn new(pool: CachePool, client: redis::Client) -> Self {
+        Self { pool, client }
     }
 
     pub async fn publish(&self, event: &MessagingEvent) -> Result<(), CacheError> {
@@ -65,14 +69,46 @@ impl MessageBus {
             | MessagingEvent::ChannelMessageDeleted { channel_id, .. }
             | MessagingEvent::ReactionUpdated { channel_id, .. } => channel_topic(*channel_id),
             MessagingEvent::DmReceived { thread_id, .. } => dm_topic(*thread_id),
-            MessagingEvent::PresenceChanged { user_id, .. } => {
-                format!("presence:user:{}", user_id)
-            }
+            MessagingEvent::PresenceChanged { org_id, .. } => org_presence_topic(*org_id),
         };
 
         let payload = serde_json::to_string(event).map_err(CacheError::Serialization)?;
 
         conn.publish::<_, _, ()>(&topic, &payload).await?;
         Ok(())
+    }
+
+    /// Subscribe to an org presence channel. Owns a dedicated Redis pub/sub connection.
+    pub async fn subscribe_org_presence(
+        &self,
+        org_id: OrganizationId,
+    ) -> Result<impl Stream<Item = MessagingEvent> + Send + 'static + use<>, CacheError> {
+        let topic = org_presence_topic(org_id);
+        let (mut sink, mut stream) = self
+            .client
+            .get_async_pubsub()
+            .await
+            .map_err(CacheError::Connection)?
+            .split();
+
+        sink.subscribe(&topic)
+            .await
+            .map_err(CacheError::Connection)?;
+
+        Ok(async_stream::stream! {
+            // Keep sink alive for the lifetime of the subscription.
+            let _sink = sink;
+            while let Some(msg) = stream.next().await {
+                let Ok(payload) = msg.get_payload::<String>() else {
+                    continue;
+                };
+                match serde_json::from_str::<MessagingEvent>(&payload) {
+                    Ok(event) => yield event,
+                    Err(err) => {
+                        tracing::warn!(error = %err, "invalid messaging event payload");
+                    }
+                }
+            }
+        })
     }
 }

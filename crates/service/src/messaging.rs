@@ -488,8 +488,11 @@ impl MessagingService {
     pub async fn heartbeat(
         &self,
         user_id: UserId,
+        org_id: OrganizationId,
         status: PresenceStatus,
     ) -> Result<(), ServiceError> {
+        self.require_org_member(user_id, org_id).await?;
+
         self.presence
             .heartbeat(user_id, status)
             .await
@@ -497,9 +500,34 @@ impl MessagingService {
 
         let _ = self
             .message_bus
-            .publish(&MessagingEvent::PresenceChanged { user_id, status })
+            .publish(&MessagingEvent::PresenceChanged {
+                org_id,
+                user_id,
+                status,
+            })
             .await;
         Ok(())
+    }
+
+    /// Snapshot of presence for all members of an organization.
+    pub async fn list_org_presence(
+        &self,
+        caller_id: UserId,
+        org_id: OrganizationId,
+    ) -> Result<Vec<devboard_domain::UserPresence>, ServiceError> {
+        self.require_org_member(caller_id, org_id).await?;
+
+        let members = self
+            .org_member_repo
+            .list_by_org(org_id)
+            .await
+            .map_err(ServiceError::from)?;
+
+        let user_ids = members.into_iter().map(|m| m.user_id).collect();
+        self.presence
+            .get_many(user_ids)
+            .await
+            .map_err(|err| ServiceError::Internal(err.to_string()))
     }
 
     // Private Helpers

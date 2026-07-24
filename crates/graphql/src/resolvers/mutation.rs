@@ -10,10 +10,10 @@ use crate::{
     context::ContextExt,
     error::IntoGraphQLResult,
     inputs::{
-        AddAttachmentInput, AddProjectMemberInput, AssignTaskInput, CreateChannelInput,
-        CreateProjectInput, CreateTaskInput, CreateTeamInput, DeleteMessageInput, EditMessageInput,
-        MarkChannelAsReadInput, ReactionInput, SendDmInput, SendMessageInput,
-        UpdateTaskStatusInput,
+        AddAttachmentInput, AddProjectMemberInput, AddTeamMemberInput, AssignTaskInput,
+        CreateChannelInput, CreateProjectInput, CreateTaskInput, CreateTeamInput,
+        DeleteMessageInput, EditMessageInput, MarkChannelAsReadInput, ReactionInput, SendDmInput,
+        SendMessageInput, UpdateTaskStatusInput,
         comment::{CreateCommentInput, EditCommentInput},
         project::UpdateProjectInput,
         task::UpdateTaskDueDateInput,
@@ -21,7 +21,7 @@ use crate::{
     resolvers::query::parse_id,
     types::{
         GqlAttachment, GqlChannel, GqlComment, GqlDmMessage, GqlDmThread, GqlMessage, GqlProject,
-        GqlReactionSummary, GqlTask, GqlTeam, GqlTeamRole,
+        GqlReactionSummary, GqlTask, GqlTeam,
     },
 };
 
@@ -160,16 +160,17 @@ impl CoreMutation {
     async fn add_team_member(
         &self,
         ctx: &Context<'_>,
-        team_id: ID,
-        user_id: ID,
-        role: GqlTeamRole,
+        input: AddTeamMemberInput,
     ) -> async_graphql::Result<bool> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
-        let team_id = parse_id::<TeamId>(&team_id)?;
-        let user_id = parse_id::<UserId>(&user_id)?;
-        let role = devboard_domain::TeamRole::from(role);
+        let team_id = parse_id::<TeamId>(&input.team_id)?;
+        let user_id = parse_id::<UserId>(&input.user_id)?;
+        let role = input
+            .role
+            .map(devboard_domain::TeamRole::from)
+            .unwrap_or(devboard_domain::TeamRole::Member);
 
         services
             .team_service

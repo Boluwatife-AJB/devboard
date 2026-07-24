@@ -1,5 +1,5 @@
 use async_graphql::{Context, ID, MergedSubscription, Subscription};
-use devboard_cache::MessageBus;
+use devboard_cache::{MessageBus, MessagingEvent};
 use tokio_stream::{Stream, StreamExt, wrappers::errors::BroadcastStreamRecvError};
 
 use devboard_domain::{ChannelId, DmThreadId, MessageId, ProjectId};
@@ -10,8 +10,8 @@ use crate::{
     error::IntoGraphQLResult,
     resolvers::query::parse_id,
     types::{
-        GqlDmMessage, GqlMessageEvent, GqlReactionEvent, GqlTask, GqlUserPresence, TaskEventKind,
-        TaskUpdatedEvent,
+        GqlDmMessage, GqlMessageEvent, GqlPresenceStatus, GqlReactionEvent, GqlTask,
+        GqlUserPresence, TaskEventKind, TaskUpdatedEvent,
     },
 };
 
@@ -183,13 +183,23 @@ impl MessagingSubscriptionFields {
         ctx: &Context<'ctx>,
     ) -> async_graphql::Result<impl Stream<Item = GqlUserPresence> + 'ctx> {
         let auth = ctx.authenticated_user()?;
-        auth.require_org()?;
+        let org_id = auth.require_org()?.organization_id;
 
-        let event_bus = ctx.data::<EventBus>()?;
-        let receiver = event_bus.subscribe_tasks();
+        let message_bus = ctx.data::<std::sync::Arc<MessageBus>>()?.clone();
+        let redis_stream = message_bus
+            .subscribe_org_presence(org_id)
+            .await
+            .map_err(|err| async_graphql::Error::new(err.to_string()))?;
 
-        let stream = tokio_stream::wrappers::BroadcastStream::new(receiver)
-            .filter_map(move |_| None::<GqlUserPresence>);
+        let stream = redis_stream.filter_map(|event| match event {
+            MessagingEvent::PresenceChanged {
+                user_id, status, ..
+            } => Some(GqlUserPresence {
+                user_id: ID(user_id.to_string()),
+                status: GqlPresenceStatus::from(status),
+            }),
+            _ => None,
+        });
 
         Ok(stream)
     }
