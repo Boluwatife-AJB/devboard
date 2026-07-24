@@ -78,7 +78,7 @@ export function InviteMemberDialog({ trigger }: { trigger: ReactElement }) {
         setInvitedEmail(data.email);
         setInviteUrl(result.inviteUrl);
         toast.message(
-          "Email couldn't be sent — copy the invite link and share it instead",
+          "Email couldn't be sent, copy the invite link and share it instead",
         );
       }
     } catch (error) {

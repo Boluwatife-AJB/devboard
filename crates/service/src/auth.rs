@@ -35,6 +35,14 @@ pub struct PendingInvitationView {
 }
 
 #[derive(Debug, Clone)]
+pub struct InvitePreview {
+    pub email: String,
+    pub org_name: String,
+    pub role: OrgRole,
+    pub expires_at: chrono::DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
 pub enum RegistrationIntent {
     CreateOrganization { name: String, slug: String },
     AcceptInvite { token: String },
@@ -317,6 +325,36 @@ impl AuthService {
 
     fn build_invite_url(&self, token: &str) -> String {
         format!("{}/accept-invite?token={}", self.app_base_url, token)
+    }
+
+    /// Public preview of a pending invite (no auth). Used by the accept-invite
+    /// page to lock the email field for new-user signup.
+    #[tracing::instrument(skip(self, token))]
+    pub async fn preview_invite(&self, token: &str) -> Result<InvitePreview, ServiceError> {
+        let invitation = self.invitation_repo.find_by_token(token).await?.ok_or(
+            ServiceError::InvitationNotFound {
+                id: "invitation".into(),
+            },
+        )?;
+
+        if !invitation.is_valid() {
+            return Err(ServiceError::Conflict {
+                message: "this invitation has expired or already been used".into(),
+            });
+        }
+
+        let org = self
+            .org_repo
+            .find_by_id(invitation.organization_id)
+            .await?
+            .ok_or_else(|| ServiceError::Internal("org not found".into()))?;
+
+        Ok(InvitePreview {
+            email: invitation.email,
+            org_name: org.name,
+            role: invitation.role,
+            expires_at: invitation.expires_at,
+        })
     }
 
     #[tracing::instrument(skip(self), fields(caller_id = %caller_id, invitation_id = %invitation_id))]

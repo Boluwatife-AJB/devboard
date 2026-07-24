@@ -3,7 +3,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  EnvelopeSimpleIcon,
   EyeClosedIcon,
   EyeIcon,
   LockKeyIcon,
@@ -27,6 +26,7 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   isLoggedIn,
   useAcceptInvite,
+  useInvitePreview,
   useRegisterWithInvite,
 } from "@/hooks/use-invitations";
 import { getApiErrorMessage } from "@/lib/api";
@@ -45,9 +45,10 @@ export function AcceptInviteForm({ token }: { token: string }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("choose");
   const [showPassword, setShowPassword] = useState(false);
-  const [authenticated, setAuthenticated] = useState(false);
+  const [authenticated, setAuthenticated] = useState(() => isLoggedIn());
   const acceptInvite = useAcceptInvite();
   const registerWithInvite = useRegisterWithInvite(token);
+  const invitePreview = useInvitePreview(token, !authenticated);
 
   useEffect(() => {
     setAuthenticated(isLoggedIn());
@@ -62,7 +63,6 @@ export function AcceptInviteForm({ token }: { token: string }) {
     mode: "onBlur",
     defaultValues: {
       fullName: "",
-      email: "",
       password: "",
       termsAccepted: false,
     },
@@ -81,9 +81,17 @@ export function AcceptInviteForm({ token }: { token: string }) {
   };
 
   const onSignup = async (data: AcceptInviteSignupFormData) => {
+    if (!invitePreview.data?.email) {
+      toast.error("Invitation details are unavailable");
+      return;
+    }
+
     try {
-      await registerWithInvite.mutateAsync(data);
-      toast.success("Account created — welcome to the workspace");
+      await registerWithInvite.mutateAsync({
+        form: data,
+        email: invitePreview.data.email,
+      });
+      toast.success("Account created! Welcome to the workspace");
       router.push("/");
     } catch (error) {
       toast.error(getApiErrorMessage(error));
@@ -91,6 +99,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
   };
 
   const signInHref = `/sign-in?redirect=${encodeURIComponent(`/accept-invite?token=${token}`)}`;
+  const orgName = invitePreview.data?.orgName;
 
   if (authenticated) {
     return (
@@ -117,6 +126,38 @@ export function AcceptInviteForm({ token }: { token: string }) {
     );
   }
 
+  if (invitePreview.isLoading) {
+    return (
+      <div className="flex w-full max-w-md items-center justify-center py-12">
+        <Spinner className="size-6" />
+      </div>
+    );
+  }
+
+  if (invitePreview.isError || !invitePreview.data) {
+    return (
+      <div className="w-full max-w-md">
+        <div className="mb-8">
+          <h1 className="mb-px text-3xl font-bold text-foreground">
+            Invitation unavailable
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {getApiErrorMessage(invitePreview.error) ||
+              "This invitation is invalid, expired, or has already been used."}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full rounded-xs py-6 font-semibold"
+          onClick={() => router.push("/sign-in")}
+        >
+          Go to sign in
+        </Button>
+      </div>
+    );
+  }
+
   if (mode === "choose") {
     return (
       <div className="w-full max-w-md">
@@ -125,8 +166,9 @@ export function AcceptInviteForm({ token }: { token: string }) {
             You&apos;re invited
           </h1>
           <p className="text-sm text-muted-foreground">
-            Create an account with the invited email, or sign in if you already
-            have one. The email must match the invitation.
+            {orgName
+              ? `Join ${orgName}. Create an account or sign in if you already have one.`
+              : "Create an account or sign in if you already have one."}
           </p>
         </div>
 
@@ -158,7 +200,9 @@ export function AcceptInviteForm({ token }: { token: string }) {
           Create your account
         </h1>
         <p className="text-sm text-muted-foreground">
-          Use the email address the invitation was sent to.
+          {orgName
+            ? `Set your name and password to join ${orgName}.`
+            : "Set your name and password to join the workspace."}
         </p>
       </div>
 
@@ -183,32 +227,6 @@ export function AcceptInviteForm({ token }: { token: string }) {
                     placeholder="Enter your full name"
                     type="text"
                     autoComplete="name"
-                    {...field}
-                  />
-                </div>
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
-              </Field>
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="email"
-            render={({ field, fieldState }) => (
-              <Field>
-                <FieldLabel htmlFor="email" className={labelClassName}>
-                  Work Email
-                </FieldLabel>
-                <div className="relative">
-                  <EnvelopeSimpleIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    className={inputClassName}
-                    placeholder="Enter your work email"
-                    type="email"
-                    autoComplete="email"
                     {...field}
                   />
                 </div>

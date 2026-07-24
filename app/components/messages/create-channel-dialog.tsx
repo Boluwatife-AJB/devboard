@@ -38,8 +38,8 @@ import { createChannelSchema } from "@/lib/schema";
 import type { ApiChannel, ChannelKind, CreateChannelFormData } from "@/types";
 
 const CHANNEL_KINDS: { label: string; value: ChannelKind }[] = [
-  { label: "Open — anyone in the org can join", value: "OPEN" },
-  { label: "Private — invite only", value: "PRIVATE" },
+  { label: "Open, anyone in the org can join", value: "OPEN" },
+  { label: "Private, invite only", value: "PRIVATE" },
 ];
 
 function slugify(value: string) {

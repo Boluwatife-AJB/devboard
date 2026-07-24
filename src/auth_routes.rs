@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use axum::{
     Extension, Json, Router,
-    extract::{FromRef, State},
+    extract::{FromRef, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::post,
+    routing::{get, post},
 };
 use devboard_domain::{OrgRole, OrganizationId, PresenceStatus};
 use devboard_graphql::context::AuthenticatedUser;
@@ -80,6 +80,11 @@ pub struct OrgResponse {
     pub role: String,
 }
 
+#[derive(Deserialize)]
+pub struct InvitePreviewQuery {
+    pub token: String,
+}
+
 #[derive(Serialize)]
 pub struct ErrorResponse {
     pub error: String,
@@ -91,6 +96,7 @@ pub fn auth_router() -> Router<AppState> {
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
         .route("/auth/invite", post(create_invite))
+        .route("/auth/invite/preview", get(preview_invite))
         .route("/auth/accept-invite", post(accept_invite_existing))
         .route("/presence/heartbeat", post(presence_heartbeat))
 }
@@ -198,6 +204,36 @@ async fn create_invite(
     }
 }
 
+async fn preview_invite(
+    State(auth_service): State<Arc<AuthService>>,
+    Query(query): Query<InvitePreviewQuery>,
+) -> impl IntoResponse {
+    if query.token.trim().is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "token is required".into(),
+                code: "MISSING_TOKEN".into(),
+            }),
+        )
+            .into_response();
+    }
+
+    match auth_service.preview_invite(&query.token).await {
+        Ok(preview) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "email": preview.email,
+                "orgName": preview.org_name,
+                "role": preview.role,
+                "expiresAt": preview.expires_at,
+            })),
+        )
+            .into_response(),
+        Err(err) => service_error_to_response(err).into_response(),
+    }
+}
+
 async fn accept_invite_existing(
     State(auth_service): State<Arc<AuthService>>,
     auth_user: Option<Extension<AuthenticatedUser>>,
@@ -298,7 +334,9 @@ fn service_error_to_response(err: ServiceError) -> (StatusCode, Json<ErrorRespon
         ServiceError::Forbidden { .. } => (StatusCode::FORBIDDEN, "FORBIDDEN"),
         ServiceError::Conflict { .. } => (StatusCode::CONFLICT, "CONFLICT"),
         ServiceError::Validation { .. } => (StatusCode::UNPROCESSABLE_ENTITY, "VALIDATION_ERROR"),
-        ServiceError::UserNotFound { .. } => (StatusCode::NOT_FOUND, "NOT_FOUND"),
+        ServiceError::UserNotFound { .. } | ServiceError::InvitationNotFound { .. } => {
+            (StatusCode::NOT_FOUND, "NOT_FOUND")
+        }
         _ => {
             tracing::error!(error = %err, "internal error in auth handler");
             (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR")

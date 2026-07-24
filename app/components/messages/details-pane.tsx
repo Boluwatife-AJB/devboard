@@ -26,8 +26,8 @@ export function DetailsPane({ channel }: { channel: ApiChannel }) {
             </p>
             <p className="text-sm text-[#C2C6D6]">
               {channel.kind === "PRIVATE"
-                ? "Private — invite only"
-                : "Open — anyone in the org can join"}
+                ? "Private, invite only"
+                : "Open, anyone in the org can join"}
             </p>
           </div>
 

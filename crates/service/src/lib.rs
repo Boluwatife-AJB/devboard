@@ -13,7 +13,9 @@ pub mod unfurl;
 pub mod user;
 
 pub use attachment::AttachmentService;
-pub use auth::{AuthPayload, AuthService, CreateInviteResult, PendingInvitationView};
+pub use auth::{
+    AuthPayload, AuthService, CreateInviteResult, InvitePreview, PendingInvitationView,
+};
 pub use comment::CommentService;
 pub use error::ServiceError;
 pub use event_bus::EventBus;

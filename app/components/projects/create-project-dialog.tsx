@@ -175,7 +175,7 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
                   </Select>
                   {teams?.length === 0 ? (
                     <FieldDescription>
-                      No teams yet — create one on the{" "}
+                      No teams yet, create one on the{" "}
                       <Link href="/teams" className="underline">
                         Teams page
                       </Link>{" "}

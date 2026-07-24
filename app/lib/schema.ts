@@ -26,7 +26,16 @@ export const signupStep2Schema = z.object({
 
 export const signupSchema = signupStep1Schema.extend(signupStep2Schema.shape);
 
-export const acceptInviteSignupSchema = signupStep1Schema.extend({
+export const acceptInviteSignupSchema = z.object({
+  fullName: z
+    .string()
+    .min(2, "Full name must be at least 2 characters")
+    .max(100, "Full name must be less than 100 characters"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
   termsAccepted: z.boolean().refine((val) => val === true, {
     message: "You must accept the terms and conditions",
   }),

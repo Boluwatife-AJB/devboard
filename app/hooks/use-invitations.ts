@@ -22,10 +22,12 @@ import type {
   AuthResponse,
   CreateInviteResponse,
   InviteMemberFormData,
+  InvitePreview,
 } from "@/types";
 
 export const invitationKeys = {
   pending: ["pending-invitations"] as const,
+  preview: (token: string) => ["invite-preview", token] as const,
 };
 
 /**
@@ -112,6 +114,24 @@ export function useRevokeInvitation() {
   });
 }
 
+/** Public preview of a pending invite (locks email for signup). */
+export function useInvitePreview(token: string, enabled = true) {
+  return useQuery({
+    queryKey: invitationKeys.preview(token),
+    queryFn: async () => {
+      const { data } = await publicApi.get<InvitePreview>(
+        "/auth/invite/preview",
+        {
+          params: { token },
+        },
+      );
+      return data;
+    },
+    enabled: enabled && Boolean(token),
+    retry: false,
+  });
+}
+
 /** Accept an invite while already authenticated. */
 export function useAcceptInvite() {
   return useMutation({
@@ -131,11 +151,17 @@ export function useAcceptInvite() {
 /** Register a new account and accept the invite in one request. */
 export function useRegisterWithInvite(token: string) {
   return useMutation({
-    mutationFn: async (input: AcceptInviteSignupFormData) => {
+    mutationFn: async ({
+      form,
+      email,
+    }: {
+      form: AcceptInviteSignupFormData;
+      email: string;
+    }) => {
       const { data } = await publicApi.post<AuthResponse>("/auth/register", {
-        email: input.email,
-        display_name: input.fullName,
-        password: input.password,
+        email,
+        display_name: form.fullName,
+        password: form.password,
         invite_token: token,
       });
       return data;

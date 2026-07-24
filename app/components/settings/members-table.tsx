@@ -77,7 +77,7 @@ function exportCsv(rows: MemberRow[]) {
 export function MembersTable() {
   const { data: members, isPending, isError } = useOrgMembers();
   const { data: me } = useMe();
-  // Resolve after mount — canManageInvitations reads cookies/localStorage,
+  // Resolve after mount, canManageInvitations reads cookies/localStorage,
   // which aren't available during SSR, so a useState initializer would stick at false.
   const [canManage, setCanManage] = useState(false);
   useEffect(() => {

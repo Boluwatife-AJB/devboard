@@ -107,6 +107,13 @@ interface AcceptInviteResponse {
   };
 }
 
+interface InvitePreview {
+  email: string;
+  orgName: string;
+  role: OrgRole;
+  expiresAt: string;
+}
+
 type ProjectRole = "OWNER" | "ADMIN" | "CONTRIBUTOR" | "VIEWER";
 
 type UiPresence = "online" | "away" | "offline";

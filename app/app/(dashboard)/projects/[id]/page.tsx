@@ -298,7 +298,7 @@ export default function ProjectDetails() {
 
       {tasks && tasks.length === 0 && (
         <p className="text-sm text-[#8A8A8A]">
-          No tasks yet — use "Add Task" to create the first one.
+          No tasks yet, use "Add Task" to create the first one.
         </p>
       )}
     </div>
