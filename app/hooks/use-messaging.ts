@@ -119,7 +119,13 @@ export function useSendMessage(channelId: string) {
     onSuccess: (message) => {
       queryClient.setQueryData<ApiMessage[]>(
         messagingKeys.channelMessages(channelId),
-        (messages) => (messages ? [...messages, message] : [message]),
+        (messages) => {
+          if (!messages) return [message];
+          const exists = messages.some((item) => item.id === message.id);
+          return exists
+            ? messages.map((item) => (item.id === message.id ? message : item))
+            : [...messages, message];
+        },
       );
     },
   });
@@ -264,7 +270,13 @@ export function useSendDm(threadId: string) {
     onSuccess: (message) => {
       queryClient.setQueryData<ApiDmMessage[]>(
         messagingKeys.dmMessages(threadId),
-        (messages) => (messages ? [...messages, message] : [message]),
+        (messages) => {
+          if (!messages) return [message];
+          const exists = messages.some((item) => item.id === message.id);
+          return exists
+            ? messages.map((item) => (item.id === message.id ? message : item))
+            : [...messages, message];
+        },
       );
     },
   });

@@ -153,11 +153,11 @@ impl MessagingSubscriptionFields {
         Ok(stream)
     }
 
-    async fn dm_received<'ctx>(
+    async fn dm_received(
         &self,
-        ctx: &Context<'ctx>,
+        ctx: &Context<'_>,
         thread_id: ID,
-    ) -> async_graphql::Result<impl Stream<Item = GqlDmMessage> + 'ctx> {
+    ) -> async_graphql::Result<impl Stream<Item = GqlDmMessage> + use<>> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
@@ -169,19 +169,22 @@ impl MessagingSubscriptionFields {
             .await
             .map_gql_err()?;
 
-        let event_bus = ctx.data::<EventBus>()?;
-        let receiver = event_bus.subscribe_tasks();
+        let message_bus = ctx.data::<std::sync::Arc<MessageBus>>()?.clone();
+        let redis_stream = message_bus
+            .subscribe_dm(thread_id_parsed)
+            .await
+            .map_err(|err| async_graphql::Error::new(err.to_string()))?;
 
-        let stream = tokio_stream::wrappers::BroadcastStream::new(receiver)
-            .filter_map(move |_| None::<GqlDmMessage>);
-
-        Ok(stream)
+        Ok(redis_stream.filter_map(|event| match event {
+            MessagingEvent::DmReceived { message, .. } => Some(GqlDmMessage::from(message)),
+            _ => None,
+        }))
     }
 
-    async fn presence<'ctx>(
+    async fn presence(
         &self,
-        ctx: &Context<'ctx>,
-    ) -> async_graphql::Result<impl Stream<Item = GqlUserPresence> + 'ctx> {
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<impl Stream<Item = GqlUserPresence> + use<>> {
         let auth = ctx.authenticated_user()?;
         let org_id = auth.require_org()?.organization_id;
 
@@ -191,7 +194,7 @@ impl MessagingSubscriptionFields {
             .await
             .map_err(|err| async_graphql::Error::new(err.to_string()))?;
 
-        let stream = redis_stream.filter_map(|event| match event {
+        Ok(redis_stream.filter_map(|event| match event {
             MessagingEvent::PresenceChanged {
                 user_id, status, ..
             } => Some(GqlUserPresence {
@@ -199,9 +202,7 @@ impl MessagingSubscriptionFields {
                 status: GqlPresenceStatus::from(status),
             }),
             _ => None,
-        });
-
-        Ok(stream)
+        }))
     }
 }
 
