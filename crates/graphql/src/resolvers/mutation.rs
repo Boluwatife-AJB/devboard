@@ -1,8 +1,8 @@
 use async_graphql::{Context, ID, MergedObject, Object};
 
 use devboard_domain::{
-    AttachmentId, AttachmentKind, ChannelId, ChannelKind, CommentId, DmThreadId, MessageId,
-    OrganizationId, ProjectId, TaskId, TeamId, UserId,
+    AttachmentId, AttachmentKind, ChannelId, ChannelKind, CommentId, DmThreadId, InvitationId,
+    MessageId, OrganizationId, ProjectId, TaskId, TeamId, UserId,
 };
 use devboard_service::task::CreateTaskCommand;
 
@@ -195,6 +195,28 @@ impl CoreMutation {
         services
             .team_service
             .remove_member(team_id, auth.user_id, user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    // Invitation Mutations
+    /// Revokes a pending invitation. Requires OrgAdmin.
+    async fn revoke_invitation(
+        &self,
+        ctx: &Context<'_>,
+        invitation_id: ID,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let membership = auth.require_org()?;
+        let invitation_id = parse_id::<InvitationId>(&invitation_id)?;
+
+        services
+            .auth_service
+            .revoke_invitation(auth.user_id, membership.organization_id, invitation_id)
             .await
             .map_gql_err()?;
 

@@ -16,7 +16,7 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,6 +34,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  canManageInvitations,
+  usePendingInvitations,
+} from "@/hooks/use-invitations";
 import { useMe } from "@/hooks/use-me";
 import { usePresenceEvents } from "@/hooks/use-messaging-events";
 import { useOrgMembers } from "@/hooks/use-teams";
@@ -73,6 +77,13 @@ function exportCsv(rows: MemberRow[]) {
 export function MembersTable() {
   const { data: members, isPending, isError } = useOrgMembers();
   const { data: me } = useMe();
+  // Resolve after mount — canManageInvitations reads cookies/localStorage,
+  // which aren't available during SSR, so a useState initializer would stick at false.
+  const [canManage, setCanManage] = useState(false);
+  useEffect(() => {
+    setCanManage(canManageInvitations());
+  }, []);
+  const { data: invitations } = usePendingInvitations(canManage);
 
   const [presenceMap, setPresenceMap] = useState<Record<string, UiPresence>>(
     {},
@@ -87,8 +98,8 @@ export function MembersTable() {
   );
 
   const rows = useMemo<MemberRow[]>(() => {
-    if (!members) return [];
-    return members.map((member) => ({
+    const memberRows: MemberRow[] = (members ?? []).map((member) => ({
+      kind: "member",
       userId: member.userId,
       name: member.user?.displayName ?? "Unknown user",
       email: member.user?.email ?? "—",
@@ -98,7 +109,19 @@ export function MembersTable() {
           ? "online"
           : (presenceMap[member.userId] ?? "offline"),
     }));
-  }, [members, me?.id, presenceMap]);
+
+    const inviteRows: MemberRow[] = (invitations ?? []).map((invitation) => ({
+      kind: "invite",
+      userId: invitation.id,
+      name: invitation.email,
+      email: invitation.email,
+      role: invitation.role,
+      status: "pending",
+      inviteUrl: invitation.inviteUrl,
+    }));
+
+    return [...memberRows, ...inviteRows];
+  }, [members, me?.id, presenceMap, invitations]);
 
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 

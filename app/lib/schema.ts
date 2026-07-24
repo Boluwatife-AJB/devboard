@@ -26,6 +26,12 @@ export const signupStep2Schema = z.object({
 
 export const signupSchema = signupStep1Schema.extend(signupStep2Schema.shape);
 
+export const acceptInviteSignupSchema = signupStep1Schema.extend({
+  termsAccepted: z.boolean().refine((val) => val === true, {
+    message: "You must accept the terms and conditions",
+  }),
+});
+
 export const signinSchema = z.object({
   email: z.email("Please enter a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -109,4 +115,9 @@ export const createChannelSchema = z.object({
     .regex(/[a-zA-Z0-9]/, "Channel name must contain letters or numbers"),
   description: z.string().optional(),
   kind: z.enum(["OPEN", "PRIVATE"]),
+});
+
+export const inviteMemberSchema = z.object({
+  email: z.email("Please enter a valid email address"),
+  role: z.enum(["ORG_ADMIN", "ORG_MEMBER"]),
 });

@@ -4,11 +4,13 @@ import type { Icon } from "@phosphor-icons/react";
 import type { z } from "zod";
 import type {
   addProjectMemberSchema,
+  acceptInviteSignupSchema,
   createChannelSchema,
   createCommentSchema,
   createProjectSchema,
   createTaskSchema,
   createTeamSchema,
+  inviteMemberSchema,
   signinSchema,
   signupSchema,
   updateProjectSchema,
@@ -23,7 +25,8 @@ type CreateCommentFormData = z.infer<typeof createCommentSchema>;
 type UpdateProjectFormData = z.infer<typeof updateProjectSchema>;
 type AddProjectMemberFormData = z.infer<typeof addProjectMemberSchema>;
 type CreateChannelFormData = z.infer<typeof createChannelSchema>;
-
+type InviteMemberFormData = z.infer<typeof inviteMemberSchema>;
+type AcceptInviteSignupFormData = z.infer<typeof acceptInviteSignupSchema>;
 interface AuthOrganization {
   id: string;
   name: string;
@@ -74,6 +77,35 @@ type TaskEventKind = "CREATED" | "UPDATED" | "DELETED";
 type TeamRole = "OWNER" | "ADMIN" | "MEMBER";
 
 type OrgRole = "ORG_OWNER" | "ORG_ADMIN" | "ORG_MEMBER";
+
+type InvitationStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+
+interface ApiInvitation {
+  id: string;
+  email: string;
+  role: OrgRole;
+  status: InvitationStatus;
+  invitedBy: string;
+  inviteUrl: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+interface CreateInviteResponse {
+  message: string;
+  inviteUrl: string;
+  emailSent: boolean;
+}
+
+interface AcceptInviteResponse {
+  message: string;
+  organization: {
+    id: string;
+    name: string;
+    slug: string;
+    role: string;
+  };
+}
 
 type ProjectRole = "OWNER" | "ADMIN" | "CONTRIBUTOR" | "VIEWER";
 

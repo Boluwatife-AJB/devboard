@@ -8,8 +8,8 @@ use crate::{
     context::ContextExt,
     error::IntoGraphQLResult,
     types::{
-        GqlAttachment, GqlChannel, GqlComment, GqlDmMessage, GqlDmThread, GqlMessage, GqlOrgMember,
-        GqlProject, GqlTask, GqlTaskStatus, GqlTeam, GqlTeamMember,
+        GqlAttachment, GqlChannel, GqlComment, GqlDmMessage, GqlDmThread, GqlInvitation,
+        GqlMessage, GqlOrgMember, GqlProject, GqlTask, GqlTaskStatus, GqlTeam, GqlTeamMember,
         pagination::{
             ConnectionArgs, PageInfo, TaskConnection, TaskEdge, decode_cursor, encode_cursor,
         },
@@ -117,6 +117,31 @@ impl CoreQuery {
         Ok(members
             .into_iter()
             .map(|m| GqlOrgMember { inner: m })
+            .collect())
+    }
+
+    /// Pending invitations for the current org. Requires OrgAdmin.
+    async fn pending_invitations(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Vec<GqlInvitation>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let membership = auth.require_org()?;
+
+        let invitations = services
+            .auth_service
+            .list_pending_invitations(auth.user_id, membership.organization_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(invitations
+            .into_iter()
+            .map(|view| GqlInvitation {
+                inner: view.invitation,
+                invite_url: view.invite_url,
+            })
             .collect())
     }
 

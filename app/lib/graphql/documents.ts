@@ -178,6 +178,31 @@ export const ORG_MEMBERS_QUERY = `
   }
 `;
 
+const INVITATION_FIELDS = `
+  id
+  email
+  role
+  status
+  invitedBy
+  inviteUrl
+  expiresAt
+  createdAt
+`;
+
+export const PENDING_INVITATIONS_QUERY = `
+  query PendingInvitations {
+    pendingInvitations {
+      ${INVITATION_FIELDS}
+    }
+  }
+`;
+
+export const REVOKE_INVITATION_MUTATION = `
+  mutation RevokeInvitation($invitationId: ID!) {
+    revokeInvitation(invitationId: $invitationId)
+  }
+`;
+
 export const CREATE_TEAM_MUTATION = `
   mutation CreateTeam($input: CreateTeamInput!) {
     createTeam(input: $input) {

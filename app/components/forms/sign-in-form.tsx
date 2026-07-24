@@ -9,8 +9,8 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { getApiErrorMessage, publicApi } from "@/lib/api";
@@ -30,8 +30,17 @@ const login = async (data: SigninFormData): Promise<AuthResponse> => {
   return response.data;
 };
 
-export default function SignInForm() {
+function safeRedirectPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return "/";
+  }
+  return value;
+}
+
+function SignInFormInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = safeRedirectPath(searchParams.get("redirect"));
   const [showPassword, setShowPassword] = useState(false);
 
   const {
@@ -56,7 +65,7 @@ export default function SignInForm() {
       if (data.organizations.length > 0) {
         setSelectedOrgId(data.organizations[0].id);
       }
-      router.push("/");
+      router.push(redirectTo);
       toast.success("Login successful");
     },
     onError: (error) => {
@@ -72,14 +81,20 @@ export default function SignInForm() {
     loginMutation(data);
   };
 
+  const signUpHref = redirectTo.startsWith("/accept-invite")
+    ? redirectTo
+    : "/sign-up";
+
   return (
-    <div className="w-96 max-w-md mx-auto">
+    <div className="mx-auto w-96 max-w-md">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-px">
+        <h1 className="mb-px text-3xl font-bold text-foreground">
           Welcome Back
         </h1>
         <p className="text-sm text-muted-foreground">
-          Sign in to your DevBoard account to continue
+          {redirectTo.startsWith("/accept-invite")
+            ? "Sign in to accept your workspace invitation"
+            : "Sign in to your DevBoard account to continue"}
         </p>
       </div>
 
@@ -92,15 +107,15 @@ export default function SignInForm() {
               <Field>
                 <FieldLabel
                   htmlFor="email"
-                  className="text-xs font-mono uppercase text-gray-400 pl-1 font-medium tracking-wide"
+                  className="pl-1 font-mono text-xs font-medium tracking-wide text-gray-400 uppercase"
                 >
                   Work Email
                 </FieldLabel>
                 <div className="relative">
-                  <EnvelopeSimpleIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground size-4" />
+                  <EnvelopeSimpleIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="email"
-                    className="py-6 pl-11 border border-devboard-neutral text-base focus:outline-none focus:border-devboard-primary focus:ring-1 focus:ring-devboard-primary/20 placeholder:font-semibold transition-all duration-150"
+                    className="border border-devboard-neutral py-6 pl-11 text-base transition-all duration-150 placeholder:font-semibold focus:border-devboard-primary focus:ring-1 focus:ring-devboard-primary/20 focus:outline-none"
                     placeholder="your@email.com"
                     type="text"
                     autoComplete="off"
@@ -121,15 +136,15 @@ export default function SignInForm() {
               <Field>
                 <FieldLabel
                   htmlFor="password"
-                  className="text-xs font-mono uppercase text-gray-400 pl-1 font-medium tracking-wide"
+                  className="pl-1 font-mono text-xs font-medium tracking-wide text-gray-400 uppercase"
                 >
                   Password
                 </FieldLabel>
                 <div className="relative">
-                  <LockKeyIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground size-4" />
+                  <LockKeyIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="password"
-                    className="py-6 pl-11 pr-11 border border-devboard-neutral text-base focus:outline-none focus:border-devboard-primary focus:ring-1 focus:ring-devboard-primary/20 placeholder:font-semibold transition-all duration-150"
+                    className="border border-devboard-neutral py-6 pr-11 pl-11 text-base transition-all duration-150 placeholder:font-semibold focus:border-devboard-primary focus:ring-1 focus:ring-devboard-primary/20 focus:outline-none"
                     placeholder="********"
                     type={showPassword ? "text" : "password"}
                     autoComplete="off"
@@ -139,7 +154,7 @@ export default function SignInForm() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground hover:bg-transparent active:not-aria-[haspopup]:-translate-y-1/2 dark:hover:bg-transparent"
+                    className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:bg-transparent hover:text-foreground active:not-aria-[haspopup]:-translate-y-1/2 dark:hover:bg-transparent"
                     onClick={handleShowPassword}
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
@@ -158,22 +173,36 @@ export default function SignInForm() {
           <Button
             type="submit"
             disabled={isLoginPending || !isValid}
-            className="w-full bg-devboard-primary text-white hover:bg-devboard-primary/90 font-semibold py-6 rounded-xs transition-colors mt-5"
+            className="mt-5 w-full rounded-xs bg-devboard-primary py-6 font-semibold text-white transition-colors hover:bg-devboard-primary/90"
           >
             {isLoginPending ? "Signing in..." : "Sign in"}
           </Button>
 
-          <p className="text-center text-sm text-muted-foreground mt-3">
-            Don't have an account?{" "}
+          <p className="mt-3 text-center text-sm text-muted-foreground">
+            Don&apos;t have an account?{" "}
             <Link
-              href="/sign-up"
-              className="text-devboard-primary hover:text-devboard-primary/90 transition-colors font-medium hover:underline"
+              href={signUpHref}
+              className="font-medium text-devboard-primary transition-colors hover:text-devboard-primary/90 hover:underline"
             >
-              Sign up
+              {redirectTo.startsWith("/accept-invite")
+                ? "Create account"
+                : "Sign up"}
             </Link>
           </p>
         </FieldGroup>
       </form>
     </div>
+  );
+}
+
+export default function SignInForm() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto h-64 w-96 max-w-md animate-pulse rounded-xs bg-muted/30" />
+      }
+    >
+      <SignInFormInner />
+    </Suspense>
   );
 }

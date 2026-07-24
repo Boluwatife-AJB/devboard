@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    QueryOrder,
 };
 use uuid::Uuid;
 
@@ -38,6 +39,16 @@ impl InvitationRepository for PgInvitationRepository {
         model.map(model_to_domain).transpose()
     }
 
+    #[tracing::instrument(skip(self), fields(invitation_id = %id))]
+    async fn find_by_id(&self, id: InvitationId) -> Result<Option<Invitation>, RepositoryError> {
+        let model = InvitationEntity::find_by_id(Uuid::from(id))
+            .one(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        model.map(model_to_domain).transpose()
+    }
+
     #[tracing::instrument(skip(self), fields(org_id = %org_id, email = %email))]
     async fn find_pending_by_org_and_email(
         &self,
@@ -55,6 +66,25 @@ impl InvitationRepository for PgInvitationRepository {
             .map_err(RepositoryError::from_db_err)?;
 
         model.map(model_to_domain).transpose()
+    }
+
+    #[tracing::instrument(skip(self), fields(org_id = %org_id))]
+    async fn list_pending_by_org(
+        &self,
+        org_id: OrganizationId,
+    ) -> Result<Vec<Invitation>, RepositoryError> {
+        let models = InvitationEntity::find()
+            .filter(invitation::Column::OrganizationId.eq(Uuid::from(org_id)))
+            .filter(
+                invitation::Column::Status.eq(invitation_status_to_str(InvitationStatus::Pending)),
+            )
+            .filter(invitation::Column::ExpiresAt.gt(Utc::now()))
+            .order_by_desc(invitation::Column::CreatedAt)
+            .all(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        models.into_iter().map(model_to_domain).collect()
     }
 
     #[tracing::instrument(skip(self), fields(invitation_id = %invitation.id, org_id = %invitation.org_id))]

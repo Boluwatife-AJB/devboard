@@ -15,16 +15,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useRevokeInvitation } from "@/hooks/use-invitations";
+import { getApiErrorMessage } from "@/lib/api";
 import { avatarColorOf, initialsOf } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { OrgRole, UiPresence } from "@/types";
 
 export type MemberRow = {
+  kind: "member" | "invite";
   userId: string;
   name: string;
   email: string;
   role: OrgRole;
-  status: UiPresence;
+  status: UiPresence | "pending";
+  inviteUrl?: string;
 };
 
 export const roleLabels: Record<OrgRole, string> = {
@@ -59,7 +63,9 @@ export const membersColumns: ColumnDef<MemberRow>[] = [
             {row.original.name}
           </p>
           <p className="truncate font-mono text-xs text-[#8A8A8A]">
-            {row.original.email}
+            {row.original.kind === "invite"
+              ? "Invitation pending"
+              : row.original.email}
           </p>
         </div>
       </div>
@@ -83,6 +89,16 @@ export const membersColumns: ColumnDef<MemberRow>[] = [
     header: "Status",
     cell: ({ row }) => {
       const status = row.original.status;
+      if (status === "pending") {
+        return (
+          <Badge
+            variant="outline"
+            className="h-6 rounded-xs border-[#F59E0B66] bg-transparent px-2.5 text-xs text-[#F59E0B]"
+          >
+            Pending
+          </Badge>
+        );
+      }
       const online = status === "online";
       const away = status === "away";
       return (
@@ -109,51 +125,93 @@ export const membersColumns: ColumnDef<MemberRow>[] = [
     id: "actions",
     header: () => <div className="text-right">Actions</div>,
     enableHiding: false,
-    cell: ({ row }) => {
-      const member = row.original;
-      return (
-        <div className="text-right">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-[#C2C6D6] hover:text-white"
-                  aria-label={`Actions for ${member.name}`}
-                >
-                  <DotsThreeVerticalIcon className="size-4" weight="bold" />
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuItem
-                  onClick={() => {
-                    navigator.clipboard.writeText(member.email);
-                    toast.success("Email copied to clipboard");
-                  }}
-                >
-                  Copy email
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    navigator.clipboard.writeText(member.userId);
-                    toast.success("User ID copied to clipboard");
-                  }}
-                >
-                  Copy user ID
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive">
-                Remove member
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      );
-    },
+    cell: ({ row }) => <MemberActionsCell member={row.original} />,
   },
 ];
+
+function MemberActionsCell({ member }: { member: MemberRow }) {
+  const revokeInvitation = useRevokeInvitation();
+
+  const handleRevoke = async () => {
+    try {
+      await revokeInvitation.mutateAsync(member.userId);
+      toast.success(`Invitation to ${member.email} revoked`);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (!member.inviteUrl) {
+      toast.error("Invite link is unavailable");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(member.inviteUrl);
+      toast.success("Invite link copied to clipboard");
+    } catch {
+      toast.error("Could not copy invite link");
+    }
+  };
+
+  return (
+    <div className="text-right">
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-[#C2C6D6] hover:text-white"
+              aria-label={`Actions for ${member.name}`}
+            >
+              <DotsThreeVerticalIcon className="size-4" weight="bold" />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={() => {
+                navigator.clipboard.writeText(member.email);
+                toast.success("Email copied to clipboard");
+              }}
+            >
+              Copy email
+            </DropdownMenuItem>
+            {member.kind === "member" && (
+              <DropdownMenuItem
+                onClick={() => {
+                  navigator.clipboard.writeText(member.userId);
+                  toast.success("User ID copied to clipboard");
+                }}
+              >
+                Copy user ID
+              </DropdownMenuItem>
+            )}
+            {member.kind === "invite" && (
+              <DropdownMenuItem onClick={handleCopyInviteLink}>
+                Copy invite link
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          {member.kind === "invite" ? (
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={revokeInvitation.isPending}
+              onClick={handleRevoke}
+            >
+              Revoke invitation
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem variant="destructive">
+              Remove member
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}

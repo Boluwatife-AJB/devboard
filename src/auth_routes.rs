@@ -181,9 +181,17 @@ async fn create_invite(
         .create_invite(auth_user.user_id, org_id, body.email, role)
         .await
     {
-        Ok(_) => (
+        Ok(result) => (
             StatusCode::ACCEPTED,
-            Json(serde_json::json!({ "message": "invite sent" })),
+            Json(serde_json::json!({
+                "message": if result.email_sent {
+                    "invite sent"
+                } else {
+                    "invite created"
+                },
+                "inviteUrl": result.invite_url,
+                "emailSent": result.email_sent,
+            })),
         )
             .into_response(),
         Err(err) => service_error_to_response(err).into_response(),

@@ -1,4 +1,5 @@
 import { UserPlusIcon } from "@phosphor-icons/react/dist/ssr";
+import { InviteMemberDialog } from "@/components/settings/invite-member-dialog";
 import { MembersTable } from "@/components/settings/members-table";
 import { Button } from "@/components/ui/button";
 
@@ -12,10 +13,14 @@ export default function Settings() {
             Manage who has access to this workspace and their permission levels.
           </p>
         </div>
-        <Button className="uppercase">
-          <UserPlusIcon data-icon="inline-start" weight="bold" />
-          Invite Member
-        </Button>
+        <InviteMemberDialog
+          trigger={
+            <Button className="uppercase">
+              <UserPlusIcon data-icon="inline-start" weight="bold" />
+              Invite Member
+            </Button>
+          }
+        />
       </div>
       <MembersTable />
     </div>

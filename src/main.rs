@@ -12,7 +12,10 @@ use axum::{
     routing::{get, post},
 };
 use devboard_cache::{MessageBus, OrgMembershipCache};
-use devboard_email::{EmailProvider, provider::ResendEmailProvider};
+use devboard_email::{
+    EmailProvider,
+    provider::{LogEmailProvider, ResendEmailProvider},
+};
 use devboard_presence::PresenceService;
 use migration::{Migrator, MigratorTrait};
 use tower_http::{
@@ -77,10 +80,15 @@ async fn main() -> anyhow::Result<()> {
 
     let membership_cache = devboard_cache::OrgMembershipCache::new(redis.clone());
 
-    let email_provider: Arc<dyn EmailProvider> = Arc::new(ResendEmailProvider::new(
-        &config.email.resend_api_key,
-        config.email.from_address.clone(),
-    ));
+    let email_provider: Arc<dyn EmailProvider> = if config.email.resend_api_key == "dev" {
+        tracing::warn!("RESEND_API_KEY is 'dev' - invite emails will be logged, not sent");
+        Arc::new(LogEmailProvider)
+    } else {
+        Arc::new(ResendEmailProvider::new(
+            &config.email.resend_api_key,
+            config.email.from_address.clone(),
+        ))
+    };
 
     let message_bus = Arc::new(MessageBus::new(redis.clone()));
     let presence_service = Arc::new(PresenceService::new(redis));

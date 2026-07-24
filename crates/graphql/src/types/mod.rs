@@ -1,5 +1,6 @@
 pub mod attachment;
 pub mod comment;
+pub mod invitation;
 pub mod messaging;
 pub mod pagination;
 pub mod project;
@@ -11,6 +12,7 @@ pub mod user;
 
 pub use attachment::{GqlAttachment, GqlAttachmentKind};
 pub use comment::GqlComment;
+pub use invitation::{GqlInvitation, GqlInvitationStatus};
 pub use messaging::{
     GqlChannel, GqlChannelKind, GqlDmMessage, GqlDmThread, GqlMessage, GqlMessageEmbed,
     GqlMessageEvent, GqlPresenceStatus, GqlReactionEvent, GqlReactionSummary, GqlUserPresence,
