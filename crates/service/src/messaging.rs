@@ -68,13 +68,34 @@ impl MessagingService {
         &self,
         org_id: OrganizationId,
         caller_id: UserId,
-    ) -> Result<Vec<Channel>, ServiceError> {
+    ) -> Result<Vec<(Channel, bool)>, ServiceError> {
         self.require_org_member(caller_id, org_id).await?;
 
-        self.channel_repo
+        let all = self
+            .channel_repo
+            .find_by_organization(org_id)
+            .await
+            .map_err(ServiceError::from)?;
+
+        let member_channels = self
+            .channel_repo
             .find_member_channels(caller_id, org_id)
             .await
-            .map_err(ServiceError::from)
+            .map_err(ServiceError::from)?;
+
+        let member_ids: std::collections::HashSet<_> = member_channels
+            .into_iter()
+            .map(|channel| channel.id)
+            .collect();
+
+        Ok(all
+            .into_iter()
+            .filter(|channel| channel.kind == ChannelKind::Open || member_ids.contains(&channel.id))
+            .map(|channel| {
+                let is_member = member_ids.contains(&channel.id);
+                (channel, is_member)
+            })
+            .collect())
     }
 
     pub async fn create_channel(
@@ -431,6 +452,27 @@ impl MessagingService {
                 message_id,
             })
             .await;
+
+        self.message_repo
+            .get_reactions(message_id, caller_id)
+            .await
+            .map_err(ServiceError::from)
+    }
+
+    /// Reaction summaries for a message (used by GraphQL field resolvers).
+    pub async fn get_reactions(
+        &self,
+        message_id: MessageId,
+        caller_id: UserId,
+    ) -> Result<Vec<ReactionSummary>, ServiceError> {
+        let message = self
+            .message_repo
+            .find_by_id(message_id)
+            .await?
+            .ok_or_else(|| ServiceError::Internal("message not found".into()))?;
+
+        self.require_channel_member(message.channel_id, caller_id)
+            .await?;
 
         self.message_repo
             .get_reactions(message_id, caller_id)

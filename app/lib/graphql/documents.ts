@@ -77,6 +77,7 @@ const CHANNEL_FIELDS = `
   description
   kind
   createdAt
+  isMember
 `;
 
 const MESSAGE_EMBED_FIELDS = `
@@ -92,6 +93,12 @@ const MESSAGE_EMBED_FIELDS = `
   state
 `;
 
+const REACTION_FIELDS = `
+  emoji
+  count
+  reactedByMe
+`;
+
 const CHANNEL_MESSAGE_FIELDS = `
   id
   channelId
@@ -102,6 +109,9 @@ const CHANNEL_MESSAGE_FIELDS = `
   editedAt
   embeds {
     ${MESSAGE_EMBED_FIELDS}
+  }
+  reactions {
+    ${REACTION_FIELDS}
   }
 `;
 
@@ -122,12 +132,6 @@ const DM_MESSAGE_FIELDS = `
   isEdited
   isRead
   readByRecipientAt
-`;
-
-const REACTION_FIELDS = `
-  emoji
-  count
-  reactedByMe
 `;
 
 const PRESENCE_FIELDS = `

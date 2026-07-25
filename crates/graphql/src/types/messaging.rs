@@ -77,26 +77,50 @@ impl GqlChannelMember {
     }
 }
 
-#[derive(SimpleObject, Clone)]
+#[derive(Clone)]
 pub struct GqlChannel {
-    pub id: ID,
-    pub slug: String,
-    pub name: String,
-    pub description: Option<String>,
-    pub kind: GqlChannelKind,
-    pub created_at: DateTime<Utc>,
+    pub inner: Channel,
+    pub is_member: bool,
+}
+
+#[Object]
+impl GqlChannel {
+    async fn id(&self) -> ID {
+        ID(self.inner.id.to_string())
+    }
+    async fn slug(&self) -> &str {
+        &self.inner.slug
+    }
+    async fn name(&self) -> &str {
+        &self.inner.name
+    }
+    async fn description(&self) -> Option<&str> {
+        self.inner.description.as_deref()
+    }
+    async fn kind(&self) -> GqlChannelKind {
+        GqlChannelKind::from(self.inner.kind)
+    }
+    async fn created_at(&self) -> DateTime<Utc> {
+        self.inner.created_at
+    }
+    async fn is_member(&self) -> bool {
+        self.is_member
+    }
+}
+
+impl GqlChannel {
+    pub fn from_channel(channel: Channel, is_member: bool) -> Self {
+        Self {
+            inner: channel,
+            is_member,
+        }
+    }
 }
 
 impl From<Channel> for GqlChannel {
     fn from(c: Channel) -> Self {
-        Self {
-            id: ID(c.id.to_string()),
-            slug: c.slug,
-            name: c.name,
-            description: c.description,
-            kind: GqlChannelKind::from(c.kind),
-            created_at: c.created_at,
-        }
+        // Default: treat as member (e.g. channel just created by caller).
+        Self::from_channel(c, true)
     }
 }
 
@@ -245,6 +269,23 @@ impl GqlMessage {
             .map(GqlMessageEmbed::from)
             .collect()
     }
+
+    async fn reactions(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<GqlReactionSummary>> {
+        use crate::context::ContextExt;
+        use crate::error::IntoGraphQLResult;
+
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+        let reactions = services
+            .messaging_service
+            .get_reactions(self.inner.id, auth.user_id)
+            .await
+            .map_gql_err()?;
+        Ok(reactions
+            .into_iter()
+            .map(GqlReactionSummary::from)
+            .collect())
+    }
 }
 
 impl From<Message> for GqlMessage {
@@ -322,7 +363,7 @@ impl From<UserPresence> for GqlUserPresence {
 
 #[derive(SimpleObject, Clone)]
 pub struct GqlMessageEvent {
-    pub kind: String, // NEW | EDITED | DELETED
+    pub kind: String, // NEW | EDITED | DELETED | REACTIONS
     pub channel_id: ID,
     pub message: Option<GqlMessage>,
     pub message_id: ID,

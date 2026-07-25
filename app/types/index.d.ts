@@ -342,6 +342,7 @@ interface ApiChannel {
   description: string | null;
   kind: ChannelKind;
   createdAt: string;
+  isMember: boolean;
 }
 
 interface ApiChannelMember {
@@ -380,6 +381,7 @@ interface ApiMessage {
   editedAt?: string | null;
   isEdited: boolean;
   embeds: ApiMessageEmbed[];
+  reactions?: ApiReactionSummary[];
 }
 
 interface SendMessageInput {
@@ -462,4 +464,6 @@ interface DisplayMessage {
   isEdited: boolean;
   isRead?: boolean;
   embeds?: ApiMessageEmbed[];
+  reactions?: ApiReactionSummary[];
+  channelId?: string;
 }

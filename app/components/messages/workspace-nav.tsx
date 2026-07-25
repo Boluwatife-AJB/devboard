@@ -135,6 +135,7 @@ export function WorkspaceNav({
                     const isActive =
                       activeConversation?.type === "channel" &&
                       activeConversation.id === channel.id;
+                    const isMember = channel.isMember;
                     return (
                       <li key={channel.id}>
                         <button
@@ -149,16 +150,23 @@ export function WorkspaceNav({
                             "flex w-full items-center justify-between gap-2 rounded-xs px-2 py-2 text-left text-sm transition-colors",
                             isActive
                               ? "bg-[#1C1B1B] text-[#ADC6FF]"
-                              : "text-[#C2C6D6] hover:bg-[#1C1B1B] hover:text-white",
+                              : isMember
+                                ? "text-[#C2C6D6] hover:bg-[#1C1B1B] hover:text-white"
+                                : "text-[#6B6B6B] hover:bg-[#1C1B1B] hover:text-[#A0A0A0]",
                           )}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
                             <span className="text-[#8A8A8A]">#</span>
-                            {channel.slug}
+                            <span className="truncate">{channel.slug}</span>
+                            {!isMember && (
+                              <span className="shrink-0 text-[10px] uppercase tracking-wide text-[#8A8A8A]">
+                                Join
+                              </span>
+                            )}
                           </div>
 
                           {channel.kind === "PRIVATE" && (
-                            <LockIcon className="size-4" />
+                            <LockIcon className="size-4 shrink-0" />
                           )}
                         </button>
                       </li>

@@ -35,7 +35,10 @@ impl MessagingQuery {
             .await
             .map_gql_err()?;
 
-        Ok(channels.into_iter().map(GqlChannel::from).collect())
+        Ok(channels
+            .into_iter()
+            .map(|(channel, is_member)| GqlChannel::from_channel(channel, is_member))
+            .collect())
     }
 
     async fn channel_messages(

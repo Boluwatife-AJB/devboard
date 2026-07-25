@@ -91,8 +91,18 @@ export function useJoinChannel() {
       });
       return channelId;
     },
-    onSuccess: () => {
+    onSuccess: (channelId) => {
+      queryClient.setQueryData<ApiChannel[]>(
+        messagingKeys.channels,
+        (channels) =>
+          channels?.map((channel) =>
+            channel.id === channelId ? { ...channel, isMember: true } : channel,
+          ),
+      );
       queryClient.invalidateQueries({ queryKey: messagingKeys.channels });
+      queryClient.invalidateQueries({
+        queryKey: messagingKeys.channelMessages(channelId),
+      });
     },
   });
 }
@@ -143,7 +153,16 @@ export function useLeaveChannel() {
     onSuccess: (channelId) => {
       queryClient.setQueryData<ApiChannel[]>(
         messagingKeys.channels,
-        (channels) => channels?.filter((channel) => channel.id !== channelId),
+        (channels) =>
+          channels
+            ?.map((channel) =>
+              channel.id === channelId
+                ? { ...channel, isMember: false }
+                : channel,
+            )
+            .filter(
+              (channel) => channel.id !== channelId || channel.kind === "OPEN",
+            ),
       );
       queryClient.removeQueries({
         queryKey: messagingKeys.channelMembers(channelId),
@@ -257,24 +276,46 @@ export function useDeleteMessage(channelId: string) {
   });
 }
 
-export function useAddReaction() {
+export function useAddReaction(channelId: string) {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (input: ReactionInput) => {
       const data = await graphqlRequest<{
         addReaction: ApiReactionSummary[];
       }>(ADD_REACTION_MUTATION, { input });
-      return data.addReaction;
+      return { messageId: input.messageId, reactions: data.addReaction };
+    },
+    onSuccess: ({ messageId, reactions }) => {
+      queryClient.setQueryData<ApiMessage[]>(
+        messagingKeys.channelMessages(channelId),
+        (messages) =>
+          messages?.map((message) =>
+            message.id === messageId ? { ...message, reactions } : message,
+          ),
+      );
     },
   });
 }
 
-export function useRemoveReaction() {
+export function useRemoveReaction(channelId: string) {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (input: ReactionInput) => {
       const data = await graphqlRequest<{
         removeReaction: ApiReactionSummary[];
       }>(REMOVE_REACTION_MUTATION, { input });
-      return data.removeReaction;
+      return { messageId: input.messageId, reactions: data.removeReaction };
+    },
+    onSuccess: ({ messageId, reactions }) => {
+      queryClient.setQueryData<ApiMessage[]>(
+        messagingKeys.channelMessages(channelId),
+        (messages) =>
+          messages?.map((message) =>
+            message.id === messageId ? { ...message, reactions } : message,
+          ),
+      );
     },
   });
 }

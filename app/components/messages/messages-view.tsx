@@ -1,23 +1,41 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { ChannelChatPane } from "@/components/messages/channel-chat-pane";
 import { DetailsPane } from "@/components/messages/details-pane";
 import { DmChatPane } from "@/components/messages/dm-chat-pane";
 import { EmptyChatPane } from "@/components/messages/list-states";
 import { WorkspaceNav } from "@/components/messages/workspace-nav";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useMe } from "@/hooks/use-me";
-import { useChannels, useDmThreads } from "@/hooks/use-messaging";
+import {
+  useChannels,
+  useDmThreads,
+  useJoinChannel,
+} from "@/hooks/use-messaging";
 import { useOrgPresence } from "@/hooks/use-presence";
 import { useOrgMembers } from "@/hooks/use-teams";
+import { getApiErrorMessage } from "@/lib/api";
 import { toUiPresence } from "@/lib/message-utils";
 import { cn } from "@/lib/utils";
-import type { ActiveConversation, ApiUser } from "@/types";
+import type { ActiveConversation, ApiChannel, ApiUser } from "@/types";
 
 export function MessagesView() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [activeConversation, setActiveConversation] =
     useState<ActiveConversation | null>(null);
+  const [pendingJoinChannel, setPendingJoinChannel] =
+    useState<ApiChannel | null>(null);
 
   const { data: me } = useMe();
   const { data: members = [] } = useOrgMembers();
@@ -32,6 +50,7 @@ export function MessagesView() {
     isLoading: dmsLoading,
     error: dmsError,
   } = useDmThreads();
+  const joinChannel = useJoinChannel();
 
   const memberById = useMemo(() => {
     const map = new Map<string, ApiUser>();
@@ -53,8 +72,10 @@ export function MessagesView() {
   );
 
   useEffect(() => {
-    if (channels[0] && !activeConversation) {
-      setActiveConversation({ type: "channel", id: channels[0].id });
+    if (activeConversation) return;
+    const firstMemberChannel = channels.find((channel) => channel.isMember);
+    if (firstMemberChannel) {
+      setActiveConversation({ type: "channel", id: firstMemberChannel.id });
     }
   }, [channels, activeConversation]);
 
@@ -70,7 +91,33 @@ export function MessagesView() {
         null)
       : null;
 
-  const showDetails = detailsOpen && activeChannel !== null;
+  const showDetails =
+    detailsOpen && activeChannel !== null && activeChannel.isMember;
+
+  const handleSelectConversation = (conversation: ActiveConversation) => {
+    if (conversation.type === "channel") {
+      const channel = channels.find((item) => item.id === conversation.id);
+      if (channel && !channel.isMember) {
+        setPendingJoinChannel(channel);
+        return;
+      }
+    }
+    setActiveConversation(conversation);
+    setDetailsOpen(false);
+  };
+
+  const handleConfirmJoin = async () => {
+    if (!pendingJoinChannel) return;
+    const channelId = pendingJoinChannel.id;
+    try {
+      await joinChannel.mutateAsync(channelId);
+      setPendingJoinChannel(null);
+      setActiveConversation({ type: "channel", id: channelId });
+      setDetailsOpen(false);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
+  };
 
   return (
     <div className="grid h-[calc(100vh-5rem)] grid-cols-7 overflow-hidden border-0 bg-[#0B0E14]">
@@ -86,10 +133,7 @@ export function MessagesView() {
           displayNameOf={displayNameOf}
           presenceOf={presenceOf}
           activeConversation={activeConversation}
-          onSelectConversation={(conversation) => {
-            setActiveConversation(conversation);
-            setDetailsOpen(false);
-          }}
+          onSelectConversation={handleSelectConversation}
         />
       </div>
       <div className={cn("min-h-0", showDetails ? "col-span-3" : "col-span-5")}>
@@ -127,6 +171,36 @@ export function MessagesView() {
           />
         </div>
       )}
+
+      <AlertDialog
+        open={pendingJoinChannel !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingJoinChannel(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Join #{pendingJoinChannel?.slug}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You are not a member of this channel yet. Join to read and send
+              messages in #{pendingJoinChannel?.slug}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={joinChannel.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmJoin}
+              disabled={joinChannel.isPending}
+            >
+              {joinChannel.isPending ? "Joining…" : "Join channel"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

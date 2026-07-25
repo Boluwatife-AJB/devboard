@@ -49,6 +49,11 @@ export function useChannelMessageEvents(channelId: string) {
             return;
           }
 
+          if (kind === "REACTIONS") {
+            void queryClient.invalidateQueries({ queryKey: listKey });
+            return;
+          }
+
           const message = event.message;
           if (!message) return;
 
@@ -57,7 +62,13 @@ export function useChannelMessageEvents(channelId: string) {
             const exists = messages.some((item) => item.id === message.id);
             if (kind === "EDITED" || exists) {
               return messages.map((item) =>
-                item.id === message.id ? message : item,
+                item.id === message.id
+                  ? {
+                      ...item,
+                      ...message,
+                      reactions: message.reactions ?? item.reactions,
+                    }
+                  : item,
               );
             }
             return [...messages, message];

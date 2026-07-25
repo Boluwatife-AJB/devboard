@@ -10,7 +10,7 @@ use crate::{
     error::IntoGraphQLResult,
     resolvers::query::parse_id,
     types::{
-        GqlDmMessage, GqlMessageEvent, GqlPresenceStatus, GqlReactionEvent, GqlTask,
+        GqlDmMessage, GqlMessage, GqlMessageEvent, GqlPresenceStatus, GqlReactionEvent, GqlTask,
         GqlUserPresence, TaskEventKind, TaskUpdatedEvent,
     },
 };
@@ -108,31 +108,68 @@ pub struct MessagingSubscriptionFields;
 
 #[Subscription]
 impl MessagingSubscriptionFields {
-    async fn channel_messages<'ctx>(
+    async fn channel_messages(
         &self,
-        ctx: &Context<'ctx>,
+        ctx: &Context<'_>,
         channel_id: ID,
-    ) -> async_graphql::Result<impl Stream<Item = GqlMessageEvent> + 'ctx> {
+    ) -> async_graphql::Result<impl Stream<Item = GqlMessageEvent> + use<>> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
         let channel_id_parsed = parse_id::<ChannelId>(&channel_id)?;
 
+        // Authz: caller must be a channel member
         services
             .messaging_service
             .list_messages(channel_id_parsed, auth.user_id, None, 1)
             .await
             .map_gql_err()?;
 
-        let _message_bus = ctx.data::<MessageBus>()?;
+        let message_bus = ctx.data::<std::sync::Arc<MessageBus>>()?.clone();
+        let redis_stream = message_bus
+            .subscribe_channel(channel_id_parsed)
+            .await
+            .map_err(|err| async_graphql::Error::new(err.to_string()))?;
 
-        let event_bus = ctx.data::<EventBus>()?;
-        let receiver = event_bus.subscribe_tasks();
-
-        let stream = tokio_stream::wrappers::BroadcastStream::new(receiver)
-            .filter_map(move |_result| None::<GqlMessageEvent>);
-
-        Ok(stream)
+        Ok(redis_stream.filter_map(|event| match event {
+            MessagingEvent::ChannelMessage {
+                channel_id,
+                message,
+            } => Some(GqlMessageEvent {
+                kind: "NEW".into(),
+                channel_id: ID(channel_id.to_string()),
+                message_id: ID(message.id.to_string()),
+                message: Some(GqlMessage::from(message)),
+            }),
+            MessagingEvent::ChannelMessageEdited {
+                channel_id,
+                message,
+            } => Some(GqlMessageEvent {
+                kind: "EDITED".into(),
+                channel_id: ID(channel_id.to_string()),
+                message_id: ID(message.id.to_string()),
+                message: Some(GqlMessage::from(message)),
+            }),
+            MessagingEvent::ChannelMessageDeleted {
+                channel_id,
+                message_id,
+            } => Some(GqlMessageEvent {
+                kind: "DELETED".into(),
+                channel_id: ID(channel_id.to_string()),
+                message_id: ID(message_id.to_string()),
+                message: None,
+            }),
+            MessagingEvent::ReactionUpdated {
+                channel_id,
+                message_id,
+            } => Some(GqlMessageEvent {
+                kind: "REACTIONS".into(),
+                channel_id: ID(channel_id.to_string()),
+                message_id: ID(message_id.to_string()),
+                message: None,
+            }),
+            _ => None,
+        }))
     }
 
     async fn message_reactions<'ctx>(

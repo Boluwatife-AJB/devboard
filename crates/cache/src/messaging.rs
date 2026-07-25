@@ -143,4 +143,36 @@ impl MessageBus {
             }
         })
     }
+
+    pub async fn subscribe_channel(
+        &self,
+        channel_id: ChannelId,
+    ) -> Result<impl Stream<Item = MessagingEvent> + Send + 'static + use<>, CacheError> {
+        let topic = channel_topic(channel_id);
+        let (mut sink, mut stream) = self
+            .client
+            .get_async_pubsub()
+            .await
+            .map_err(CacheError::Connection)?
+            .split();
+
+        sink.subscribe(&topic)
+            .await
+            .map_err(CacheError::Connection)?;
+
+        Ok(async_stream::stream! {
+            let _sink = sink;
+            while let Some(msg) = stream.next().await {
+                let Ok(payload) = msg.get_payload::<String>() else {
+                    continue;
+                };
+                match serde_json::from_str::<MessagingEvent>(&payload) {
+                    Ok(event) => yield event,
+                    Err(err) => {
+                        tracing::warn!(error = %err, "invalid messaging event payload");
+                    }
+                }
+            }
+        })
+    }
 }
