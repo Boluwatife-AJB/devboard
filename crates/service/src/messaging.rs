@@ -147,6 +147,12 @@ impl MessagingService {
             .await?
             .ok_or_else(|| ServiceError::Internal("channel not found".into()))?;
 
+        if channel.organization_id != org_id {
+            return Err(ServiceError::Forbidden {
+                reason: "this channel is not part of this organization".into(),
+            });
+        }
+
         if channel.kind == ChannelKind::Private {
             self.require_org_admin(caller_id, org_id).await?;
         }
@@ -202,12 +208,25 @@ impl MessagingService {
         org_id: OrganizationId,
     ) -> Result<(), ServiceError> {
         self.require_org_member(caller_id, org_id).await?;
+
+        let channel = self
+            .channel_repo
+            .find_by_id(channel_id)
+            .await?
+            .ok_or_else(|| ServiceError::Internal("channel not found".into()))?;
+
+        if channel.organization_id != org_id {
+            return Err(ServiceError::Forbidden {
+                reason: "this channel is not part of this organization".into(),
+            });
+        }
+
         self.require_channel_member(channel_id, caller_id).await?;
 
         self.channel_repo
             .remove_member(channel_id, caller_id)
             .await
-            .map_err(ServiceError::from)
+            .map_err(map_remove_member_error)
     }
 
     pub async fn remove_channel_member(
@@ -232,15 +251,16 @@ impl MessagingService {
         }
 
         if target_user_id == caller_id {
-            return Err(ServiceError::Forbidden {
-                reason: "you cannot remove yourself from a channel".into(),
+            return Err(ServiceError::Validation {
+                field: "userId".into(),
+                message: "use leaveChannel to leave yourself".into(),
             });
         }
 
         self.channel_repo
             .remove_member(channel_id, target_user_id)
             .await
-            .map_err(ServiceError::from)
+            .map_err(map_remove_member_error)
     }
 
     // Messages
@@ -744,6 +764,15 @@ fn validate_channel_name(name: &str) -> Result<(), ServiceError> {
         });
     }
     Ok(())
+}
+
+fn map_remove_member_error(err: RepositoryError) -> ServiceError {
+    match err {
+        RepositoryError::NotFound => ServiceError::Conflict {
+            message: "user is not a member of this channel".into(),
+        },
+        other => ServiceError::from(other),
+    }
 }
 
 fn contains_url(body: &str) -> bool {

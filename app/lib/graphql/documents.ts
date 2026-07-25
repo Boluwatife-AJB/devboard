@@ -408,6 +408,41 @@ export const JOIN_CHANNEL_MUTATION = `
   }
 `;
 
+const CHANNEL_MEMBER_FIELDS = `
+  channelId
+  userId
+  joinedAt
+  user {
+    ${USER_FIELDS}
+  }
+`;
+
+export const CHANNEL_MEMBERS_QUERY = `
+  query ChannelMembers($channelId: ID!) {
+    channelMembers(channelId: $channelId) {
+      ${CHANNEL_MEMBER_FIELDS}
+    }
+  }
+`;
+
+export const ADD_CHANNEL_MEMBER_MUTATION = `
+  mutation AddChannelMember($input: AddChannelMemberInput!) {
+    addChannelMember(input: $input)
+  }
+`;
+
+export const LEAVE_CHANNEL_MUTATION = `
+  mutation LeaveChannel($channelId: ID!) {
+    leaveChannel(channelId: $channelId)
+  }
+`;
+
+export const REMOVE_CHANNEL_MEMBER_MUTATION = `
+  mutation RemoveChannelMember($input: RemoveChannelMemberInput!) {
+    removeChannelMember(input: $input)
+  }
+`;
+
 export const SEND_MESSAGE_MUTATION = `
   mutation SendMessage($input: SendMessageInput!) {
     sendMessage(input: $input) {

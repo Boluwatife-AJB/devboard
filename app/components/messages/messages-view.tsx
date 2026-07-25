@@ -118,7 +118,13 @@ export function MessagesView() {
       </div>
       {showDetails && activeChannel && (
         <div className="col-span-2 min-h-0">
-          <DetailsPane channel={activeChannel} />
+          <DetailsPane
+            channel={activeChannel}
+            onLeftChannel={() => {
+              setDetailsOpen(false);
+              setActiveConversation(null);
+            }}
+          />
         </div>
       )}
     </div>

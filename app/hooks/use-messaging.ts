@@ -3,7 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { graphqlRequest } from "@/lib/graphql/client";
 import {
+  ADD_CHANNEL_MEMBER_MUTATION,
   ADD_REACTION_MUTATION,
+  CHANNEL_MEMBERS_QUERY,
   CHANNEL_MESSAGES_QUERY,
   CHANNELS_QUERY,
   CREATE_CHANNEL_MUTATION,
@@ -12,15 +14,18 @@ import {
   DM_THREADS_QUERY,
   EDIT_MESSAGE_MUTATION,
   JOIN_CHANNEL_MUTATION,
+  LEAVE_CHANNEL_MUTATION,
   MARK_CHANNEL_AS_READ_MUTATION,
   MARK_DM_AS_READ_MUTATION,
   OPEN_DM_MUTATION,
+  REMOVE_CHANNEL_MEMBER_MUTATION,
   REMOVE_REACTION_MUTATION,
   SEND_DM_MUTATION,
   SEND_MESSAGE_MUTATION,
 } from "@/lib/graphql/documents";
 import type {
   ApiChannel,
+  ApiChannelMember,
   ApiDmMessage,
   ApiDmThread,
   ApiMessage,
@@ -36,6 +41,7 @@ import type {
 
 export const messagingKeys = {
   channels: ["channels"] as const,
+  channelMembers: (channelId: string) => ["channelMembers", channelId] as const,
   channelMessages: (channelId: string) =>
     ["channelMessages", channelId] as const,
   dmThreads: ["dmThreads"] as const,
@@ -87,6 +93,85 @@ export function useJoinChannel() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: messagingKeys.channels });
+    },
+  });
+}
+
+export function useChannelMembers(channelId: string) {
+  return useQuery({
+    queryKey: messagingKeys.channelMembers(channelId),
+    queryFn: async () => {
+      const data = await graphqlRequest<{
+        channelMembers: ApiChannelMember[];
+      }>(CHANNEL_MEMBERS_QUERY, { channelId });
+      return data.channelMembers;
+    },
+    enabled: Boolean(channelId),
+  });
+}
+
+export function useAddChannelMember(channelId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      await graphqlRequest<{ addChannelMember: boolean }>(
+        ADD_CHANNEL_MEMBER_MUTATION,
+        { input: { channelId, userId } },
+      );
+      return userId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: messagingKeys.channelMembers(channelId),
+      });
+      queryClient.invalidateQueries({ queryKey: messagingKeys.channels });
+    },
+  });
+}
+
+export function useLeaveChannel() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (channelId: string) => {
+      await graphqlRequest<{ leaveChannel: boolean }>(LEAVE_CHANNEL_MUTATION, {
+        channelId,
+      });
+      return channelId;
+    },
+    onSuccess: (channelId) => {
+      queryClient.setQueryData<ApiChannel[]>(
+        messagingKeys.channels,
+        (channels) => channels?.filter((channel) => channel.id !== channelId),
+      );
+      queryClient.removeQueries({
+        queryKey: messagingKeys.channelMembers(channelId),
+      });
+      queryClient.removeQueries({
+        queryKey: messagingKeys.channelMessages(channelId),
+      });
+      queryClient.invalidateQueries({ queryKey: messagingKeys.channels });
+    },
+  });
+}
+
+export function useRemoveChannelMember(channelId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      await graphqlRequest<{ removeChannelMember: boolean }>(
+        REMOVE_CHANNEL_MEMBER_MUTATION,
+        { input: { channelId, userId } },
+      );
+      return userId;
+    },
+    onSuccess: (userId) => {
+      queryClient.setQueryData<ApiChannelMember[]>(
+        messagingKeys.channelMembers(channelId),
+        (members) => members?.filter((member) => member.userId !== userId),
+      );
     },
   });
 }

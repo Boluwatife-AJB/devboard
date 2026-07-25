@@ -344,6 +344,13 @@ interface ApiChannel {
   createdAt: string;
 }
 
+interface ApiChannelMember {
+  channelId: string;
+  userId: string;
+  joinedAt: string;
+  user: ApiUser | null;
+}
+
 interface CreateChannelInput {
   slug: string;
   name: string;

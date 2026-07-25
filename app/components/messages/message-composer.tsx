@@ -14,7 +14,7 @@ import {
 import Link from "@tiptap/extension-link";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +25,7 @@ type MessageComposerProps = {
 
 export function MessageComposer({ channelName, onSend }: MessageComposerProps) {
   const [isEmpty, setIsEmpty] = useState(true);
+  const handleSendRef = useRef<() => void>(() => {});
 
   const editor = useEditor({
     extensions: [
@@ -51,6 +52,14 @@ export function MessageComposer({ channelName, onSend }: MessageComposerProps) {
         class:
           "min-h-20 max-h-40 overflow-y-auto px-4 py-3 text-sm text-white outline-none focus:outline-none [&_p]:m-0 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_code]:rounded-xs [&_code]:bg-[#1C1B1B] [&_code]:px-1 [&_code]:font-mono [&_code]:text-[#ADC6FF]",
       },
+      handleKeyDown: (_view, event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          handleSendRef.current();
+          return true;
+        }
+        return false;
+      },
     },
   });
 
@@ -63,6 +72,8 @@ export function MessageComposer({ channelName, onSend }: MessageComposerProps) {
     editor.commands.clearContent(true);
     setIsEmpty(true);
   };
+
+  handleSendRef.current = handleSend;
 
   const setLink = () => {
     if (!editor) return;
