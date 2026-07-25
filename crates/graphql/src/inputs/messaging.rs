@@ -11,6 +11,18 @@ pub struct CreateChannelInput {
 }
 
 #[derive(InputObject)]
+pub struct AddChannelMemberInput {
+    pub channel_id: ID,
+    pub user_id: ID,
+}
+
+#[derive(InputObject)]
+pub struct RemoveChannelMemberInput {
+    pub channel_id: ID,
+    pub user_id: ID,
+}
+
+#[derive(InputObject)]
 pub struct SendMessageInput {
     pub channel_id: ID,
     pub body: String,

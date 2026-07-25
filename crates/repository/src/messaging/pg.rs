@@ -168,6 +168,23 @@ impl ChannelRepository for PgChannelRepository {
         Ok(channels)
     }
 
+    async fn remove_member(
+        &self,
+        channel_id: ChannelId,
+        user_id: UserId,
+    ) -> Result<(), RepositoryError> {
+        let result =
+            ChannelMemberEntity::delete_by_id((Uuid::from(channel_id), Uuid::from(user_id)))
+                .exec(&self.db)
+                .await
+                .map_err(RepositoryError::from_db_err)?;
+
+        if result.rows_affected == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+        Ok(())
+    }
+
     async fn create(&self, params: CreateChannelParams) -> Result<Channel, RepositoryError> {
         let now = Utc::now();
         let active = channel::ActiveModel {

@@ -1,9 +1,11 @@
-use async_graphql::{Enum, ID, Object, SimpleObject};
+use async_graphql::{Context, Enum, ID, Object, SimpleObject, dataloader::DataLoader};
 use chrono::{DateTime, Utc};
 use devboard_domain::{
-    Channel, ChannelKind, DmMessage, DmThread, Message, MessageEmbed, PresenceStatus,
-    ReactionSummary, UserPresence,
+    Channel, ChannelKind, ChannelMember, DmMessage, DmThread, Message, MessageEmbed,
+    PresenceStatus, ReactionSummary, UserPresence,
 };
+
+use crate::{GqlUser, UserLoader};
 
 #[derive(Enum, Copy, Clone, Eq, PartialEq)]
 pub enum GqlChannelKind {
@@ -43,6 +45,35 @@ impl From<PresenceStatus> for GqlPresenceStatus {
             PresenceStatus::Away => Self::Away,
             PresenceStatus::Offline => Self::Offline,
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct GqlChannelMember {
+    pub inner: ChannelMember,
+}
+
+impl From<ChannelMember> for GqlChannelMember {
+    fn from(m: ChannelMember) -> Self {
+        Self { inner: m }
+    }
+}
+
+#[Object]
+impl GqlChannelMember {
+    async fn channel_id(&self) -> ID {
+        ID(self.inner.channel_id.to_string())
+    }
+    async fn user_id(&self) -> ID {
+        ID(self.inner.user_id.to_string())
+    }
+    async fn joined_at(&self) -> DateTime<Utc> {
+        self.inner.joined_at
+    }
+    async fn user(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<GqlUser>> {
+        let loader = ctx.data::<DataLoader<UserLoader>>()?;
+        let user = loader.load_one(self.inner.user_id).await?;
+        Ok(user.map(GqlUser::from))
     }
 }
 

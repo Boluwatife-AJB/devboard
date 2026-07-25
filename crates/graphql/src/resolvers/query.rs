@@ -8,9 +8,9 @@ use crate::{
     context::ContextExt,
     error::IntoGraphQLResult,
     types::{
-        GqlAttachment, GqlChannel, GqlComment, GqlDmMessage, GqlDmThread, GqlInvitation,
-        GqlMessage, GqlOrgMember, GqlProject, GqlTask, GqlTaskStatus, GqlTeam, GqlTeamMember,
-        GqlUserPresence,
+        GqlAttachment, GqlChannel, GqlChannelMember, GqlComment, GqlDmMessage, GqlDmThread,
+        GqlInvitation, GqlMessage, GqlOrgMember, GqlProject, GqlTask, GqlTaskStatus, GqlTeam,
+        GqlTeamMember, GqlUserPresence,
         pagination::{
             ConnectionArgs, PageInfo, TaskConnection, TaskEdge, decode_cursor, encode_cursor,
         },
@@ -335,6 +335,24 @@ impl MessagingQueryFields {
             .map_gql_err()?;
 
         Ok(channels.into_iter().map(GqlChannel::from).collect())
+    }
+
+    async fn channel_members(
+        &self,
+        ctx: &Context<'_>,
+        channel_id: ID,
+    ) -> async_graphql::Result<Vec<GqlChannelMember>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let channel_id = parse_id::<ChannelId>(&channel_id)?;
+        let members = services
+            .messaging_service
+            .list_channel_members(channel_id, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(members.into_iter().map(GqlChannelMember::from).collect())
     }
 
     async fn channel_messages(

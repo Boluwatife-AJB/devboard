@@ -23,6 +23,16 @@ pub struct UnfurlJob {
     pub body: String,
 }
 
+/*
+TODO:
+1. Add member to channel
+2. Leave channel
+3. Remove member from channel
+4. Clear channel message for a user
+5. Clear dm messages for a user
+6. Share media
+ */
+
 pub struct MessagingService {
     channel_repo: Arc<dyn ChannelRepository>,
     message_repo: Arc<dyn MessageRepository>,
@@ -110,6 +120,19 @@ impl MessagingService {
         Ok(channel)
     }
 
+    pub async fn list_channel_members(
+        &self,
+        channel_id: ChannelId,
+        caller_id: UserId,
+    ) -> Result<Vec<ChannelMember>, ServiceError> {
+        self.require_channel_member(channel_id, caller_id).await?;
+
+        self.channel_repo
+            .list_members(channel_id)
+            .await
+            .map_err(ServiceError::from)
+    }
+
     pub async fn join_channel(
         &self,
         channel_id: ChannelId,
@@ -137,6 +160,87 @@ impl MessagingService {
                 },
                 other => ServiceError::from(other),
             })
+    }
+
+    pub async fn add_channel_member(
+        &self,
+        channel_id: ChannelId,
+        caller_id: UserId,
+        target_user_id: UserId,
+        org_id: OrganizationId,
+    ) -> Result<ChannelMember, ServiceError> {
+        self.require_org_admin(caller_id, org_id).await?;
+        self.require_org_member(target_user_id, org_id).await?;
+
+        let channel = self
+            .channel_repo
+            .find_by_id(channel_id)
+            .await?
+            .ok_or_else(|| ServiceError::Internal("channel not found".into()))?;
+
+        if channel.organization_id != org_id {
+            return Err(ServiceError::Forbidden {
+                reason: "this channel is not part of this organization".into(),
+            });
+        }
+
+        self.channel_repo
+            .add_member(channel_id, target_user_id)
+            .await
+            .map_err(|err| match err {
+                RepositoryError::UniqueViolation { .. } => ServiceError::Conflict {
+                    message: "the user is already a member of this channel".into(),
+                },
+                other => ServiceError::from(other),
+            })
+    }
+
+    pub async fn leave_channel(
+        &self,
+        channel_id: ChannelId,
+        caller_id: UserId,
+        org_id: OrganizationId,
+    ) -> Result<(), ServiceError> {
+        self.require_org_member(caller_id, org_id).await?;
+        self.require_channel_member(channel_id, caller_id).await?;
+
+        self.channel_repo
+            .remove_member(channel_id, caller_id)
+            .await
+            .map_err(ServiceError::from)
+    }
+
+    pub async fn remove_channel_member(
+        &self,
+        channel_id: ChannelId,
+        caller_id: UserId,
+        target_user_id: UserId,
+        org_id: OrganizationId,
+    ) -> Result<(), ServiceError> {
+        self.require_org_admin(caller_id, org_id).await?;
+
+        let channel = self
+            .channel_repo
+            .find_by_id(channel_id)
+            .await?
+            .ok_or_else(|| ServiceError::Internal("channel not found".into()))?;
+
+        if channel.organization_id != org_id {
+            return Err(ServiceError::Forbidden {
+                reason: "this channel is not part of this organization".into(),
+            });
+        }
+
+        if target_user_id == caller_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you cannot remove yourself from a channel".into(),
+            });
+        }
+
+        self.channel_repo
+            .remove_member(channel_id, target_user_id)
+            .await
+            .map_err(ServiceError::from)
     }
 
     // Messages

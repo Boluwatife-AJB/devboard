@@ -9,8 +9,8 @@ pub mod team;
 pub use attachment::AddAttachmentInput;
 pub use auth::{AuthPayloadGql, LoginInput, RegisterInput};
 pub use messaging::{
-    CreateChannelInput, DeleteMessageInput, EditMessageInput, MarkChannelAsReadInput,
-    ReactionInput, SendDmInput, SendMessageInput,
+    AddChannelMemberInput, CreateChannelInput, DeleteMessageInput, EditMessageInput,
+    MarkChannelAsReadInput, ReactionInput, RemoveChannelMemberInput, SendDmInput, SendMessageInput,
 };
 pub use project::{AddProjectMemberInput, CreateProjectInput, UpdateProjectInput};
 pub use task::{AssignTaskInput, CreateTaskInput, UpdateTaskStatusInput};

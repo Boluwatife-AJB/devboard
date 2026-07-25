@@ -51,6 +51,12 @@ pub trait ChannelRepository: Send + Sync {
         user_id: UserId,
     ) -> Result<ChannelMember, RepositoryError>;
 
+    async fn remove_member(
+        &self,
+        channel_id: ChannelId,
+        user_id: UserId,
+    ) -> Result<(), RepositoryError>;
+
     async fn get_member(
         &self,
         channel_id: ChannelId,
