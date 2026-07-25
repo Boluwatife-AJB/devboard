@@ -46,3 +46,7 @@ define_id!(TaskId);
 define_id!(CommentId);
 define_id!(InvitationId);
 define_id!(AttachmentId);
+define_id!(ChannelId);
+define_id!(MessageId);
+define_id!(DmThreadId);
+define_id!(DmMessageId);

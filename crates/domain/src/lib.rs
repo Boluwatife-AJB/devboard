@@ -3,6 +3,7 @@ pub mod comment;
 pub mod error;
 pub mod ids;
 pub mod invitation;
+pub mod messaging;
 pub mod organization;
 pub mod project;
 pub mod rbac;
@@ -15,6 +16,10 @@ pub use comment::Comment;
 pub use error::DomainError;
 pub use ids::*;
 pub use invitation::*;
+pub use messaging::{
+    Channel, ChannelKind, ChannelMember, DmMessage, DmThread, Message, MessageEmbed,
+    PresenceStatus, ReactionSummary, UserPresence,
+};
 pub use organization::{OrgMembership, OrgRole, OrgSummary, Organization};
 pub use project::*;
 pub use rbac::*;

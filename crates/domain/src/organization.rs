@@ -29,7 +29,7 @@ impl From<OrgRole> for u8 {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrgMembership {
-    pub organisation_id: OrganizationId,
+    pub organization_id: OrganizationId,
     pub user_id: UserId,
     pub role: OrgRole,
     pub joined_at: DateTime<Utc>,

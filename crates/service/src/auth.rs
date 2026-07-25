@@ -2,7 +2,10 @@ use chrono::{Duration, Utc};
 use std::sync::Arc;
 
 use devboard_auth::{JwtService, hash_password, verify_password};
-use devboard_domain::{InvitationId, OrgRole, OrgSummary, OrganizationId, PublicUser, UserId};
+use devboard_domain::{
+    Invitation, InvitationId, InvitationStatus, OrgRole, OrgSummary, OrganizationId, PublicUser,
+    UserId,
+};
 use devboard_email::{EmailProvider, templates::InviteEmailData};
 use devboard_repository::{
     OrganizationRepository, UserRepository,
@@ -17,6 +20,26 @@ pub struct AuthPayload {
     pub access_token: String,
     pub user: PublicUser,
     pub organizations: Vec<OrgSummary>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CreateInviteResult {
+    pub invite_url: String,
+    pub email_sent: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct PendingInvitationView {
+    pub invitation: Invitation,
+    pub invite_url: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct InvitePreview {
+    pub email: String,
+    pub org_name: String,
+    pub role: OrgRole,
+    pub expires_at: chrono::DateTime<Utc>,
 }
 
 #[derive(Debug, Clone)]
@@ -192,7 +215,7 @@ impl AuthService {
         org_id: OrganizationId,
         email: String,
         role: OrgRole,
-    ) -> Result<(), ServiceError> {
+    ) -> Result<CreateInviteResult, ServiceError> {
         let caller_membership = self
             .org_membership_repo
             .find(caller_id, org_id)
@@ -221,8 +244,7 @@ impl AuthService {
         let token = generate_invite_token();
         let expires_at = Utc::now() + Duration::hours(48);
 
-        let _invitation = self
-            .invitation_repo
+        self.invitation_repo
             .create(NewInvitation {
                 id: InvitationId::new(),
                 org_id,
@@ -246,18 +268,147 @@ impl AuthService {
             .await?
             .ok_or_else(|| ServiceError::Internal("user not found".into()))?;
 
-        let invite_url = format!("{}/accept-invite?token={}", self.app_base_url, token);
+        let invite_url = self.build_invite_url(&token);
 
-        self.email_provider
+        // Email is best-effort: Resend sandbox (and other provider failures)
+        // should not block creating the invite. Admins can copy the link.
+        let email_sent = match self
+            .email_provider
             .send_invite(InviteEmailData {
                 invitee_email: email,
                 org_name: org.name,
                 inviter_name: inviter.display_name,
-                invite_url,
+                invite_url: invite_url.clone(),
                 expires_hours: 48,
             })
             .await
-            .map_err(|e| ServiceError::Internal(e.to_string()))?;
+        {
+            Ok(()) => true,
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "invite email failed; invite kept for manual sharing"
+                );
+                false
+            }
+        };
+
+        Ok(CreateInviteResult {
+            invite_url,
+            email_sent,
+        })
+    }
+
+    /// Lists pending (non-expired) invitations for an org. Caller must be at
+    /// least `OrgAdmin` since invitations expose emails of non-members.
+    #[tracing::instrument(skip(self), fields(caller_id = %caller_id, org_id = %org_id))]
+    pub async fn list_pending_invitations(
+        &self,
+        caller_id: UserId,
+        org_id: OrganizationId,
+    ) -> Result<Vec<PendingInvitationView>, ServiceError> {
+        self.require_org_admin(caller_id, org_id).await?;
+
+        let invitations = self.invitation_repo.list_pending_by_org(org_id).await?;
+
+        Ok(invitations
+            .into_iter()
+            .map(|invitation| {
+                let invite_url = self.build_invite_url(&invitation.token);
+                PendingInvitationView {
+                    invitation,
+                    invite_url,
+                }
+            })
+            .collect())
+    }
+
+    fn build_invite_url(&self, token: &str) -> String {
+        format!("{}/accept-invite?token={}", self.app_base_url, token)
+    }
+
+    /// Public preview of a pending invite (no auth). Used by the accept-invite
+    /// page to lock the email field for new-user signup.
+    #[tracing::instrument(skip(self, token))]
+    pub async fn preview_invite(&self, token: &str) -> Result<InvitePreview, ServiceError> {
+        let invitation = self.invitation_repo.find_by_token(token).await?.ok_or(
+            ServiceError::InvitationNotFound {
+                id: "invitation".into(),
+            },
+        )?;
+
+        if !invitation.is_valid() {
+            return Err(ServiceError::Conflict {
+                message: "this invitation has expired or already been used".into(),
+            });
+        }
+
+        let org = self
+            .org_repo
+            .find_by_id(invitation.organization_id)
+            .await?
+            .ok_or_else(|| ServiceError::Internal("org not found".into()))?;
+
+        Ok(InvitePreview {
+            email: invitation.email,
+            org_name: org.name,
+            role: invitation.role,
+            expires_at: invitation.expires_at,
+        })
+    }
+
+    #[tracing::instrument(skip(self), fields(caller_id = %caller_id, invitation_id = %invitation_id))]
+    pub async fn revoke_invitation(
+        &self,
+        caller_id: UserId,
+        org_id: OrganizationId,
+        invitation_id: InvitationId,
+    ) -> Result<(), ServiceError> {
+        self.require_org_admin(caller_id, org_id).await?;
+
+        let invitation = self
+            .invitation_repo
+            .find_by_id(invitation_id)
+            .await?
+            .ok_or(ServiceError::InvitationNotFound {
+                id: invitation_id.to_string(),
+            })?;
+
+        if invitation.organization_id != org_id {
+            return Err(ServiceError::InvitationNotFound {
+                id: invitation_id.to_string(),
+            });
+        }
+
+        if invitation.status != InvitationStatus::Pending {
+            return Err(ServiceError::Conflict {
+                message: "only pending invitations can be revoked".into(),
+            });
+        }
+
+        self.invitation_repo.revoke(invitation.id).await?;
+
+        Ok(())
+    }
+
+    async fn require_org_admin(
+        &self,
+        caller_id: UserId,
+        org_id: OrganizationId,
+    ) -> Result<(), ServiceError> {
+        let membership = self
+            .org_membership_repo
+            .find(caller_id, org_id)
+            .await?
+            .ok_or(ServiceError::Forbidden {
+                reason: "you are not a member of this organization".into(),
+            })?;
+
+        if !membership.role.at_least(OrgRole::OrgAdmin) {
+            return Err(ServiceError::Forbidden {
+                reason: "requires OrgAdmin role".into(),
+            });
+        }
 
         Ok(())
     }
@@ -405,7 +556,7 @@ fn validate_org_slug(slug: &str) -> Result<(), ServiceError> {
     {
         return Err(ServiceError::Validation {
             field: "slug".into(),
-            message: "slug must contain only lowercase letters and hypens".into(),
+            message: "slug must contain only lowercase letters and hyphens".into(),
         });
     }
     Ok(())

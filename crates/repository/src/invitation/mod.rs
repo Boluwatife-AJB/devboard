@@ -24,11 +24,18 @@ pub struct NewInvitation {
 pub trait InvitationRepository: Send + Sync {
     async fn find_by_token(&self, token: &str) -> Result<Option<Invitation>, RepositoryError>;
 
+    async fn find_by_id(&self, id: InvitationId) -> Result<Option<Invitation>, RepositoryError>;
+
     async fn find_pending_by_org_and_email(
         &self,
         org_id: OrganizationId,
         email: &str,
     ) -> Result<Option<Invitation>, RepositoryError>;
+
+    async fn list_pending_by_org(
+        &self,
+        org_id: OrganizationId,
+    ) -> Result<Vec<Invitation>, RepositoryError>;
 
     async fn create(&self, invitation: NewInvitation) -> Result<Invitation, RepositoryError>;
 

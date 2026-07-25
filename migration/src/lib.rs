@@ -12,6 +12,11 @@ mod m20260701_190344_create_organization_memberships;
 mod m20260701_201048_create_invitations;
 mod m20260709_172459_create_task_attachments;
 mod m20260709_174431_add_due_date_to_tasks;
+mod m20260715_115330_create_channels;
+mod m20260715_175037_create_channel_members;
+mod m20260715_180458_create_messages;
+mod m20260715_182709_create_message_reactions;
+mod m20260715_183839_create_direct_messages;
 
 pub struct Migrator;
 
@@ -31,6 +36,11 @@ impl MigratorTrait for Migrator {
             Box::new(m20260701_201048_create_invitations::Migration),
             Box::new(m20260709_172459_create_task_attachments::Migration),
             Box::new(m20260709_174431_add_due_date_to_tasks::Migration),
+            Box::new(m20260715_115330_create_channels::Migration),
+            Box::new(m20260715_175037_create_channel_members::Migration),
+            Box::new(m20260715_180458_create_messages::Migration),
+            Box::new(m20260715_182709_create_message_reactions::Migration),
+            Box::new(m20260715_183839_create_direct_messages::Migration),
         ]
     }
 }

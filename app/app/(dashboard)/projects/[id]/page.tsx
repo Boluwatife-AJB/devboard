@@ -1,6 +1,13 @@
 "use client";
 
-import { PlusIcon, WarningCircleIcon } from "@phosphor-icons/react/dist/ssr";
+import {
+  ChatTextIcon,
+  GearIcon,
+  PaperclipIcon,
+  PlusIcon,
+  WarningCircleIcon,
+} from "@phosphor-icons/react/dist/ssr";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -55,7 +62,7 @@ function toBoardItem(task: ApiTask): BoardItem {
 
 function BoardSkeleton() {
   return (
-    <div className="flex gap-8 overflow-hidden">
+    <div className="flex gap-8 overflow-hidden h-[calc(100vh-20rem)]">
       {taskStatusColumns.map((column) => (
         <div
           key={column.id}
@@ -127,7 +134,7 @@ export default function ProjectDetails() {
               <h2 className="text-3xl text-white font-semibold font-heading">
                 {project.name}
               </h2>
-              <p className="text-sm text-white">
+              <p className="text-sm text-white w-7/10">
                 {project.description ?? `Tasks for ${project.key}`}
               </p>
             </>
@@ -138,15 +145,27 @@ export default function ProjectDetails() {
             </>
           )}
         </div>
-        <CreateTaskDialog
-          projectId={projectId}
-          trigger={
-            <Button className="h-11 px-4 rounded-xs">
-              <PlusIcon data-icon="inline-start" />
-              Add Task
+        <div className="flex gap-2">
+          <Link href={`/projects/${projectId}/settings`}>
+            <Button
+              variant="outline"
+              className="h-11 px-4 rounded-xs border-border"
+            >
+              <GearIcon data-icon="inline-start" />
+              Project Settings
             </Button>
-          }
-        />
+          </Link>
+          <CreateTaskDialog
+            projectId={projectId}
+            teamId={project?.teamId ?? ""}
+            trigger={
+              <Button className="h-11 px-4 rounded-xs">
+                <PlusIcon data-icon="inline-start" />
+                Add Task
+              </Button>
+            }
+          />
+        </div>
       </div>
 
       {isPending && <BoardSkeleton />}
@@ -208,7 +227,7 @@ export default function ProjectDetails() {
                       id={item.id}
                       key={item.id}
                       name={item.name}
-                      className="gap-3 rounded-xs border border-[#2A2A2A] bg-[#131313] p-4 shadow-none"
+                      className="gap-3 rounded-xs border border-[#2A2A2A] bg-[#131313] p-4 shadow-none h-32 flex flex-col justify-between"
                       onClick={() =>
                         router.push(`/projects/${projectId}/tasks/${item.id}`)
                       }
@@ -216,6 +235,15 @@ export default function ProjectDetails() {
                       <p className="m-0 text-sm font-medium leading-snug text-white">
                         {item.task.title}
                       </p>
+                      {/* <div className="flex items-center justify-between">
+                      <p className="m-0 flex-1 text-sm font-medium leading-snug text-white">
+                        {item.task.title}
+                      </p>
+
+                      <Button variant="ghost" size="icon">
+                        <DotsThreeIcon className="size-4" />
+                      </Button>
+                      </div> */}
 
                       <div className="flex items-center gap-2">
                         <Badge
@@ -235,7 +263,22 @@ export default function ProjectDetails() {
                         </Badge>
                       </div>
 
-                      <div className="flex items-center justify-end">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 text-[#C2C6D6]">
+                          {item.task.commentCount > 0 && (
+                            <span className="flex items-center gap-1 text-xs">
+                              <ChatTextIcon className="size-3.5" />
+                              {item.task.commentCount}
+                            </span>
+                          )}
+                          {item.task.attachmentCount > 0 && (
+                            <span className="flex items-center gap-1 text-xs">
+                              <PaperclipIcon className="size-3.5" />
+                              {item.task.attachmentCount}
+                            </span>
+                          )}
+                        </div>
+
                         {item.task.assignee && (
                           <Avatar className="size-6 shrink-0 ring-2 ring-[#131313]">
                             <AvatarFallback className="text-[10px]">
@@ -255,7 +298,7 @@ export default function ProjectDetails() {
 
       {tasks && tasks.length === 0 && (
         <p className="text-sm text-[#8A8A8A]">
-          No tasks yet — use "Add Task" to create the first one.
+          No tasks yet, use "Add Task" to create the first one.
         </p>
       )}
     </div>

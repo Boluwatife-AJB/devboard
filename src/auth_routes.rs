@@ -2,22 +2,30 @@ use std::sync::Arc;
 
 use axum::{
     Extension, Json, Router,
-    extract::{FromRef, State},
+    extract::{FromRef, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::post,
+    routing::{get, post},
 };
-use devboard_domain::{OrgRole, OrganizationId};
+use devboard_domain::{OrgRole, OrganizationId, PresenceStatus};
 use devboard_graphql::context::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
 
-use devboard_service::{AuthPayload, AuthService, ServiceError, auth::RegistrationIntent};
+use devboard_service::{
+    AuthPayload, AuthService, MessagingService, ServiceError, auth::RegistrationIntent,
+};
 
 use crate::AppState;
 
 impl FromRef<AppState> for Arc<AuthService> {
     fn from_ref(state: &AppState) -> Self {
         state.auth_service.clone()
+    }
+}
+
+impl FromRef<AppState> for Arc<MessagingService> {
+    fn from_ref(state: &AppState) -> Self {
+        state.messaging_service.clone()
     }
 }
 
@@ -72,6 +80,11 @@ pub struct OrgResponse {
     pub role: String,
 }
 
+#[derive(Deserialize)]
+pub struct InvitePreviewQuery {
+    pub token: String,
+}
+
 #[derive(Serialize)]
 pub struct ErrorResponse {
     pub error: String,
@@ -83,7 +96,9 @@ pub fn auth_router() -> Router<AppState> {
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
         .route("/auth/invite", post(create_invite))
+        .route("/auth/invite/preview", get(preview_invite))
         .route("/auth/accept-invite", post(accept_invite_existing))
+        .route("/presence/heartbeat", post(presence_heartbeat))
 }
 
 async fn register(
@@ -172,9 +187,47 @@ async fn create_invite(
         .create_invite(auth_user.user_id, org_id, body.email, role)
         .await
     {
-        Ok(_) => (
+        Ok(result) => (
             StatusCode::ACCEPTED,
-            Json(serde_json::json!({ "message": "invite sent" })),
+            Json(serde_json::json!({
+                "message": if result.email_sent {
+                    "invite sent"
+                } else {
+                    "invite created"
+                },
+                "inviteUrl": result.invite_url,
+                "emailSent": result.email_sent,
+            })),
+        )
+            .into_response(),
+        Err(err) => service_error_to_response(err).into_response(),
+    }
+}
+
+async fn preview_invite(
+    State(auth_service): State<Arc<AuthService>>,
+    Query(query): Query<InvitePreviewQuery>,
+) -> impl IntoResponse {
+    if query.token.trim().is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "token is required".into(),
+                code: "MISSING_TOKEN".into(),
+            }),
+        )
+            .into_response();
+    }
+
+    match auth_service.preview_invite(&query.token).await {
+        Ok(preview) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "email": preview.email,
+                "orgName": preview.org_name,
+                "role": preview.role,
+                "expiresAt": preview.expires_at,
+            })),
         )
             .into_response(),
         Err(err) => service_error_to_response(err).into_response(),
@@ -224,6 +277,42 @@ async fn accept_invite_existing(
     }
 }
 
+async fn presence_heartbeat(
+    State(messaging_service): State<Arc<MessagingService>>,
+    auth_user: Option<Extension<AuthenticatedUser>>,
+    Json(body): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let Some(Extension(auth_user)) = auth_user else {
+        return service_error_to_response(ServiceError::Unauthenticated).into_response();
+    };
+
+    let Some(membership) = auth_user.org_membership.as_ref() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "X-Organization-Id header is required".into(),
+                code: "MISSING_ORG".into(),
+            }),
+        )
+            .into_response();
+    };
+
+    let status = match body["status"].as_str() {
+        Some("AWAY") => PresenceStatus::Away,
+        Some("ONLINE") => PresenceStatus::Online,
+        Some("OFFLINE") => PresenceStatus::Offline,
+        _ => PresenceStatus::Online,
+    };
+
+    match messaging_service
+        .heartbeat(auth_user.user_id, membership.organization_id, status)
+        .await
+    {
+        Ok(_) => StatusCode::NO_CONTENT.into_response(),
+        Err(err) => service_error_to_response(err).into_response(),
+    }
+}
+
 fn auth_response_from_payload(payload: AuthPayload) -> AuthResponse {
     AuthResponse {
         access_token: payload.access_token,
@@ -253,7 +342,9 @@ fn service_error_to_response(err: ServiceError) -> (StatusCode, Json<ErrorRespon
         ServiceError::Forbidden { .. } => (StatusCode::FORBIDDEN, "FORBIDDEN"),
         ServiceError::Conflict { .. } => (StatusCode::CONFLICT, "CONFLICT"),
         ServiceError::Validation { .. } => (StatusCode::UNPROCESSABLE_ENTITY, "VALIDATION_ERROR"),
-        ServiceError::UserNotFound { .. } => (StatusCode::NOT_FOUND, "NOT_FOUND"),
+        ServiceError::UserNotFound { .. } | ServiceError::InvitationNotFound { .. } => {
+            (StatusCode::NOT_FOUND, "NOT_FOUND")
+        }
         _ => {
             tracing::error!(error = %err, "internal error in auth handler");
             (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR")

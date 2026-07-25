@@ -37,7 +37,7 @@ impl OrgMembershipRepository for PgOrgMembershipRepository {
         model
             .map(|m| {
                 Ok(OrgMembership {
-                    organisation_id: OrganizationId::from(m.organization_id),
+                    organization_id: OrganizationId::from(m.organization_id),
                     user_id: UserId::from(m.user_id),
                     role: str_to_org_role(&m.role)?,
                     joined_at: m.joined_at.into(),
@@ -114,7 +114,7 @@ impl OrgMembershipRepository for PgOrgMembershipRepository {
             .into_iter()
             .map(|m| {
                 Ok(OrgMembership {
-                    organisation_id: OrganizationId::from(m.organization_id),
+                    organization_id: OrganizationId::from(m.organization_id),
                     user_id: UserId::from(m.user_id),
                     role: str_to_org_role(&m.role)?,
                     joined_at: m.joined_at.into(),
@@ -144,7 +144,7 @@ impl OrgMembershipRepository for PgOrgMembershipRepository {
             .map_err(RepositoryError::from_db_err)?;
 
         Ok(OrgMembership {
-            organisation_id: org_id,
+            organization_id: org_id,
             user_id,
             role,
             joined_at: now,
@@ -173,7 +173,7 @@ impl OrgMembershipRepository for PgOrgMembershipRepository {
             .map_err(RepositoryError::from_db_err)?;
 
         Ok(OrgMembership {
-            organisation_id: org_id,
+            organization_id: org_id,
             user_id,
             role,
             joined_at: updated.joined_at.into(),

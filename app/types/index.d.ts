@@ -3,11 +3,17 @@
 import type { Icon } from "@phosphor-icons/react";
 import type { z } from "zod";
 import type {
+  addProjectMemberSchema,
+  acceptInviteSignupSchema,
+  createChannelSchema,
+  createCommentSchema,
   createProjectSchema,
   createTaskSchema,
   createTeamSchema,
+  inviteMemberSchema,
   signinSchema,
   signupSchema,
+  updateProjectSchema,
 } from "@/lib/schema";
 
 type SignupFormData = z.infer<typeof signupSchema>;
@@ -15,7 +21,12 @@ type SigninFormData = z.infer<typeof signinSchema>;
 type CreateProjectFormData = z.infer<typeof createProjectSchema>;
 type CreateTaskFormData = z.infer<typeof createTaskSchema>;
 type CreateTeamFormData = z.infer<typeof createTeamSchema>;
-
+type CreateCommentFormData = z.infer<typeof createCommentSchema>;
+type UpdateProjectFormData = z.infer<typeof updateProjectSchema>;
+type AddProjectMemberFormData = z.infer<typeof addProjectMemberSchema>;
+type CreateChannelFormData = z.infer<typeof createChannelSchema>;
+type InviteMemberFormData = z.infer<typeof inviteMemberSchema>;
+type AcceptInviteSignupFormData = z.infer<typeof acceptInviteSignupSchema>;
 interface AuthOrganization {
   id: string;
   name: string;
@@ -59,11 +70,53 @@ type TaskStatus =
 
 type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
+type AttachmentKind = "LINK" | "GITHUB_ISSUE" | "GITHUB_PR";
+
 type TaskEventKind = "CREATED" | "UPDATED" | "DELETED";
 
 type TeamRole = "OWNER" | "ADMIN" | "MEMBER";
 
 type OrgRole = "ORG_OWNER" | "ORG_ADMIN" | "ORG_MEMBER";
+
+type InvitationStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+
+interface ApiInvitation {
+  id: string;
+  email: string;
+  role: OrgRole;
+  status: InvitationStatus;
+  invitedBy: string;
+  inviteUrl: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+interface CreateInviteResponse {
+  message: string;
+  inviteUrl: string;
+  emailSent: boolean;
+}
+
+interface AcceptInviteResponse {
+  message: string;
+  organization: {
+    id: string;
+    name: string;
+    slug: string;
+    role: string;
+  };
+}
+
+interface InvitePreview {
+  email: string;
+  orgName: string;
+  role: OrgRole;
+  expiresAt: string;
+}
+
+type ProjectRole = "OWNER" | "ADMIN" | "CONTRIBUTOR" | "VIEWER";
+
+type UiPresence = "online" | "away" | "offline";
 
 interface ApiUser {
   id: string;
@@ -115,10 +168,34 @@ interface ApiTask {
   description: string | null;
   status: TaskStatus;
   priority: TaskPriority;
+  dueDate: string | null;
   assignee: ApiUser | null;
   reporterId: string;
+  commentCount: number;
+  attachmentCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+interface ApiAttachment {
+  id: string;
+  taskId: string;
+  addedBy: string;
+  kind: AttachmentKind;
+  label: string;
+  url: string;
+  createdAt: string;
+}
+
+interface ApiComment {
+  id: string;
+  taskId: string;
+  authorId: string;
+  body: string;
+  isEdited: boolean;
+  createdAt: string;
+  editedAt: string | null;
+  author: ApiUser | null;
 }
 
 interface TaskUpdatedEvent {
@@ -148,6 +225,21 @@ interface CreateTaskInput {
   description?: string | null;
   priority?: TaskPriority | null;
   assigneeId?: string | null;
+  dueDate?: string | null;
+}
+
+interface AddAttachmentInput {
+  taskId: string;
+  projectId: string;
+  kind: AttachmentKind;
+  label: string;
+  url: string;
+}
+
+interface CreateCommentInput {
+  taskId: string;
+  projectId: string;
+  body: string;
 }
 
 interface UpdateTaskStatusInput {
@@ -160,4 +252,218 @@ interface AssignTaskInput {
   taskId: string;
   projectId: string;
   assigneeId?: string | null;
+}
+
+interface UpdateProjectInput {
+  projectId: string;
+  name?: string | null;
+  description?: string | null;
+}
+
+interface AddProjectMemberInput {
+  projectId: string;
+  userId: string;
+  roleOverride?: ProjectRole | null;
+}
+
+type MessageChannel = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  memberCount: number;
+  subtitle: string;
+};
+
+type DirectMessage = {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  status: "online" | "away" | "offline";
+};
+
+type ChatMessage =
+  | {
+      id: string;
+      type: "text";
+      author: string;
+      initials: string;
+      avatarColor: string;
+      isSelf: boolean;
+      timestamp: string;
+      body: string;
+      read?: boolean;
+      reactions?: { emoji: string; count: number }[];
+    }
+  | {
+      id: string;
+      type: "commit";
+      author: string;
+      initials: string;
+      avatarColor: string;
+      isSelf: boolean;
+      timestamp: string;
+      body: string;
+      commitHash: string;
+      commitMessage: string;
+    };
+
+type ChannelMember = {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  status: "online" | "offline";
+};
+
+type SharedFile = {
+  id: string;
+  name: string;
+  size: string;
+  date: string;
+  kind: "pdf" | "image" | "code";
+};
+
+type ChannelKind = "OPEN" | "PRIVATE";
+
+type PresenceStatus = "ONLINE" | "AWAY" | "OFFLINE";
+
+type MessageEventKind = "NEW" | "EDITED" | "DELETED";
+
+type ActiveConversation =
+  | { type: "channel"; id: string }
+  | { type: "dm"; id: string };
+
+interface ApiChannel {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  kind: ChannelKind;
+  createdAt: string;
+  isMember: boolean;
+}
+
+interface ApiChannelMember {
+  channelId: string;
+  userId: string;
+  joinedAt: string;
+  user: ApiUser | null;
+}
+
+interface CreateChannelInput {
+  slug: string;
+  name: string;
+  description?: string | null;
+  kind?: ChannelKind | null;
+}
+
+interface ApiMessageEmbed {
+  kind: string;
+  url: string;
+  title?: string | null;
+  description?: string | null;
+  imageUrl?: string | null;
+  siteName?: string | null;
+  repo?: string | null;
+  sha?: string | null;
+  number?: number | null;
+  state?: string | null;
+}
+
+interface ApiMessage {
+  id: string;
+  channelId: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+  editedAt?: string | null;
+  isEdited: boolean;
+  embeds: ApiMessageEmbed[];
+  reactions?: ApiReactionSummary[];
+}
+
+interface SendMessageInput {
+  channelId: string;
+  body: string;
+}
+
+interface EditMessageInput {
+  messageId: string;
+  body: string;
+}
+
+interface DeleteMessageInput {
+  messageId: string;
+  orgId: string;
+}
+
+interface ReactionInput {
+  messageId: string;
+  emoji: string;
+}
+
+interface ApiReactionSummary {
+  emoji: string;
+  count: number;
+  reactedByMe: boolean;
+}
+
+interface MarkChannelAsReadInput {
+  channelId: string;
+  lastMessageId: string;
+}
+
+interface ApiDmThread {
+  id: string;
+  participantA: string;
+  participantB: string;
+  createdAt: string;
+}
+
+interface ApiDmMessage {
+  id: string;
+  threadId: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+  editedAt?: string | null;
+  isEdited: boolean;
+  isRead: boolean;
+  readByRecipientAt?: string | null;
+}
+
+interface SendDmInput {
+  threadId: string;
+  body: string;
+}
+
+interface ApiMessageEvent {
+  kind: MessageEventKind | string;
+  channelId: string;
+  messageId: string;
+  message: ApiMessage | null;
+}
+
+interface ApiReactionEvent {
+  channelId: string;
+  messageId: string;
+}
+
+interface ApiUserPresence {
+  userId: string;
+  status: PresenceStatus;
+}
+
+interface DisplayMessage {
+  id: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+  isEdited: boolean;
+  isRead?: boolean;
+  embeds?: ApiMessageEmbed[];
+  reactions?: ApiReactionSummary[];
+  channelId?: string;
 }

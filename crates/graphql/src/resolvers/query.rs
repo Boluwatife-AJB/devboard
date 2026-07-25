@@ -1,23 +1,27 @@
-use async_graphql::{Context, ID, Object};
-use devboard_domain::{ProjectId, TaskId, TaskStatus, TeamId};
+use async_graphql::{Context, ID, MergedObject, Object};
+use devboard_domain::{
+    ChannelId, DmMessageId, DmThreadId, MessageId, ProjectId, TaskId, TaskStatus, TeamId,
+};
 
 use crate::{
     GqlUser,
     context::ContextExt,
     error::IntoGraphQLResult,
     types::{
-        GqlAttachment, GqlComment, GqlOrgMember, GqlProject, GqlTask, GqlTaskStatus, GqlTeam,
-        GqlTeamMember,
+        GqlAttachment, GqlChannel, GqlChannelMember, GqlComment, GqlDmMessage, GqlDmThread,
+        GqlInvitation, GqlMessage, GqlOrgMember, GqlProject, GqlTask, GqlTaskStatus, GqlTeam,
+        GqlTeamMember, GqlUserPresence,
         pagination::{
             ConnectionArgs, PageInfo, TaskConnection, TaskEdge, decode_cursor, encode_cursor,
         },
     },
 };
 
-pub struct QueryRoot;
+#[derive(Default)]
+pub struct CoreQuery;
 
 #[Object]
-impl QueryRoot {
+impl CoreQuery {
     async fn me(&self, ctx: &Context<'_>) -> async_graphql::Result<GqlUser> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
@@ -54,7 +58,7 @@ impl QueryRoot {
 
         let projects = services
             .project_service
-            .list_projects(memberships.organisation_id, auth.user_id)
+            .list_projects(memberships.organization_id, auth.user_id)
             .await
             .map_gql_err()?;
 
@@ -69,7 +73,7 @@ impl QueryRoot {
 
         let teams = services
             .team_service
-            .list_teams(membership.organisation_id)
+            .list_teams(membership.organization_id)
             .await
             .map_gql_err()?;
 
@@ -89,7 +93,7 @@ impl QueryRoot {
 
         let members = services
             .team_service
-            .list_members(team_id, membership.organisation_id)
+            .list_members(team_id, membership.organization_id)
             .await
             .map_gql_err()?;
 
@@ -107,13 +111,38 @@ impl QueryRoot {
 
         let members = services
             .team_service
-            .list_org_members(membership.organisation_id)
+            .list_org_members(membership.organization_id)
             .await
             .map_gql_err()?;
 
         Ok(members
             .into_iter()
             .map(|m| GqlOrgMember { inner: m })
+            .collect())
+    }
+
+    /// Pending invitations for the current org. Requires OrgAdmin.
+    async fn pending_invitations(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Vec<GqlInvitation>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let membership = auth.require_org()?;
+
+        let invitations = services
+            .auth_service
+            .list_pending_invitations(auth.user_id, membership.organization_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(invitations
+            .into_iter()
+            .map(|view| GqlInvitation {
+                inner: view.invitation,
+                invite_url: view.invite_url,
+            })
             .collect())
     }
 
@@ -288,3 +317,131 @@ pub fn parse_id<T: From<uuid::Uuid>>(id: &ID) -> async_graphql::Result<T> {
         .map(T::from)
         .map_err(|_| async_graphql::Error::new(format!("invalid ID format: {}", id.as_str())))
 }
+
+#[derive(Default)]
+pub struct MessagingQueryFields;
+
+#[Object]
+impl MessagingQueryFields {
+    async fn channels(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<GqlChannel>> {
+        let auth = ctx.authenticated_user()?;
+        let org_id = auth.require_org()?.organization_id;
+        let services = ctx.services()?;
+
+        let channels = services
+            .messaging_service
+            .list_channels(org_id, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(channels
+            .into_iter()
+            .map(|(channel, is_member)| GqlChannel::from_channel(channel, is_member))
+            .collect())
+    }
+
+    async fn channel_members(
+        &self,
+        ctx: &Context<'_>,
+        channel_id: ID,
+    ) -> async_graphql::Result<Vec<GqlChannelMember>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let channel_id = parse_id::<ChannelId>(&channel_id)?;
+        let members = services
+            .messaging_service
+            .list_channel_members(channel_id, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(members.into_iter().map(GqlChannelMember::from).collect())
+    }
+
+    async fn channel_messages(
+        &self,
+        ctx: &Context<'_>,
+        channel_id: ID,
+        before_id: Option<ID>,
+        limit: Option<i32>,
+    ) -> async_graphql::Result<Vec<GqlMessage>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let channel_id = parse_id::<ChannelId>(&channel_id)?;
+        let before_id = before_id.map(|id| parse_id::<MessageId>(&id)).transpose()?;
+
+        let messages = services
+            .messaging_service
+            .list_messages(
+                channel_id,
+                auth.user_id,
+                before_id,
+                limit.unwrap_or(50) as u64,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(messages.into_iter().map(GqlMessage::from).collect())
+    }
+
+    async fn dm_threads(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<GqlDmThread>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let threads = services
+            .messaging_service
+            .list_dm_threads(auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(threads.into_iter().map(GqlDmThread::from).collect())
+    }
+
+    async fn dm_messages(
+        &self,
+        ctx: &Context<'_>,
+        thread_id: ID,
+        before_id: Option<ID>,
+        limit: Option<i32>,
+    ) -> async_graphql::Result<Vec<GqlDmMessage>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let thread_id = parse_id::<DmThreadId>(&thread_id)?;
+        let before_id = before_id
+            .map(|id| parse_id::<DmMessageId>(&id))
+            .transpose()?;
+
+        let messages = services
+            .messaging_service
+            .list_dm_messages(
+                thread_id,
+                auth.user_id,
+                before_id,
+                limit.unwrap_or(50) as u64,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(messages.into_iter().map(GqlDmMessage::from).collect())
+    }
+
+    /// Current presence snapshot for every member of the selected organization.
+    async fn org_presence(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<GqlUserPresence>> {
+        let auth = ctx.authenticated_user()?;
+        let org_id = auth.require_org()?.organization_id;
+        let services = ctx.services()?;
+
+        let presence = services
+            .messaging_service
+            .list_org_presence(auth.user_id, org_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(presence.into_iter().map(GqlUserPresence::from).collect())
+    }
+}
+
+#[derive(MergedObject, Default)]
+pub struct QueryRoot(pub CoreQuery, pub MessagingQueryFields);

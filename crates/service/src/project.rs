@@ -159,6 +159,10 @@ impl ProjectService {
         Ok(project)
     }
 
+    #[tracing::instrument(
+      skip(self),
+      fields(project_id = %project_id, caller_id = %caller_id)
+    )]
     pub async fn update_project(
         &self,
         project_id: ProjectId,

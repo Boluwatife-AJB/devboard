@@ -2,6 +2,7 @@ pub mod attachment;
 pub mod comment;
 pub mod error;
 pub mod invitation;
+pub mod messaging;
 pub mod org_membership;
 pub mod organization;
 pub mod project;

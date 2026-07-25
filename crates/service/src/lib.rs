@@ -4,17 +4,23 @@ pub mod comment;
 pub mod error;
 pub mod event_bus;
 pub mod events;
+pub mod messaging;
 pub mod project;
+pub mod retention;
 pub mod task;
 pub mod team;
+pub mod unfurl;
 pub mod user;
 
 pub use attachment::AttachmentService;
-pub use auth::{AuthPayload, AuthService};
+pub use auth::{
+    AuthPayload, AuthService, CreateInviteResult, InvitePreview, PendingInvitationView,
+};
 pub use comment::CommentService;
 pub use error::ServiceError;
 pub use event_bus::EventBus;
 pub use events::TaskEvent;
+pub use messaging::{MessagingService, UnfurlJob};
 pub use project::ProjectService;
 pub use task::TaskService;
 pub use team::TeamService;

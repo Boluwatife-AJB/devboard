@@ -1,7 +1,8 @@
-use async_graphql::{Context, ID, Object};
+use async_graphql::{Context, ID, MergedObject, Object};
 
 use devboard_domain::{
-    AttachmentId, AttachmentKind, CommentId, OrganizationId, ProjectId, TaskId, TeamId, UserId,
+    AttachmentId, AttachmentKind, ChannelId, ChannelKind, CommentId, DmThreadId, InvitationId,
+    MessageId, OrganizationId, ProjectId, TaskId, TeamId, UserId,
 };
 use devboard_service::task::CreateTaskCommand;
 
@@ -9,20 +10,26 @@ use crate::{
     context::ContextExt,
     error::IntoGraphQLResult,
     inputs::{
-        AddAttachmentInput, AddProjectMemberInput, AssignTaskInput, CreateProjectInput,
-        CreateTaskInput, CreateTeamInput, UpdateTaskStatusInput,
+        AddAttachmentInput, AddChannelMemberInput, AddProjectMemberInput, AddTeamMemberInput,
+        AssignTaskInput, CreateChannelInput, CreateProjectInput, CreateTaskInput, CreateTeamInput,
+        DeleteMessageInput, EditMessageInput, MarkChannelAsReadInput, ReactionInput,
+        RemoveChannelMemberInput, SendDmInput, SendMessageInput, UpdateTaskStatusInput,
         comment::{CreateCommentInput, EditCommentInput},
         project::UpdateProjectInput,
         task::UpdateTaskDueDateInput,
     },
     resolvers::query::parse_id,
-    types::{GqlAttachment, GqlComment, GqlProject, GqlTask, GqlTeam, GqlTeamRole},
+    types::{
+        GqlAttachment, GqlChannel, GqlComment, GqlDmMessage, GqlDmThread, GqlMessage, GqlProject,
+        GqlReactionSummary, GqlTask, GqlTeam,
+    },
 };
 
-pub struct MutationRoot;
+#[derive(Default)]
+pub struct CoreMutation;
 
 #[Object]
-impl MutationRoot {
+impl CoreMutation {
     // Project Mutations
     async fn create_project(
         &self,
@@ -123,7 +130,7 @@ impl MutationRoot {
 
         let team = services
             .team_service
-            .create_team(membership.organisation_id, auth.user_id, input.name)
+            .create_team(membership.organization_id, auth.user_id, input.name)
             .await
             .map_gql_err()?;
 
@@ -153,16 +160,17 @@ impl MutationRoot {
     async fn add_team_member(
         &self,
         ctx: &Context<'_>,
-        team_id: ID,
-        user_id: ID,
-        role: GqlTeamRole,
+        input: AddTeamMemberInput,
     ) -> async_graphql::Result<bool> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
-        let team_id = parse_id::<TeamId>(&team_id)?;
-        let user_id = parse_id::<UserId>(&user_id)?;
-        let role = devboard_domain::TeamRole::from(role);
+        let team_id = parse_id::<TeamId>(&input.team_id)?;
+        let user_id = parse_id::<UserId>(&input.user_id)?;
+        let role = input
+            .role
+            .map(devboard_domain::TeamRole::from)
+            .unwrap_or(devboard_domain::TeamRole::Member);
 
         services
             .team_service
@@ -188,6 +196,28 @@ impl MutationRoot {
         services
             .team_service
             .remove_member(team_id, auth.user_id, user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    // Invitation Mutations
+    /// Revokes a pending invitation. Requires OrgAdmin.
+    async fn revoke_invitation(
+        &self,
+        ctx: &Context<'_>,
+        invitation_id: ID,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let membership = auth.require_org()?;
+        let invitation_id = parse_id::<InvitationId>(&invitation_id)?;
+
+        services
+            .auth_service
+            .revoke_invitation(auth.user_id, membership.organization_id, invitation_id)
             .await
             .map_gql_err()?;
 
@@ -464,3 +494,308 @@ impl MutationRoot {
         Ok(true)
     }
 }
+
+#[derive(Default)]
+pub struct MessagingMutationFields;
+
+#[Object]
+impl MessagingMutationFields {
+    async fn create_channel(
+        &self,
+        ctx: &Context<'_>,
+        input: CreateChannelInput,
+    ) -> async_graphql::Result<GqlChannel> {
+        let auth = ctx.authenticated_user()?;
+        let org_id = auth.require_org()?.organization_id;
+        let services = ctx.services()?;
+
+        let channel_kind = input
+            .kind
+            .map(ChannelKind::from)
+            .unwrap_or(ChannelKind::Open);
+
+        let channel = services
+            .messaging_service
+            .create_channel(
+                org_id,
+                auth.user_id,
+                input.slug,
+                input.name,
+                input.description,
+                channel_kind,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlChannel::from(channel))
+    }
+
+    async fn join_channel(&self, ctx: &Context<'_>, channel_id: ID) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let org_id = auth.require_org()?.organization_id;
+        let services = ctx.services()?;
+
+        services
+            .messaging_service
+            .join_channel(parse_id::<ChannelId>(&channel_id)?, auth.user_id, org_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    async fn add_channel_member(
+        &self,
+        ctx: &Context<'_>,
+        input: AddChannelMemberInput,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let org_id = auth.require_org()?.organization_id;
+        let services = ctx.services()?;
+
+        services
+            .messaging_service
+            .add_channel_member(
+                parse_id::<ChannelId>(&input.channel_id)?,
+                auth.user_id,
+                parse_id::<UserId>(&input.user_id)?,
+                org_id,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    async fn leave_channel(
+        &self,
+        ctx: &Context<'_>,
+        channel_id: ID,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let org_id = auth.require_org()?.organization_id;
+        let services = ctx.services()?;
+
+        services
+            .messaging_service
+            .leave_channel(parse_id::<ChannelId>(&channel_id)?, auth.user_id, org_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    async fn remove_channel_member(
+        &self,
+        ctx: &Context<'_>,
+        input: RemoveChannelMemberInput,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let org_id = auth.require_org()?.organization_id;
+        let services = ctx.services()?;
+
+        services
+            .messaging_service
+            .remove_channel_member(
+                parse_id::<ChannelId>(&input.channel_id)?,
+                auth.user_id,
+                parse_id::<UserId>(&input.user_id)?,
+                org_id,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    async fn send_message(
+        &self,
+        ctx: &Context<'_>,
+        input: SendMessageInput,
+    ) -> async_graphql::Result<GqlMessage> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let message = services
+            .messaging_service
+            .send_message(
+                parse_id::<ChannelId>(&input.channel_id)?,
+                auth.user_id,
+                input.body,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlMessage::from(message))
+    }
+
+    async fn edit_message(
+        &self,
+        ctx: &Context<'_>,
+        input: EditMessageInput,
+    ) -> async_graphql::Result<GqlMessage> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let message = services
+            .messaging_service
+            .edit_message(
+                parse_id::<MessageId>(&input.message_id)?,
+                auth.user_id,
+                input.body,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlMessage::from(message))
+    }
+
+    async fn delete_message(
+        &self,
+        ctx: &Context<'_>,
+        input: DeleteMessageInput,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        services
+            .messaging_service
+            .delete_message(
+                parse_id::<MessageId>(&input.message_id)?,
+                auth.user_id,
+                parse_id::<OrganizationId>(&input.org_id)?,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    async fn add_reaction(
+        &self,
+        ctx: &Context<'_>,
+        input: ReactionInput,
+    ) -> async_graphql::Result<Vec<GqlReactionSummary>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let reactions = services
+            .messaging_service
+            .add_reaction(
+                parse_id::<MessageId>(&input.message_id)?,
+                auth.user_id,
+                input.emoji,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(reactions
+            .into_iter()
+            .map(GqlReactionSummary::from)
+            .collect())
+    }
+
+    async fn remove_reaction(
+        &self,
+        ctx: &Context<'_>,
+        input: ReactionInput,
+    ) -> async_graphql::Result<Vec<GqlReactionSummary>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let reactions = services
+            .messaging_service
+            .remove_reaction(
+                parse_id::<MessageId>(&input.message_id)?,
+                auth.user_id,
+                input.emoji,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(reactions
+            .into_iter()
+            .map(GqlReactionSummary::from)
+            .collect())
+    }
+
+    async fn mark_channel_as_read(
+        &self,
+        ctx: &Context<'_>,
+        input: MarkChannelAsReadInput,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        services
+            .messaging_service
+            .mark_channel_read(
+                parse_id::<ChannelId>(&input.channel_id)?,
+                auth.user_id,
+                parse_id::<MessageId>(&input.last_message_id)?,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    async fn open_dm(
+        &self,
+        ctx: &Context<'_>,
+        other_user_id: ID,
+    ) -> async_graphql::Result<GqlDmThread> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+        let org_id = auth.require_org()?.organization_id;
+
+        let thread = services
+            .messaging_service
+            .get_or_create_dm_thread(auth.user_id, parse_id::<UserId>(&other_user_id)?, org_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlDmThread::from(thread))
+    }
+
+    async fn send_dm(
+        &self,
+        ctx: &Context<'_>,
+        input: SendDmInput,
+    ) -> async_graphql::Result<GqlDmMessage> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let message = services
+            .messaging_service
+            .send_dm(
+                parse_id::<DmThreadId>(&input.thread_id)?,
+                auth.user_id,
+                input.body,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlDmMessage::from(message))
+    }
+
+    async fn mark_dm_as_read(
+        &self,
+        ctx: &Context<'_>,
+        thread_id: ID,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        services
+            .messaging_service
+            .mark_dm_read(parse_id::<DmThreadId>(&thread_id)?, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+}
+
+#[derive(MergedObject, Default)]
+pub struct MutationRoot(pub CoreMutation, pub MessagingMutationFields);

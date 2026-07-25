@@ -1,5 +1,7 @@
+import { DashboardMain } from "@/components/layout/dashboard-main";
 import DashboardHeader from "@/components/layout/header";
 import DashboardSidebar from "@/components/layout/sidebar";
+import { PresenceSync } from "@/components/presence/presence-sync";
 
 export default function DashboardLayout({
   children,
@@ -8,10 +10,11 @@ export default function DashboardLayout({
 }>) {
   return (
     <div className="flex h-screen bg-background">
+      <PresenceSync />
       <DashboardSidebar />
-      <div className="flex flex-col flex-1 min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col">
         <DashboardHeader />
-        <main className="min-w-0 flex-1 overflow-auto p-8">{children}</main>
+        <DashboardMain>{children}</DashboardMain>
       </div>
     </div>
   );

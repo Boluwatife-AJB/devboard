@@ -1,8 +1,11 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use chrono::Utc;
 use devboard_domain::{AttachmentId, AttachmentKind, TaskAttachment, TaskId, UserId};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    QuerySelect,
 };
 use uuid::Uuid;
 
@@ -33,6 +36,32 @@ impl AttachmentRepository for PgAttachmentRepository {
             .map_err(RepositoryError::from_db_err)?;
 
         models.into_iter().map(model_to_domain).collect()
+    }
+
+    #[tracing::instrument(skip(self), fields(count = task_ids.len()))]
+    async fn count_by_task_ids(
+        &self,
+        task_ids: Vec<TaskId>,
+    ) -> Result<HashMap<TaskId, i64>, RepositoryError> {
+        if task_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let uuids: Vec<Uuid> = task_ids.iter().copied().map(Uuid::from).collect();
+        let task_id_rows: Vec<Uuid> = AttachmentEntity::find()
+            .filter(task_attachment::Column::TaskId.is_in(uuids))
+            .select_only()
+            .column(task_attachment::Column::TaskId)
+            .into_tuple()
+            .all(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        let mut counts = HashMap::new();
+        for task_id in task_id_rows {
+            *counts.entry(TaskId::from(task_id)).or_insert(0) += 1;
+        }
+        Ok(counts)
     }
 
     #[tracing::instrument(

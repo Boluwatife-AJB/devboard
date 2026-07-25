@@ -8,12 +8,15 @@ devboard-domain = { path = "../domain" }
 devboard-auth = { path = "../auth" }
 devboard-email = { path = "../email" }
 devboard-repository = { path = "../repository" }
+devboard-cache = { path = "../cache" }
+devboard-presence = { path = "../presence" }
 async-trait = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 validator = { workspace = true }
+reqwest = { version = "0.13", features = ["json"] }
 tokio = { workspace = true }
 getrandom = "0.4.3"
 

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use async_trait::async_trait;
@@ -12,6 +13,12 @@ pub mod pg;
 #[async_trait]
 pub trait AttachmentRepository: Send + Sync {
     async fn find_by_task(&self, task_id: TaskId) -> Result<Vec<TaskAttachment>, RepositoryError>;
+
+    /// Returns attachment counts keyed by task id. Tasks with zero attachments are omitted.
+    async fn count_by_task_ids(
+        &self,
+        task_ids: Vec<TaskId>,
+    ) -> Result<HashMap<TaskId, i64>, RepositoryError>;
 
     async fn create(
         &self,

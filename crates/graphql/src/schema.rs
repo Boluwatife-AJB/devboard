@@ -2,11 +2,12 @@ use std::sync::Arc;
 
 use async_graphql::{Schema, dataloader::DataLoader};
 
-use devboard_repository::UserRepository;
+use devboard_cache::MessageBus;
+use devboard_repository::{AttachmentRepository, CommentRepository, UserRepository};
 use devboard_service::EventBus;
 
 use crate::{
-    UserLoader,
+    AttachmentCountLoader, CommentCountLoader, UserLoader,
     context::Services,
     resolvers::{MutationRoot, QueryRoot, SubscriptionRoot},
 };
@@ -16,13 +17,26 @@ pub type DevBoardSchema = Schema<QueryRoot, MutationRoot, SubscriptionRoot>;
 pub fn build_schema(
     services: Services,
     user_repo: Arc<dyn UserRepository>,
+    comment_repo: Arc<dyn CommentRepository>,
+    attachment_repo: Arc<dyn AttachmentRepository>,
     event_bus: EventBus,
+    message_bus: Arc<MessageBus>,
 ) -> DevBoardSchema {
     let user_loader = DataLoader::new(UserLoader::new(user_repo), tokio::spawn);
+    let comment_count_loader = DataLoader::new(CommentCountLoader::new(comment_repo), tokio::spawn);
+    let attachment_count_loader =
+        DataLoader::new(AttachmentCountLoader::new(attachment_repo), tokio::spawn);
 
-    Schema::build(QueryRoot, MutationRoot, SubscriptionRoot)
-        .data(services)
-        .data(user_loader)
-        .data(event_bus)
-        .finish()
+    Schema::build(
+        QueryRoot::default(),
+        MutationRoot::default(),
+        SubscriptionRoot::default(),
+    )
+    .data(services)
+    .data(user_loader)
+    .data(comment_count_loader)
+    .data(attachment_count_loader)
+    .data(event_bus)
+    .data(message_bus)
+    .finish()
 }

@@ -6,6 +6,6 @@ pub mod resolvers;
 pub mod schema;
 pub mod types;
 
-pub use dataloaders::UserLoader;
+pub use dataloaders::{AttachmentCountLoader, CommentCountLoader, UserLoader};
 pub use schema::{DevBoardSchema, build_schema};
 pub use types::user::GqlUser;
