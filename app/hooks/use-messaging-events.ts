@@ -9,11 +9,13 @@ import {
 } from "@/lib/graphql/documents";
 import { getWsClient } from "@/lib/graphql/ws";
 import type {
+  ApiChannel,
   ApiDmMessage,
   ApiMessage,
   ApiMessageEvent,
   ApiUserPresence,
 } from "@/types";
+import { useMe } from "./use-me";
 import { messagingKeys } from "./use-messaging";
 
 /**
@@ -22,6 +24,7 @@ import { messagingKeys } from "./use-messaging";
  */
 export function useChannelMessageEvents(channelId: string) {
   const queryClient = useQueryClient();
+  const { data: me } = useMe();
 
   useEffect(() => {
     if (!channelId) return;
@@ -41,6 +44,7 @@ export function useChannelMessageEvents(channelId: string) {
           if (!event) return;
 
           const kind = event.kind.toUpperCase();
+          if (!me?.id) return;
 
           if (kind === "DELETED") {
             queryClient.setQueryData<ApiMessage[]>(listKey, (messages) =>
@@ -73,6 +77,17 @@ export function useChannelMessageEvents(channelId: string) {
             }
             return [...messages, message];
           });
+          if (kind === "NEW" && message.authorId !== me?.id) {
+            queryClient.setQueryData<ApiChannel[]>(
+              messagingKeys.channels,
+              (channels) =>
+                channels?.map((c) =>
+                  c.id === channelId
+                    ? { ...c, unreadCount: (c.unreadCount ?? 0) + 1 }
+                    : c,
+                ),
+            );
+          }
         },
         error: (error) => {
           console.warn("channel message subscription error", error);
@@ -82,7 +97,7 @@ export function useChannelMessageEvents(channelId: string) {
     );
 
     return dispose;
-  }, [channelId, queryClient]);
+  }, [channelId, queryClient, me?.id]);
 }
 
 /**

@@ -321,12 +321,16 @@ export function useRemoveReaction(channelId: string) {
 }
 
 export function useMarkChannelAsRead() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: MarkChannelAsReadInput) => {
       await graphqlRequest<{ markChannelAsRead: boolean }>(
         MARK_CHANNEL_AS_READ_MUTATION,
         { input },
       );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: messagingKeys.channels });
     },
   });
 }
@@ -409,12 +413,16 @@ export function useSendDm(threadId: string) {
 }
 
 export function useMarkDmAsRead() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (threadId: string) => {
       await graphqlRequest<{ markDmAsRead: boolean }>(
         MARK_DM_AS_READ_MUTATION,
         { threadId },
       );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: messagingKeys.dmThreads });
     },
   });
 }

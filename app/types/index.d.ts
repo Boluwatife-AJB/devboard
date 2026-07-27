@@ -343,6 +343,7 @@ interface ApiChannel {
   kind: ChannelKind;
   createdAt: string;
   isMember: boolean;
+  unreadCount: number;
 }
 
 interface ApiChannelMember {
@@ -420,6 +421,7 @@ interface ApiDmThread {
   participantA: string;
   participantB: string;
   createdAt: string;
+  unreadCount: number;
 }
 
 interface ApiDmMessage {

@@ -179,4 +179,10 @@ pub trait DmRepository: Send + Sync {
         thread_id: DmThreadId,
         reader_id: UserId,
     ) -> Result<(), RepositoryError>;
+
+    async fn unread_count(
+        &self,
+        thread_id: DmThreadId,
+        reader_id: UserId,
+    ) -> Result<u64, RepositoryError>;
 }

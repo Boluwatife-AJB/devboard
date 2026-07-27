@@ -1,11 +1,11 @@
 use async_graphql::{Context, Enum, ID, Object, SimpleObject, dataloader::DataLoader};
 use chrono::{DateTime, Utc};
 use devboard_domain::{
-    Channel, ChannelKind, ChannelMember, DmMessage, DmThread, Message, MessageEmbed,
+    Channel, ChannelKind, ChannelMember, DmMessage, DmThread, DmThreadId, Message, MessageEmbed,
     PresenceStatus, ReactionSummary, UserPresence,
 };
 
-use crate::{GqlUser, UserLoader};
+use crate::{GqlUser, UserLoader, context::ContextExt, error::IntoGraphQLResult};
 
 #[derive(Enum, Copy, Clone, Eq, PartialEq)]
 pub enum GqlChannelKind {
@@ -105,6 +105,18 @@ impl GqlChannel {
     }
     async fn is_member(&self) -> bool {
         self.is_member
+    }
+    async fn unread_count(&self, ctx: &Context<'_>) -> async_graphql::Result<u64> {
+        if !self.is_member {
+            return Ok(0);
+        }
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+        services
+            .messaging_service
+            .get_unread_count(self.inner.id, auth.user_id)
+            .await
+            .map_gql_err()
     }
 }
 
@@ -294,12 +306,39 @@ impl From<Message> for GqlMessage {
     }
 }
 
-#[derive(SimpleObject, Clone)]
+#[derive(Clone)]
 pub struct GqlDmThread {
     pub id: ID,
     pub participant_a: ID,
     pub participant_b: ID,
     pub created_at: DateTime<Utc>,
+}
+
+#[Object]
+impl GqlDmThread {
+    async fn id(&self) -> &ID {
+        &self.id
+    }
+    async fn participant_a(&self) -> &ID {
+        &self.participant_a
+    }
+    async fn participant_b(&self) -> &ID {
+        &self.participant_b
+    }
+    async fn created_at(&self) -> DateTime<Utc> {
+        self.created_at
+    }
+    async fn unread_count(&self, ctx: &Context<'_>) -> async_graphql::Result<u64> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+        let thread_id = crate::resolvers::query::parse_id::<DmThreadId>(&self.id)?;
+        let unread_count = services
+            .messaging_service
+            .get_unread_dm_count(thread_id, auth.user_id)
+            .await
+            .map_gql_err()?;
+        Ok(unread_count)
+    }
 }
 
 impl From<DmThread> for GqlDmThread {

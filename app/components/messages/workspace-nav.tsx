@@ -23,6 +23,7 @@ import type {
   ApiUser,
   UiPresence,
 } from "@/types";
+import { Badge } from "../ui/badge";
 
 type WorkspaceNavProps = {
   channels: ApiChannel[];
@@ -173,6 +174,14 @@ export function WorkspaceNav({
                             )}
                           </div>
 
+                          {channel.isMember && channel.unreadCount > 0 && (
+                            <span className="shrink-0 text-[10px] uppercase tracking-wide text-[#8A8A8A]">
+                              {channel.unreadCount > 99
+                                ? "99+"
+                                : channel.unreadCount}
+                            </span>
+                          )}
+
                           {channel.kind === "PRIVATE" && (
                             <LockIcon className="size-4 shrink-0" />
                           )}
@@ -238,18 +247,28 @@ export function WorkspaceNav({
                           onSelectConversation({ type: "dm", id: thread.id })
                         }
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-xs px-2 py-2 text-left text-sm transition-colors",
+                          "flex w-full items-center  justify-between gap-2 rounded-xs px-2 py-2 text-left text-sm transition-colors",
                           isActive
                             ? "bg-[#1C1B1B] text-[#ADC6FF]"
                             : "text-[#C2C6D6] hover:bg-[#1C1B1B] hover:text-white",
                         )}
                       >
-                        <SquareAvatar
-                          initials={initialsOf(name)}
-                          color={avatarColorOf(otherUserId)}
-                          status={presenceOf(otherUserId)}
-                        />
-                        {name}
+                        <div className="flex items-center gap-2">
+                          <SquareAvatar
+                            initials={initialsOf(name)}
+                            color={avatarColorOf(otherUserId)}
+                            status={presenceOf(otherUserId)}
+                          />
+                          {name}
+                        </div>
+
+                        {thread.unreadCount > 0 && (
+                          <Badge className="shrink-0 text-[10px] uppercase tracking-wide text-[#8A8A8A] bg-[#2A2A2A]">
+                            {thread.unreadCount > 99
+                              ? "99+"
+                              : thread.unreadCount}
+                          </Badge>
+                        )}
                       </button>
                     </li>
                   );

@@ -78,6 +78,7 @@ const CHANNEL_FIELDS = `
   kind
   createdAt
   isMember
+  unreadCount
 `;
 
 const MESSAGE_EMBED_FIELDS = `
@@ -120,6 +121,7 @@ const DM_THREAD_FIELDS = `
   participantA
   participantB
   createdAt
+  unreadCount
 `;
 
 const DM_MESSAGE_FIELDS = `

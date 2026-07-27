@@ -832,6 +832,34 @@ impl DmRepository for PgDmRepository {
 
         Ok(())
     }
+
+    async fn unread_count(
+        &self,
+        thread_id: DmThreadId,
+        reader_id: UserId,
+    ) -> Result<u64, RepositoryError> {
+        let sql = r#"
+            SELECT COUNT(*) AS COUNT
+            FROM dm_message
+            WHERE thread_id = $1
+              AND author_id != $2
+              AND read_by_recipient_at IS NULL
+        "#;
+        let row = self
+            .db
+            .query_one_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [Uuid::from(thread_id).into(), Uuid::from(reader_id).into()],
+            ))
+            .await
+            .map_err(RepositoryError::from_db_err)?
+            .ok_or(RepositoryError::NotFound)?;
+        let count: i64 = row
+            .try_get("", "count")
+            .map_err(RepositoryError::from_db_err)?;
+        Ok(count as u64)
+    }
 }
 
 // Private Helpers

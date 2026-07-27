@@ -650,6 +650,29 @@ impl MessagingService {
             .map_err(ServiceError::from)
     }
 
+    pub async fn get_unread_dm_count(
+        &self,
+        thread_id: DmThreadId,
+        reader_id: UserId,
+    ) -> Result<u64, ServiceError> {
+        let thread = self
+            .dm_repo
+            .find_thread_by_id(thread_id)
+            .await?
+            .ok_or(ServiceError::Internal("thread not found".into()))?;
+
+        if thread.participant_a != reader_id && thread.participant_b != reader_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you are not a participant of this DM thread".into(),
+            });
+        }
+
+        self.dm_repo
+            .unread_count(thread_id, reader_id)
+            .await
+            .map_err(ServiceError::from)
+    }
+
     // Presence
     pub async fn heartbeat(
         &self,
