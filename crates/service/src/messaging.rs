@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use chrono::{Duration, Utc};
 use devboard_cache::{MessageBus, MessagingEvent};
 use devboard_domain::{
     Channel, ChannelId, ChannelKind, ChannelMember, DmMessage, DmMessageId, DmThread, DmThreadId,
@@ -364,6 +365,12 @@ impl MessagingService {
         if message.author_id != caller_id {
             return Err(ServiceError::Forbidden {
                 reason: "you are not the author of this message".into(),
+            });
+        }
+
+        if Utc::now().signed_duration_since(message.created_at) > Duration::minutes(15) {
+            return Err(ServiceError::Forbidden {
+                reason: "you can only edit messages within 15 minutes of sending".into(),
             });
         }
 
