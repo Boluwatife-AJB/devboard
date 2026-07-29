@@ -4,31 +4,25 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "channel")]
+#[sea_orm(table_name = "notification")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    #[sea_orm(unique_key = "idx_channel_org_slug_unique")]
+    pub recipient_id: Uuid,
     pub organization_id: Uuid,
-    pub created_by: Uuid,
-    #[sea_orm(unique_key = "idx_channel_org_slug_unique")]
-    pub slug: String,
-    pub name: String,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub description: Option<String>,
     pub kind: String,
+    pub title: String,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub body: Option<String>,
+    pub action_url: Option<String>,
+    pub metadata: Option<Json>,
+    pub read_at: Option<DateTimeWithTimeZone>,
+    pub email_sent_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
-    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::channel_member::Entity")]
-    ChannelMember,
-    #[sea_orm(has_many = "super::channel_message_clear::Entity")]
-    ChannelMessageClear,
-    #[sea_orm(has_many = "super::message::Entity")]
-    Message,
     #[sea_orm(
         belongs_to = "super::organization::Entity",
         from = "Column::OrganizationId",
@@ -39,30 +33,12 @@ pub enum Relation {
     Organization,
     #[sea_orm(
         belongs_to = "super::user::Entity",
-        from = "Column::CreatedBy",
+        from = "Column::RecipientId",
         to = "super::user::Column::Id",
         on_update = "NoAction",
-        on_delete = "Restrict"
+        on_delete = "Cascade"
     )]
     User,
-}
-
-impl Related<super::channel_member::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::ChannelMember.def()
-    }
-}
-
-impl Related<super::channel_message_clear::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::ChannelMessageClear.def()
-    }
-}
-
-impl Related<super::message::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Message.def()
-    }
 }
 
 impl Related<super::organization::Entity> for Entity {

@@ -4,18 +4,13 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "message")]
+#[sea_orm(table_name = "channel_message_clear")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub id: Uuid,
+    pub user_id: Uuid,
+    #[sea_orm(primary_key, auto_increment = false)]
     pub channel_id: Uuid,
-    pub author_id: Uuid,
-    #[sea_orm(column_type = "Text")]
-    pub body: String,
-    #[sea_orm(column_type = "JsonBinary", nullable)]
-    pub embeds: Option<Json>,
-    pub edited_at: Option<DateTimeWithTimeZone>,
-    pub created_at: DateTimeWithTimeZone,
+    pub cleared_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -28,14 +23,12 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Channel,
-    #[sea_orm(has_many = "super::message_reaction::Entity")]
-    MessageReaction,
     #[sea_orm(
         belongs_to = "super::user::Entity",
-        from = "Column::AuthorId",
+        from = "Column::UserId",
         to = "super::user::Column::Id",
         on_update = "NoAction",
-        on_delete = "Restrict"
+        on_delete = "Cascade"
     )]
     User,
 }
@@ -46,18 +39,9 @@ impl Related<super::channel::Entity> for Entity {
     }
 }
 
-impl Related<super::message_reaction::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::MessageReaction.def()
-    }
-}
-
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
-        super::message_reaction::Relation::User.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::message_reaction::Relation::Message.def().rev())
+        Relation::User.def()
     }
 }
 

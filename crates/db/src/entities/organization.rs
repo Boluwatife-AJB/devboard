@@ -21,6 +21,10 @@ pub enum Relation {
     Channel,
     #[sea_orm(has_many = "super::invitation::Entity")]
     Invitation,
+    #[sea_orm(has_many = "super::notification::Entity")]
+    Notification,
+    #[sea_orm(has_many = "super::notification_preference::Entity")]
+    NotificationPreference,
     #[sea_orm(has_many = "super::org_membership::Entity")]
     OrgMembership,
     #[sea_orm(has_many = "super::project::Entity")]
@@ -38,6 +42,18 @@ impl Related<super::channel::Entity> for Entity {
 impl Related<super::invitation::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Invitation.def()
+    }
+}
+
+impl Related<super::notification::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Notification.def()
+    }
+}
+
+impl Related<super::notification_preference::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::NotificationPreference.def()
     }
 }
 

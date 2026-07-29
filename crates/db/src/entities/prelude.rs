@@ -2,16 +2,21 @@
 
 pub use super::channel::Entity as Channel;
 pub use super::channel_member::Entity as ChannelMember;
+pub use super::channel_message_clear::Entity as ChannelMessageClear;
 pub use super::comment::Entity as Comment;
 pub use super::dm_message::Entity as DmMessage;
+pub use super::dm_message_clear::Entity as DmMessageClear;
 pub use super::dm_thread::Entity as DmThread;
 pub use super::invitation::Entity as Invitation;
 pub use super::message::Entity as Message;
 pub use super::message_reaction::Entity as MessageReaction;
+pub use super::notification::Entity as Notification;
+pub use super::notification_preference::Entity as NotificationPreference;
 pub use super::org_membership::Entity as OrgMembership;
 pub use super::organization::Entity as Organization;
 pub use super::project::Entity as Project;
 pub use super::project_membership::Entity as ProjectMembership;
+pub use super::push_subscription::Entity as PushSubscription;
 pub use super::task::Entity as Task;
 pub use super::task_attachment::Entity as TaskAttachment;
 pub use super::team::Entity as Team;
