@@ -6,7 +6,6 @@ use devboard_db::entities::{
     dm_message::{self, Entity as DmMessageEntity},
     dm_thread::{self, Entity as DmThreadEntity},
     message::{self, Entity as MessageEntity},
-    message_reaction,
 };
 use devboard_domain::{
     Channel, ChannelId, ChannelKind, ChannelMember, DmMessage, DmMessageId, DmThread, DmThreadId,
@@ -576,29 +575,27 @@ impl MessageRepository for PgMessageRepository {
         user_id: UserId,
         emoji: String,
     ) -> Result<(), RepositoryError> {
-        let now = Utc::now();
+        // Replace any existing reaction for this user on the message.
+        let sql = r#"
+            INSERT INTO message_reaction (message_id, user_id, emoji, created_at)
+            VALUES ($1, $2, $3, NOW())
+            ON CONFLICT (message_id, user_id)
+            DO UPDATE SET
+              emoji = EXCLUDED.emoji,
+              created_at = EXCLUDED.created_at
+        "#;
 
-        let active = message_reaction::ActiveModel {
-            message_id: ActiveValue::Set(Uuid::from(message_id)),
-            user_id: ActiveValue::Set(Uuid::from(user_id)),
-            emoji: ActiveValue::Set(emoji),
-            created_at: ActiveValue::Set(now.into()),
-        };
-
-        active
-            .insert(&self.db)
+        self.db
+            .execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [
+                    Uuid::from(message_id).into(),
+                    Uuid::from(user_id).into(),
+                    emoji.into(),
+                ],
+            ))
             .await
-            .map(|_| ())
-            .or_else(|err| {
-                if matches!(
-                    err,
-                    sea_orm::error::DbErr::Query(sea_orm::RuntimeErr::SqlxError(_))
-                ) {
-                    Ok(())
-                } else {
-                    Err(err)
-                }
-            })
             .map_err(RepositoryError::from_db_err)?;
 
         Ok(())

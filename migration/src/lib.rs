@@ -18,6 +18,7 @@ mod m20260715_180458_create_messages;
 mod m20260715_182709_create_message_reactions;
 mod m20260715_183839_create_direct_messages;
 mod m20260728_150000_create_message_clears;
+mod m20260729_133700_one_reaction_per_user;
 
 pub struct Migrator;
 
@@ -43,6 +44,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260715_182709_create_message_reactions::Migration),
             Box::new(m20260715_183839_create_direct_messages::Migration),
             Box::new(m20260728_150000_create_message_clears::Migration),
+            Box::new(m20260729_133700_one_reaction_per_user::Migration),
         ]
     }
 }
