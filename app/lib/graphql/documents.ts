@@ -471,6 +471,32 @@ export const DELETE_MESSAGE_MUTATION = `
   }
 `;
 
+export const EDIT_DM_MUTATION = `
+  mutation EditDm($input: EditDmInput!) {
+    editDm(input: $input) {
+      ${DM_MESSAGE_FIELDS}
+    }
+  }
+`;
+
+export const DELETE_DM_MUTATION = `
+  mutation DeleteDm($input: DeleteDmInput!) {
+    deleteDm(input: $input)
+  }
+`;
+
+export const CLEAR_CHANNEL_MESSAGES_MUTATION = `
+  mutation ClearChannelMessages($channelId: ID!) {
+    clearChannelMessages(channelId: $channelId)
+  }
+`;
+
+export const CLEAR_DM_MESSAGES_MUTATION = `
+  mutation ClearDmMessages($threadId: ID!) {
+    clearDmMessages(threadId: $threadId)
+  }
+`;
+
 export const ADD_REACTION_MUTATION = `
   mutation AddReaction($input: ReactionInput!) {
     addReaction(input: $input) {
@@ -551,7 +577,12 @@ export const CHANNEL_MESSAGES_SUBSCRIPTION = `
 export const DM_RECEIVED_SUBSCRIPTION = `
   subscription DmReceived($threadId: ID!) {
     dmReceived(threadId: $threadId) {
-      ${DM_MESSAGE_FIELDS}
+      kind
+      threadId
+      messageId
+      message {
+        ${DM_MESSAGE_FIELDS}
+      }
     }
   }
 `;

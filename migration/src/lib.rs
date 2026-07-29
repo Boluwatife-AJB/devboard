@@ -17,6 +17,7 @@ mod m20260715_175037_create_channel_members;
 mod m20260715_180458_create_messages;
 mod m20260715_182709_create_message_reactions;
 mod m20260715_183839_create_direct_messages;
+mod m20260728_150000_create_message_clears;
 
 pub struct Migrator;
 
@@ -41,6 +42,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260715_180458_create_messages::Migration),
             Box::new(m20260715_182709_create_message_reactions::Migration),
             Box::new(m20260715_183839_create_direct_messages::Migration),
+            Box::new(m20260728_150000_create_message_clears::Migration),
         ]
     }
 }

@@ -45,7 +45,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   useAddReaction,
+  useDeleteDm,
   useDeleteMessage,
+  useEditDm,
   useEditMessage,
   useRemoveReaction,
 } from "@/hooks/use-messaging";
@@ -75,12 +77,14 @@ export function MessageBubble({
   authorName,
   isSelf,
   channelId,
+  threadId,
   canReact = false,
 }: {
   message: DisplayMessage;
   authorName: string;
   isSelf: boolean;
   channelId?: string;
+  threadId?: string;
   canReact?: boolean;
 }) {
   const editedSuffix = message.isEdited ? " (edited)" : "";
@@ -94,9 +98,11 @@ export function MessageBubble({
   const removeReaction = useRemoveReaction(channelId ?? "");
   const editMessage = useEditMessage(channelId ?? "");
   const deleteMessage = useDeleteMessage(channelId ?? "");
+  const editDm = useEditDm(threadId ?? "");
+  const deleteDm = useDeleteDm(threadId ?? "");
   const reacting = addReaction.isPending || removeReaction.isPending;
-  const canEdit = Boolean(channelId) && canEditMessage(message.createdAt);
-  const canManage = Boolean(channelId);
+  const canManage = Boolean(channelId) || Boolean(threadId);
+  const canEdit = canManage && canEditMessage(message.createdAt);
 
   const handleToggle = async (emoji: string) => {
     if (!channelId || !canReact || reacting) return;
@@ -135,30 +141,60 @@ export function MessageBubble({
 
   const handleSaveEdit = () => {
     const body = draft.trim();
-    if (!body || !channelId) return;
-    editMessage.mutate(
-      { messageId: message.id, body },
-      {
-        onSuccess: () => setEditing(false),
-        onError: (error) => toast.error(getApiErrorMessage(error)),
-      },
-    );
+    if (!body) return;
+
+    if (channelId) {
+      editMessage.mutate(
+        { messageId: message.id, body },
+        {
+          onSuccess: () => setEditing(false),
+          onError: (error) => toast.error(getApiErrorMessage(error)),
+        },
+      );
+      return;
+    }
+
+    if (threadId) {
+      editDm.mutate(
+        { messageId: message.id, body },
+        {
+          onSuccess: () => setEditing(false),
+          onError: (error) => toast.error(getApiErrorMessage(error)),
+        },
+      );
+    }
   };
 
   const handleConfirmDelete = () => {
-    const orgId = getSelectedOrgId();
-    if (!channelId || !orgId) {
-      toast.error("Missing organization context");
+    if (channelId) {
+      const orgId = getSelectedOrgId();
+      if (!orgId) {
+        toast.error("Missing organization context");
+        return;
+      }
+      deleteMessage.mutate(
+        { messageId: message.id, orgId },
+        {
+          onSuccess: () => setDeleteOpen(false),
+          onError: (error) => toast.error(getApiErrorMessage(error)),
+        },
+      );
       return;
     }
-    deleteMessage.mutate(
-      { messageId: message.id, orgId },
-      {
-        onSuccess: () => setDeleteOpen(false),
-        onError: (error) => toast.error(getApiErrorMessage(error)),
-      },
-    );
+
+    if (threadId) {
+      deleteDm.mutate(
+        { messageId: message.id },
+        {
+          onSuccess: () => setDeleteOpen(false),
+          onError: (error) => toast.error(getApiErrorMessage(error)),
+        },
+      );
+    }
   };
+
+  const isSavingEdit = editMessage.isPending || editDm.isPending;
+  const isDeleting = deleteMessage.isPending || deleteDm.isPending;
 
   const reactionBar =
     canReact || (message.reactions && message.reactions.length > 0) ? (
@@ -265,7 +301,7 @@ export function MessageBubble({
                           size="sm"
                           className="h-7 text-xs"
                           onClick={() => setEditing(false)}
-                          disabled={editMessage.isPending}
+                          disabled={isSavingEdit}
                         >
                           Cancel
                         </Button>
@@ -274,9 +310,9 @@ export function MessageBubble({
                           size="sm"
                           className="h-7 bg-[#4D8EFF] text-xs text-white hover:bg-[#4D8EFF]/80"
                           onClick={handleSaveEdit}
-                          disabled={editMessage.isPending || !draft.trim()}
+                          disabled={isSavingEdit || !draft.trim()}
                         >
-                          {editMessage.isPending ? "Saving…" : "Save"}
+                          {isSavingEdit ? "Saving…" : "Save"}
                         </Button>
                       </div>
                     </div>
@@ -312,7 +348,7 @@ export function MessageBubble({
                       className="w-40 border-[#2A2A2A] bg-[#131313]"
                     >
                       <DropdownMenuGroup>
-                        {canManage && (
+                        {canManage && canEdit && (
                           <DropdownMenuItem onClick={handleStartEdit}>
                             <PencilSimpleIcon className="size-4" />
                             Edit
@@ -356,19 +392,22 @@ export function MessageBubble({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete message?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently remove the message for everyone in the
-                channel.
+                This will permanently remove the message
+                {channelId
+                  ? " for everyone in the channel"
+                  : " for both participants"}
+                .
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleteMessage.isPending}>
+              <AlertDialogCancel disabled={isDeleting}>
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleConfirmDelete}
-                disabled={deleteMessage.isPending}
+                disabled={isDeleting}
               >
-                {deleteMessage.isPending ? "Deleting…" : "Delete"}
+                {isDeleting ? "Deleting…" : "Delete"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

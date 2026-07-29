@@ -11,6 +11,8 @@ import { getWsClient } from "@/lib/graphql/ws";
 import type {
   ApiChannel,
   ApiDmMessage,
+  ApiDmMessageEvent,
+  ApiDmThread,
   ApiMessage,
   ApiMessageEvent,
   ApiUserPresence,
@@ -77,7 +79,7 @@ export function useChannelMessageEvents(channelId: string) {
             }
             return [...messages, message];
           });
-          if (kind === "NEW" && message.authorId !== me?.id) {
+          if (kind === "NEW" && message.authorId !== me.id) {
             queryClient.setQueryData<ApiChannel[]>(
               messagingKeys.channels,
               (channels) =>
@@ -101,35 +103,66 @@ export function useChannelMessageEvents(channelId: string) {
 }
 
 /**
- * Subscribes to new DM messages for a thread.
+ * Subscribes to DM thread events (new, edited, deleted).
  */
 export function useDmReceivedEvents(threadId: string) {
   const queryClient = useQueryClient();
+  const { data: me } = useMe();
 
   useEffect(() => {
     if (!threadId) return;
 
     const listKey = messagingKeys.dmMessages(threadId);
 
-    const dispose = getWsClient().subscribe<{ dmReceived: ApiDmMessage }>(
+    const dispose = getWsClient().subscribe<{
+      dmReceived: ApiDmMessageEvent;
+    }>(
       {
         query: DM_RECEIVED_SUBSCRIPTION,
         variables: { threadId },
       },
       {
         next: (result) => {
-          const message = result.data?.dmReceived;
+          const event = result.data?.dmReceived;
+          if (!event) return;
+
+          const kind = event.kind.toUpperCase();
+
+          if (kind === "DELETED") {
+            queryClient.setQueryData<ApiDmMessage[]>(listKey, (messages) =>
+              messages?.filter((message) => message.id !== event.messageId),
+            );
+            return;
+          }
+
+          const message = event.message;
           if (!message) return;
 
           queryClient.setQueryData<ApiDmMessage[]>(listKey, (messages) => {
             if (!messages) return [message];
             const exists = messages.some((item) => item.id === message.id);
-            return exists
-              ? messages.map((item) =>
-                  item.id === message.id ? message : item,
-                )
-              : [...messages, message];
+            if (kind === "EDITED" || exists) {
+              return messages.map((item) =>
+                item.id === message.id ? message : item,
+              );
+            }
+            return [...messages, message];
           });
+
+          if (kind === "NEW" && me?.id && message.authorId !== me.id) {
+            queryClient.setQueryData<ApiDmThread[]>(
+              messagingKeys.dmThreads,
+              (threads) =>
+                threads?.map((thread) =>
+                  thread.id === threadId
+                    ? {
+                        ...thread,
+                        unreadCount: (thread.unreadCount ?? 0) + 1,
+                      }
+                    : thread,
+                ),
+            );
+          }
         },
         error: (error) => {
           console.warn("dm received subscription error", error);
@@ -139,7 +172,7 @@ export function useDmReceivedEvents(threadId: string) {
     );
 
     return dispose;
-  }, [threadId, queryClient]);
+  }, [threadId, queryClient, me?.id]);
 }
 
 /**

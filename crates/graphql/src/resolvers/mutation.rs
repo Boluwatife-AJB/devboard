@@ -1,8 +1,8 @@
 use async_graphql::{Context, ID, MergedObject, Object};
 
 use devboard_domain::{
-    AttachmentId, AttachmentKind, ChannelId, ChannelKind, CommentId, DmThreadId, InvitationId,
-    MessageId, OrganizationId, ProjectId, TaskId, TeamId, UserId,
+    AttachmentId, AttachmentKind, ChannelId, ChannelKind, CommentId, DmMessageId, DmThreadId,
+    InvitationId, MessageId, OrganizationId, ProjectId, TaskId, TeamId, UserId,
 };
 use devboard_service::task::CreateTaskCommand;
 
@@ -12,8 +12,9 @@ use crate::{
     inputs::{
         AddAttachmentInput, AddChannelMemberInput, AddProjectMemberInput, AddTeamMemberInput,
         AssignTaskInput, CreateChannelInput, CreateProjectInput, CreateTaskInput, CreateTeamInput,
-        DeleteMessageInput, EditMessageInput, MarkChannelAsReadInput, ReactionInput,
-        RemoveChannelMemberInput, SendDmInput, SendMessageInput, UpdateTaskStatusInput,
+        DeleteDmInput, DeleteMessageInput, EditDmInput, EditMessageInput, MarkChannelAsReadInput,
+        ReactionInput, RemoveChannelMemberInput, SendDmInput, SendMessageInput,
+        UpdateTaskStatusInput,
         comment::{CreateCommentInput, EditCommentInput},
         project::UpdateProjectInput,
         task::UpdateTaskDueDateInput,
@@ -790,6 +791,78 @@ impl MessagingMutationFields {
         services
             .messaging_service
             .mark_dm_read(parse_id::<DmThreadId>(&thread_id)?, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    async fn edit_dm(
+        &self,
+        ctx: &Context<'_>,
+        input: EditDmInput,
+    ) -> async_graphql::Result<GqlDmMessage> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let message = services
+            .messaging_service
+            .edit_dm(
+                parse_id::<DmMessageId>(&input.message_id)?,
+                auth.user_id,
+                input.body,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlDmMessage::from(message))
+    }
+
+    async fn delete_dm(
+        &self,
+        ctx: &Context<'_>,
+        input: DeleteDmInput,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        services
+            .messaging_service
+            .delete_dm(parse_id::<DmMessageId>(&input.message_id)?, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    async fn clear_channel_messages(
+        &self,
+        ctx: &Context<'_>,
+        channel_id: ID,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        services
+            .messaging_service
+            .clear_channel_for_user(parse_id::<ChannelId>(&channel_id)?, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    async fn clear_dm_messages(
+        &self,
+        ctx: &Context<'_>,
+        thread_id: ID,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        services
+            .messaging_service
+            .clear_dm_for_user(parse_id::<DmThreadId>(&thread_id)?, auth.user_id)
             .await
             .map_gql_err()?;
 

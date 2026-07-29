@@ -296,9 +296,14 @@ impl MessagingService {
         self.require_channel_member(channel_id, caller_id).await?;
 
         let limit = limit.clamp(1, 100);
+        let cleared_at = self
+            .channel_repo
+            .get_cleared_at(channel_id, caller_id)
+            .await
+            .map_err(ServiceError::from)?;
 
         self.message_repo
-            .find_by_channel(channel_id, before_id, limit)
+            .find_by_channel(channel_id, before_id, limit, cleared_at)
             .await
             .map_err(ServiceError::from)
     }
@@ -602,9 +607,14 @@ impl MessagingService {
         }
 
         let limit = limit.clamp(1, 100);
+        let cleared_at = self
+            .dm_repo
+            .get_cleared_at(thread_id, caller_id)
+            .await
+            .map_err(ServiceError::from)?;
 
         self.dm_repo
-            .find_messages(thread_id, before_id, limit)
+            .find_messages(thread_id, before_id, limit, cleared_at)
             .await
             .map_err(ServiceError::from)
     }
@@ -676,6 +686,141 @@ impl MessagingService {
 
         self.dm_repo
             .unread_count(thread_id, reader_id)
+            .await
+            .map_err(ServiceError::from)
+    }
+
+    pub async fn edit_dm(
+        &self,
+        message_id: DmMessageId,
+        caller_id: UserId,
+        new_body: String,
+    ) -> Result<DmMessage, ServiceError> {
+        validate_message_body(&new_body)?;
+
+        let message = self
+            .dm_repo
+            .find_message_by_id(message_id)
+            .await?
+            .ok_or(ServiceError::Internal("message not found".into()))?;
+
+        if message.author_id != caller_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you are not the author of this message".into(),
+            });
+        }
+
+        if Utc::now().signed_duration_since(message.created_at) > Duration::minutes(15) {
+            return Err(ServiceError::Forbidden {
+                reason: "you can only edit messages within 15 minutes of sending".into(),
+            });
+        }
+
+        let thread = self
+            .dm_repo
+            .find_thread_by_id(message.thread_id)
+            .await?
+            .ok_or(ServiceError::Internal("thread not found".into()))?;
+
+        if thread.participant_a != caller_id && thread.participant_b != caller_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you are not a participant of this DM thread".into(),
+            });
+        }
+
+        let updated = self
+            .dm_repo
+            .edit_message(message_id, new_body)
+            .await
+            .map_err(ServiceError::from)?;
+
+        let _ = self
+            .message_bus
+            .publish(&MessagingEvent::DmEdited {
+                thread_id: message.thread_id,
+                message: updated.clone(),
+            })
+            .await;
+
+        Ok(updated)
+    }
+
+    pub async fn delete_dm(
+        &self,
+        message_id: DmMessageId,
+        caller_id: UserId,
+    ) -> Result<(), ServiceError> {
+        let message = self
+            .dm_repo
+            .find_message_by_id(message_id)
+            .await?
+            .ok_or(ServiceError::Internal("message not found".into()))?;
+
+        if message.author_id != caller_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you are not the author of this message".into(),
+            });
+        }
+
+        let thread = self
+            .dm_repo
+            .find_thread_by_id(message.thread_id)
+            .await?
+            .ok_or(ServiceError::Internal("thread not found".into()))?;
+
+        if thread.participant_a != caller_id && thread.participant_b != caller_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you are not a participant of this DM thread".into(),
+            });
+        }
+
+        self.dm_repo
+            .delete_message(message_id)
+            .await
+            .map_err(ServiceError::from)?;
+
+        let _ = self
+            .message_bus
+            .publish(&MessagingEvent::DmDeleted {
+                thread_id: message.thread_id,
+                message_id,
+            })
+            .await;
+
+        Ok(())
+    }
+
+    pub async fn clear_channel_for_user(
+        &self,
+        channel_id: ChannelId,
+        user_id: UserId,
+    ) -> Result<(), ServiceError> {
+        self.require_channel_member(channel_id, user_id).await?;
+        self.channel_repo
+            .set_cleared_at(channel_id, user_id, Utc::now())
+            .await
+            .map_err(ServiceError::from)
+    }
+
+    pub async fn clear_dm_for_user(
+        &self,
+        thread_id: DmThreadId,
+        user_id: UserId,
+    ) -> Result<(), ServiceError> {
+        let thread = self
+            .dm_repo
+            .find_thread_by_id(thread_id)
+            .await?
+            .ok_or(ServiceError::Internal("thread not found".into()))?;
+
+        if thread.participant_a != user_id && thread.participant_b != user_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you are not a participant of this DM thread".into(),
+            });
+        }
+
+        self.dm_repo
+            .set_cleared_at(thread_id, user_id, Utc::now())
             .await
             .map_err(ServiceError::from)
     }

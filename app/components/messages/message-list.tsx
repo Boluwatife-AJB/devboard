@@ -13,6 +13,7 @@ export function MessageList({
   displayNameOf,
   bottomRef,
   channelId,
+  threadId,
   canReact = false,
 }: {
   messages: DisplayMessage[];
@@ -23,6 +24,7 @@ export function MessageList({
   displayNameOf: (userId: string) => string;
   bottomRef: RefObject<HTMLDivElement | null>;
   channelId?: string;
+  threadId?: string;
   canReact?: boolean;
 }) {
   if (isLoading) {
@@ -76,6 +78,7 @@ export function MessageList({
               authorName={displayNameOf(message.authorId)}
               isSelf={message.authorId === myUserId}
               channelId={channelId}
+              threadId={threadId}
               canReact={canReact}
             />
           ))}

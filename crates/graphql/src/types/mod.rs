@@ -14,9 +14,9 @@ pub use attachment::{GqlAttachment, GqlAttachmentKind};
 pub use comment::GqlComment;
 pub use invitation::{GqlInvitation, GqlInvitationStatus};
 pub use messaging::{
-    GqlChannel, GqlChannelKind, GqlChannelMember, GqlDmMessage, GqlDmThread, GqlMessage,
-    GqlMessageEmbed, GqlMessageEvent, GqlPresenceStatus, GqlReactionEvent, GqlReactionSummary,
-    GqlUserPresence,
+    GqlChannel, GqlChannelKind, GqlChannelMember, GqlDmMessage, GqlDmMessageEvent, GqlDmThread,
+    GqlMessage, GqlMessageEmbed, GqlMessageEvent, GqlPresenceStatus, GqlReactionEvent,
+    GqlReactionSummary, GqlUserPresence,
 };
 pub use project::GqlProject;
 pub use subscription::{TaskEventKind, TaskUpdatedEvent};

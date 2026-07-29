@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use devboard_domain::{
     Channel, ChannelId, ChannelKind, ChannelMember, DmMessage, DmMessageId, DmThread, DmThreadId,
     Message, MessageEmbed, MessageId, OrganizationId, ReactionSummary, UserId,
@@ -80,6 +81,19 @@ pub trait ChannelRepository: Send + Sync {
         channel_id: ChannelId,
         retain_count: i64,
     ) -> Result<u64, RepositoryError>;
+
+    async fn get_cleared_at(
+        &self,
+        channel_id: ChannelId,
+        user_id: UserId,
+    ) -> Result<Option<DateTime<Utc>>, RepositoryError>;
+
+    async fn set_cleared_at(
+        &self,
+        channel_id: ChannelId,
+        user_id: UserId,
+        cleared_at: DateTime<Utc>,
+    ) -> Result<(), RepositoryError>;
 }
 
 // Message Repo
@@ -92,6 +106,7 @@ pub trait MessageRepository: Send + Sync {
         channel_id: ChannelId,
         before_id: Option<MessageId>,
         limit: u64,
+        after_created_at: Option<DateTime<Utc>>,
     ) -> Result<Vec<Message>, RepositoryError>;
 
     async fn create(&self, params: CreateMessageParams) -> Result<Message, RepositoryError>;
@@ -158,7 +173,13 @@ pub trait DmRepository: Send + Sync {
         thread_id: DmThreadId,
         before_id: Option<DmMessageId>,
         limit: u64,
+        after_created_at: Option<DateTime<Utc>>,
     ) -> Result<Vec<DmMessage>, RepositoryError>;
+
+    async fn find_message_by_id(
+        &self,
+        id: DmMessageId,
+    ) -> Result<Option<DmMessage>, RepositoryError>;
 
     async fn create_message(
         &self,
@@ -174,6 +195,8 @@ pub trait DmRepository: Send + Sync {
         body: String,
     ) -> Result<DmMessage, RepositoryError>;
 
+    async fn delete_message(&self, id: DmMessageId) -> Result<(), RepositoryError>;
+
     async fn mark_read(
         &self,
         thread_id: DmThreadId,
@@ -185,4 +208,17 @@ pub trait DmRepository: Send + Sync {
         thread_id: DmThreadId,
         reader_id: UserId,
     ) -> Result<u64, RepositoryError>;
+
+    async fn get_cleared_at(
+        &self,
+        thread_id: DmThreadId,
+        user_id: UserId,
+    ) -> Result<Option<DateTime<Utc>>, RepositoryError>;
+
+    async fn set_cleared_at(
+        &self,
+        thread_id: DmThreadId,
+        user_id: UserId,
+        cleared_at: DateTime<Utc>,
+    ) -> Result<(), RepositoryError>;
 }

@@ -413,3 +413,11 @@ pub struct GqlReactionEvent {
     pub channel_id: ID,
     pub message_id: ID,
 }
+
+#[derive(SimpleObject, Clone)]
+pub struct GqlDmMessageEvent {
+    pub kind: String, // NEW | EDITED | DELETED
+    pub thread_id: ID,
+    pub message: Option<GqlDmMessage>,
+    pub message_id: ID,
+}

@@ -1,10 +1,18 @@
 import {
+  DotsThreeVerticalIcon,
   InfoIcon,
   LockIcon,
   PhoneIcon,
   VideoCameraIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { ChannelKind } from "@/types";
 
@@ -14,12 +22,16 @@ export function ChatHeader({
   detailsOpen,
   onToggleDetails,
   kind,
+  onClearMessages,
+  clearPending,
 }: {
   title: string;
   subtitle: string;
   detailsOpen?: boolean;
   onToggleDetails?: () => void;
   kind?: ChannelKind;
+  onClearMessages?: () => void;
+  clearPending?: boolean;
 }) {
   return (
     <header className="flex h-18 items-center justify-between gap-4 border-b border-[#2A2A2A] px-6 py-4">
@@ -49,6 +61,36 @@ export function ChatHeader({
         >
           <VideoCameraIcon className="size-4" />
         </Button>
+        {onClearMessages && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-[#C2C6D6] hover:text-white"
+                  aria-label="Conversation options"
+                >
+                  <DotsThreeVerticalIcon className="size-4" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent
+              align="end"
+              className="w-48 border-[#2A2A2A] bg-[#131313]"
+            >
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  disabled={clearPending}
+                  onClick={onClearMessages}
+                >
+                  Clear messages
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         {onToggleDetails && (
           <Button
             type="button"

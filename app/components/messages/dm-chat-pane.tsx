@@ -1,12 +1,23 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChatHeader } from "@/components/messages/chat-header";
 import { MessageComposer } from "@/components/messages/message-composer";
 import { MessageList } from "@/components/messages/message-list";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  useClearDmMessages,
   useDmMessages,
   useMarkDmAsRead,
   useSendDm,
@@ -34,7 +45,9 @@ export function DmChatPane({
   useDmReceivedEvents(thread.id);
   const sendDm = useSendDm(thread.id);
   const markAsRead = useMarkDmAsRead();
+  const clearMessages = useClearDmMessages(thread.id);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [clearOpen, setClearOpen] = useState(false);
 
   const lastMessageId = messages[messages.length - 1]?.id;
 
@@ -60,7 +73,38 @@ export function DmChatPane({
               ? "Away"
               : "Offline"
         }
+        onClearMessages={() => setClearOpen(true)}
+        clearPending={clearMessages.isPending}
       />
+
+      <AlertDialog open={clearOpen} onOpenChange={setClearOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear messages?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This hides the conversation history for you. {otherName} will
+              still see the messages. New messages will still appear.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={clearMessages.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                clearMessages.mutate(undefined, {
+                  onSuccess: () => setClearOpen(false),
+                  onError: (clearError) =>
+                    toast.error(getApiErrorMessage(clearError)),
+                })
+              }
+              disabled={clearMessages.isPending}
+            >
+              {clearMessages.isPending ? "Clearing…" : "Clear messages"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ScrollArea className="max-h-[calc(100vh-23rem)] flex-1">
         <MessageList
@@ -71,6 +115,7 @@ export function DmChatPane({
           myUserId={me?.id}
           displayNameOf={displayNameOf}
           bottomRef={bottomRef}
+          threadId={thread.id}
         />
       </ScrollArea>
 

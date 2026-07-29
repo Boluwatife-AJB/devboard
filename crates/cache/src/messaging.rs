@@ -1,5 +1,6 @@
 use devboard_domain::{
-    ChannelId, DmMessage, DmThreadId, Message, MessageId, OrganizationId, PresenceStatus, UserId,
+    ChannelId, DmMessage, DmMessageId, DmThreadId, Message, MessageId, OrganizationId,
+    PresenceStatus, UserId,
 };
 use futures_util::StreamExt;
 use redis::AsyncCommands;
@@ -30,6 +31,14 @@ pub enum MessagingEvent {
     DmReceived {
         thread_id: DmThreadId,
         message: DmMessage,
+    },
+    DmEdited {
+        thread_id: DmThreadId,
+        message: DmMessage,
+    },
+    DmDeleted {
+        thread_id: DmThreadId,
+        message_id: DmMessageId,
     },
     PresenceChanged {
         org_id: OrganizationId,
@@ -68,7 +77,9 @@ impl MessageBus {
             | MessagingEvent::ChannelMessageEdited { channel_id, .. }
             | MessagingEvent::ChannelMessageDeleted { channel_id, .. }
             | MessagingEvent::ReactionUpdated { channel_id, .. } => channel_topic(*channel_id),
-            MessagingEvent::DmReceived { thread_id, .. } => dm_topic(*thread_id),
+            MessagingEvent::DmReceived { thread_id, .. }
+            | MessagingEvent::DmEdited { thread_id, .. }
+            | MessagingEvent::DmDeleted { thread_id, .. } => dm_topic(*thread_id),
             MessagingEvent::PresenceChanged { org_id, .. } => org_presence_topic(*org_id),
         };
 

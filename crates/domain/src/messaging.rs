@@ -134,6 +134,14 @@ impl DmMessage {
     pub fn is_read(&self) -> bool {
         self.read_by_recipient_at.is_some()
     }
+
+    pub fn is_edited(&self) -> bool {
+        self.edited_at.is_some()
+    }
+
+    pub fn is_editable(&self, now: DateTime<Utc>) -> bool {
+        now.signed_duration_since(self.created_at) <= Duration::minutes(15)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

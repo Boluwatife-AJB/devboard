@@ -10,8 +10,8 @@ use crate::{
     error::IntoGraphQLResult,
     resolvers::query::parse_id,
     types::{
-        GqlDmMessage, GqlMessage, GqlMessageEvent, GqlPresenceStatus, GqlReactionEvent, GqlTask,
-        GqlUserPresence, TaskEventKind, TaskUpdatedEvent,
+        GqlDmMessage, GqlDmMessageEvent, GqlMessage, GqlMessageEvent, GqlPresenceStatus,
+        GqlReactionEvent, GqlTask, GqlUserPresence, TaskEventKind, TaskUpdatedEvent,
     },
 };
 
@@ -194,7 +194,7 @@ impl MessagingSubscriptionFields {
         &self,
         ctx: &Context<'_>,
         thread_id: ID,
-    ) -> async_graphql::Result<impl Stream<Item = GqlDmMessage> + use<>> {
+    ) -> async_graphql::Result<impl Stream<Item = GqlDmMessageEvent> + use<>> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
@@ -213,7 +213,27 @@ impl MessagingSubscriptionFields {
             .map_err(|err| async_graphql::Error::new(err.to_string()))?;
 
         Ok(redis_stream.filter_map(|event| match event {
-            MessagingEvent::DmReceived { message, .. } => Some(GqlDmMessage::from(message)),
+            MessagingEvent::DmReceived { thread_id, message } => Some(GqlDmMessageEvent {
+                kind: "NEW".into(),
+                thread_id: ID(thread_id.to_string()),
+                message_id: ID(message.id.to_string()),
+                message: Some(GqlDmMessage::from(message)),
+            }),
+            MessagingEvent::DmEdited { thread_id, message } => Some(GqlDmMessageEvent {
+                kind: "EDITED".into(),
+                thread_id: ID(thread_id.to_string()),
+                message_id: ID(message.id.to_string()),
+                message: Some(GqlDmMessage::from(message)),
+            }),
+            MessagingEvent::DmDeleted {
+                thread_id,
+                message_id,
+            } => Some(GqlDmMessageEvent {
+                kind: "DELETED".into(),
+                thread_id: ID(thread_id.to_string()),
+                message_id: ID(message_id.to_string()),
+                message: None,
+            }),
             _ => None,
         }))
     }

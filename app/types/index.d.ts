@@ -400,6 +400,15 @@ interface DeleteMessageInput {
   orgId: string;
 }
 
+interface EditDmInput {
+  messageId: string;
+  body: string;
+}
+
+interface DeleteDmInput {
+  messageId: string;
+}
+
 interface ReactionInput {
   messageId: string;
   emoji: string;
@@ -446,6 +455,13 @@ interface ApiMessageEvent {
   channelId: string;
   messageId: string;
   message: ApiMessage | null;
+}
+
+interface ApiDmMessageEvent {
+  kind: MessageEventKind | string;
+  threadId: string;
+  messageId: string;
+  message: ApiDmMessage | null;
 }
 
 interface ApiReactionEvent {
