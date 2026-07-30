@@ -58,6 +58,11 @@ struct AppState {
 async fn main() -> anyhow::Result<()> {
     let config = AppConfig::load().context("failed to load application config")?;
 
+    devboard_graphql::error::configure_error_mode(config.environment.is_production());
+    auth_routes::configure_rest_error_mode(config.environment.is_production());
+
+    tracing::info!(environment = ?config.environment, "error reporting mode configured");
+
     init_tracing(&config.observability.log_filter);
 
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "starting devboard");
