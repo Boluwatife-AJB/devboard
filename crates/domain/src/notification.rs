@@ -11,8 +11,10 @@ pub enum NotificationKind {
     TaskDueSoon,
     TaskStatusChanged,
     TaskCreated,
+    TaskComment,
     Mention,
     ChannelMessage,
+    DmThreadMessage,
     InviteReceived,
     Announcement,
 }
@@ -24,8 +26,10 @@ impl NotificationKind {
             Self::TaskDueSoon => "TASK_DUE_SOON",
             Self::TaskStatusChanged => "TASK_STATUS_CHANGED",
             Self::TaskCreated => "TASK_CREATED",
+            Self::TaskComment => "TASK_COMMENT",
             Self::Mention => "MENTION",
             Self::ChannelMessage => "CHANNEL_MESSAGE",
+            Self::DmThreadMessage => "DM_THREAD_MESSAGE",
             Self::InviteReceived => "INVITE_RECEIVED",
             Self::Announcement => "ANNOUNCEMENT",
         }
@@ -45,7 +49,7 @@ impl NotificationKind {
     pub fn default_push(&self) -> bool {
         matches!(
             self,
-            Self::TaskAssigned | Self::Mention | Self::InviteReceived
+            Self::TaskAssigned | Self::Mention | Self::InviteReceived | Self::DmThreadMessage
         )
     }
 }
@@ -59,8 +63,10 @@ impl FromStr for NotificationKind {
             "TASK_DUE_SOON" => Ok(Self::TaskDueSoon),
             "TASK_STATUS_CHANGED" => Ok(Self::TaskStatusChanged),
             "TASK_CREATED" => Ok(Self::TaskCreated),
+            "TASK_COMMENT" => Ok(Self::TaskComment),
             "MENTION" => Ok(Self::Mention),
             "CHANNEL_MESSAGE" => Ok(Self::ChannelMessage),
+            "DM_THREAD_MESSAGE" => Ok(Self::DmThreadMessage),
             "INVITE_RECEIVED" => Ok(Self::InviteReceived),
             "ANNOUNCEMENT" => Ok(Self::Announcement),
             _ => Err(()),

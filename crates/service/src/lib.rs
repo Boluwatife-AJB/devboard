@@ -5,6 +5,7 @@ pub mod error;
 pub mod event_bus;
 pub mod events;
 pub mod messaging;
+pub mod notification;
 pub mod project;
 pub mod retention;
 pub mod task;
