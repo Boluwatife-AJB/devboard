@@ -1,5 +1,6 @@
 use async_graphql::{Context, ID, MergedSubscription, Subscription};
 use devboard_cache::{MessageBus, MessagingEvent};
+use tokio::sync::broadcast::error::RecvError;
 use tokio_stream::{Stream, StreamExt, wrappers::errors::BroadcastStreamRecvError};
 
 use devboard_domain::{ChannelId, DmThreadId, MessageId, ProjectId};
@@ -10,8 +11,9 @@ use crate::{
     error::IntoGraphQLResult,
     resolvers::query::parse_id,
     types::{
-        GqlDmMessage, GqlDmMessageEvent, GqlMessage, GqlMessageEvent, GqlPresenceStatus,
-        GqlReactionEvent, GqlTask, GqlUserPresence, TaskEventKind, TaskUpdatedEvent,
+        GqlDmMessage, GqlDmMessageEvent, GqlMessage, GqlMessageEvent, GqlNotification,
+        GqlPresenceStatus, GqlReactionEvent, GqlTask, GqlUserPresence, TaskEventKind,
+        TaskUpdatedEvent,
     },
 };
 
@@ -263,5 +265,44 @@ impl MessagingSubscriptionFields {
     }
 }
 
+#[derive(Default)]
+pub struct NotificationSubscriptionFields;
+
+#[Subscription]
+impl NotificationSubscriptionFields {
+    async fn announcement_received(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<impl Stream<Item = GqlNotification> + use<>> {
+        let auth = ctx.authenticated_user()?;
+        let caller_id = auth.user_id;
+
+        let services = ctx.services()?;
+        let mut receiver = services.notification_service.subscribe();
+
+        let stream = async_stream::stream! {
+          loop {
+            match receiver.recv().await {
+              Ok(event) => {
+                if event.recipient_id == caller_id {
+                    yield GqlNotification::from(event.notification);
+                }
+              }
+              Err(RecvError::Lagged(n)) => {
+                tracing::warn!(skipped = n, "subscription subscriber lagged, events skipped");
+                continue;
+              }
+              Err(RecvError::Closed) => break,
+            }
+          }
+        };
+        Ok(stream)
+    }
+}
+
 #[derive(MergedSubscription, Default)]
-pub struct SubscriptionRoot(pub CoreSubscription, pub MessagingSubscriptionFields);
+pub struct SubscriptionRoot(
+    pub CoreSubscription,
+    pub MessagingSubscriptionFields,
+    pub NotificationSubscriptionFields,
+);

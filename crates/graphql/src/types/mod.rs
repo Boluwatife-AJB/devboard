@@ -2,6 +2,7 @@ pub mod attachment;
 pub mod comment;
 pub mod invitation;
 pub mod messaging;
+pub mod notification;
 pub mod pagination;
 pub mod project;
 pub mod scalars;
@@ -18,6 +19,7 @@ pub use messaging::{
     GqlMessage, GqlMessageEmbed, GqlMessageEvent, GqlPresenceStatus, GqlReactionEvent,
     GqlReactionSummary, GqlUserPresence,
 };
+pub use notification::{GqlNotification, GqlNotificationKind, GqlNotificationPreference};
 pub use project::GqlProject;
 pub use subscription::{TaskEventKind, TaskUpdatedEvent};
 pub use task::{GqlTask, GqlTaskPriority, GqlTaskStatus};
