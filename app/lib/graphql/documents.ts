@@ -195,6 +195,16 @@ const INVITATION_FIELDS = `
   createdAt
 `;
 
+export const NOTIFICATION_FIELDS = `
+  id
+  kind
+  title
+  body
+  actionUrl
+  isRead
+  createdAt
+`;
+
 export const PENDING_INVITATIONS_QUERY = `
   query PendingInvitations {
     pendingInvitations {
@@ -608,6 +618,40 @@ export const MESSAGE_REACTIONS_SUBSCRIPTION = `
     messageReactions(messageId: $messageId) {
       channelId
       messageId
+    }
+  }
+`;
+
+export const NOTIFICATIONS_QUERY = `
+  query Notifications($unreadOnly: Boolean, $limit: Int) {
+    notifications(unreadOnly: $unreadOnly, limit: $limit) {
+      ${NOTIFICATION_FIELDS}
+    }
+  }
+`;
+
+export const UNREAD_NOTIFICATION_COUNT_QUERY = `
+  query UnreadNotificationCount {
+    unreadNotificationCount
+  }
+`;
+
+export const MARK_NOTIFICATION_READ_MUTATION = `
+  mutation MarkNotificationRead($notificationId: ID!) {
+    markNotificationRead(notificationId: $notificationId)
+  }
+`;
+
+export const MARK_ALL_NOTIFICATIONS_READ_MUTATION = `
+  mutation MarkAllNotificationsRead {
+    markAllNotificationsRead
+  }
+`;
+
+export const ANNOUNCEMENT_RECEIVED_SUBSCRIPTION = `
+  subscription AnnouncementReceived {
+    announcementReceived {
+      ${NOTIFICATION_FIELDS}
     }
   }
 `;

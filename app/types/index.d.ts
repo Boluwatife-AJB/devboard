@@ -80,6 +80,28 @@ type OrgRole = "ORG_OWNER" | "ORG_ADMIN" | "ORG_MEMBER";
 
 type InvitationStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
 
+type NotificationKind =
+  | "TASK_ASSIGNED"
+  | "TASK_DUE_SOON"
+  | "TASK_STATUS_CHANGED"
+  | "TASK_CREATED"
+  | "MENTION"
+  | "TASK_COMMENT"
+  | "CHANNEL_MESSAGE"
+  | "DM_THREAD_MESSAGE"
+  | "ANNOUNCEMENT"
+  | "INVITE_RECEIVED";
+
+interface ApiNotification {
+  id: string;
+  kind: NotificationKind;
+  title: string;
+  body: string | null;
+  actionUrl: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
 interface ApiInvitation {
   id: string;
   email: string;

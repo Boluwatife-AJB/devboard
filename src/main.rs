@@ -430,7 +430,9 @@ fn init_tracing(log_filter: &str) {
                 .with_target(true)
                 .with_thread_ids(true)
                 .with_file(true)
-                .with_line_number(true),
+                .with_line_number(true)
+                .pretty()
+                .with_target(true),
         )
         .init();
 }
