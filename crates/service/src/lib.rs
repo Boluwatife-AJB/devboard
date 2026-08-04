@@ -22,7 +22,7 @@ pub use comment::CommentService;
 pub use error::ServiceError;
 pub use event_bus::EventBus;
 pub use events::TaskEvent;
-pub use messaging::{MessagingService, UnfurlJob};
+pub use messaging::{MessagingService, MessagingServiceDeps, UnfurlJob};
 pub use notification::{NotificationEvent, NotificationService};
 pub use notification_jobs::{spawn_due_soon_checker, spawn_email_digest_job};
 pub use project::ProjectService;

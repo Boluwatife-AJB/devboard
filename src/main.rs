@@ -38,9 +38,9 @@ use devboard_repository::{
     messaging::pg::{PgChannelRepository, PgDmRepository, PgMessageRepository},
 };
 use devboard_service::{
-    AttachmentService, AuthService, CommentService, MessagingService, NotificationService,
-    ProjectService, TaskService, TeamService, retention, spawn_due_soon_checker,
-    spawn_email_digest_job, unfurl,
+    AttachmentService, AuthService, CommentService, MessagingService, MessagingServiceDeps,
+    NotificationService, ProjectService, TaskService, TeamService, retention,
+    spawn_due_soon_checker, spawn_email_digest_job, unfurl,
 };
 
 mod auth_routes;
@@ -160,18 +160,6 @@ async fn main() -> anyhow::Result<()> {
         team_repo.clone(),
     ));
 
-    let messaging_service = Arc::new(MessagingService::new(
-        channel_repo.clone(),
-        message_repo.clone(),
-        dm_repo.clone(),
-        org_membership_repo.clone(),
-        message_bus.clone(),
-        presence_service,
-        unfurl_tx,
-    ));
-
-    retention::spawn_retention_job(channel_repo.clone());
-
     let (notification_service, _notification_rx) = NotificationService::new(
         notification_repo.clone(),
         email_provider.clone(),
@@ -181,6 +169,20 @@ async fn main() -> anyhow::Result<()> {
         config.email.app_base_url.clone(),
     );
     let notification_service = Arc::new(notification_service);
+
+    let messaging_service = Arc::new(MessagingService::new(MessagingServiceDeps {
+        channel_repo: channel_repo.clone(),
+        message_repo: message_repo.clone(),
+        dm_repo: dm_repo.clone(),
+        org_member_repo: org_membership_repo.clone(),
+        user_repo: user_repo.clone(),
+        message_bus: message_bus.clone(),
+        presence: presence_service,
+        notification_service: notification_service.clone(),
+        unfurl_tx,
+    }));
+
+    retention::spawn_retention_job(channel_repo.clone());
 
     let services = Services {
         auth_service: auth_service.clone(),

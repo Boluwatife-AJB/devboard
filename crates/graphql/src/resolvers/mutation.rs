@@ -775,6 +775,7 @@ impl MessagingMutationFields {
             .send_dm(
                 parse_id::<DmThreadId>(&input.thread_id)?,
                 auth.user_id,
+                auth.require_org()?.organization_id,
                 input.body,
             )
             .await

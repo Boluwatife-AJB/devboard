@@ -9,7 +9,7 @@ use devboard_domain::{
 };
 use devboard_presence::PresenceService;
 use devboard_repository::{
-    OrgMembershipRepository, RepositoryError,
+    OrgMembershipRepository, RepositoryError, UserRepository,
     messaging::{
         ChannelRepository, CreateChannelParams, CreateMessageParams, DmRepository,
         MessageRepository,
@@ -17,7 +17,7 @@ use devboard_repository::{
 };
 use tokio::sync::mpsc;
 
-use crate::ServiceError;
+use crate::{NotificationService, ServiceError};
 
 pub struct UnfurlJob {
     pub message_id: MessageId,
@@ -34,34 +34,42 @@ TODO:
 6. Share media
  */
 
+pub struct MessagingServiceDeps {
+    pub channel_repo: Arc<dyn ChannelRepository>,
+    pub message_repo: Arc<dyn MessageRepository>,
+    pub dm_repo: Arc<dyn DmRepository>,
+    pub org_member_repo: Arc<dyn OrgMembershipRepository>,
+    pub user_repo: Arc<dyn UserRepository>,
+    pub message_bus: Arc<MessageBus>,
+    pub presence: Arc<PresenceService>,
+    pub notification_service: Arc<NotificationService>,
+    pub unfurl_tx: mpsc::Sender<UnfurlJob>,
+}
+
 pub struct MessagingService {
     channel_repo: Arc<dyn ChannelRepository>,
     message_repo: Arc<dyn MessageRepository>,
     dm_repo: Arc<dyn DmRepository>,
     org_member_repo: Arc<dyn OrgMembershipRepository>,
+    user_repo: Arc<dyn UserRepository>,
     message_bus: Arc<MessageBus>,
     presence: Arc<PresenceService>,
+    notification_service: Arc<NotificationService>,
     unfurl_tx: mpsc::Sender<UnfurlJob>,
 }
 
 impl MessagingService {
-    pub fn new(
-        channel_repo: Arc<dyn ChannelRepository>,
-        message_repo: Arc<dyn MessageRepository>,
-        dm_repo: Arc<dyn DmRepository>,
-        org_member_repo: Arc<dyn OrgMembershipRepository>,
-        message_bus: Arc<MessageBus>,
-        presence: Arc<PresenceService>,
-        unfurl_tx: mpsc::Sender<UnfurlJob>,
-    ) -> Self {
+    pub fn new(deps: MessagingServiceDeps) -> Self {
         Self {
-            channel_repo,
-            message_repo,
-            dm_repo,
-            org_member_repo,
-            message_bus,
-            presence,
-            unfurl_tx,
+            channel_repo: deps.channel_repo,
+            message_repo: deps.message_repo,
+            dm_repo: deps.dm_repo,
+            org_member_repo: deps.org_member_repo,
+            user_repo: deps.user_repo,
+            message_bus: deps.message_bus,
+            presence: deps.presence,
+            notification_service: deps.notification_service,
+            unfurl_tx: deps.unfurl_tx,
         }
     }
 
@@ -324,6 +332,12 @@ impl MessagingService {
         validate_message_body(&body)?;
         self.require_channel_member(channel_id, author_id).await?;
 
+        let channel = self
+            .channel_repo
+            .find_by_id(channel_id)
+            .await?
+            .ok_or_else(|| ServiceError::Internal("channel not found".into()))?;
+
         let message = self
             .message_repo
             .create(CreateMessageParams {
@@ -346,9 +360,12 @@ impl MessagingService {
         if contains_url(&body) {
             let _ = self.unfurl_tx.try_send(UnfurlJob {
                 message_id: message.id,
-                body,
+                body: body.clone(),
             });
         }
+
+        self.notify_channel_message_recipients(&channel, author_id, &body, channel_id)
+            .await;
 
         Ok(message)
     }
@@ -623,6 +640,7 @@ impl MessagingService {
         &self,
         thread_id: DmThreadId,
         author_id: UserId,
+        org_id: OrganizationId,
         body: String,
     ) -> Result<DmMessage, ServiceError> {
         validate_message_body(&body)?;
@@ -641,7 +659,7 @@ impl MessagingService {
 
         let message = self
             .dm_repo
-            .create_message(DmMessageId::new(), thread_id, author_id, body)
+            .create_message(DmMessageId::new(), thread_id, author_id, body.clone())
             .await
             .map_err(ServiceError::from)?;
 
@@ -652,6 +670,22 @@ impl MessagingService {
                 message: message.clone(),
             })
             .await;
+
+        if let Some(recipient_id) = thread.other_participant(author_id) {
+            let sender_name = self.display_name_for(author_id).await;
+            if let Err(err) = self
+                .notification_service
+                .notify_dm_message(recipient_id, org_id, &sender_name, &body, thread_id)
+                .await
+            {
+                tracing::warn!(
+                    error = %err,
+                    recipient_id = %recipient_id,
+                    thread_id = %thread_id,
+                    "failed to create dm notification"
+                );
+            }
+        }
 
         Ok(message)
     }
@@ -923,6 +957,64 @@ impl MessagingService {
                 reason: "not a member of this channel".into(),
             })?;
         Ok(())
+    }
+
+    async fn display_name_for(&self, user_id: UserId) -> String {
+        self.user_repo
+            .find_by_id(user_id)
+            .await
+            .ok()
+            .flatten()
+            .map(|user| user.display_name)
+            .unwrap_or_else(|| "Someone".to_string())
+    }
+
+    async fn notify_channel_message_recipients(
+        &self,
+        channel: &Channel,
+        author_id: UserId,
+        body: &str,
+        channel_id: ChannelId,
+    ) {
+        let members = match self.channel_repo.list_members(channel_id).await {
+            Ok(members) => members,
+            Err(err) => {
+                tracing::warn!(
+                    error = %err,
+                    channel_id = %channel_id,
+                    "failed to list channel members for notifications"
+                );
+                return;
+            }
+        };
+
+        let sender_name = self.display_name_for(author_id).await;
+
+        for member in members {
+            if member.user_id == author_id {
+                continue;
+            }
+
+            if let Err(err) = self
+                .notification_service
+                .notify_channel_message(
+                    member.user_id,
+                    channel.organization_id,
+                    &channel.name,
+                    &sender_name,
+                    body,
+                    channel_id,
+                )
+                .await
+            {
+                tracing::warn!(
+                    error = %err,
+                    recipient_id = %member.user_id,
+                    channel_id = %channel_id,
+                    "failed to create channel notification"
+                );
+            }
+        }
     }
 }
 
