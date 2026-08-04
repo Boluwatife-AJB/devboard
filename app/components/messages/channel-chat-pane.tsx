@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChatHeader } from "@/components/messages/chat-header";
 import { MessageComposer } from "@/components/messages/message-composer";
@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  useChannelMembers,
   useChannelMessages,
   useClearChannelMessages,
   useJoinChannel,
@@ -48,12 +49,26 @@ export function ChannelChatPane({
     error,
   } = useChannelMessages(isMember ? channel.id : "");
   useChannelMessageEvents(isMember ? channel.id : "");
+  const { data: channelMembers = [] } = useChannelMembers(
+    isMember ? channel.id : "",
+  );
   const sendMessage = useSendMessage(channel.id);
   const joinChannel = useJoinChannel();
   const markAsRead = useMarkChannelAsRead();
   const clearMessages = useClearChannelMessages(channel.id);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const [clearOpen, setClearOpen] = useState(false);
+
+  const mentionCandidates = useMemo(
+    () =>
+      channelMembers
+        .filter((member) => member.userId !== me?.id)
+        .map((member) => ({
+          id: member.userId,
+          displayName: member.user?.displayName ?? displayNameOf(member.userId),
+        })),
+    [channelMembers, displayNameOf, me?.id],
+  );
 
   const lastMessageId = messages[messages.length - 1]?.id;
 
@@ -128,9 +143,11 @@ export function ChannelChatPane({
           <MessageComposer
             key={channel.id}
             channelName={channel.name}
-            onSend={(_html, text) => {
+            mentionCandidates={mentionCandidates}
+            onSend={(html, text) => {
+              if (!text.trim()) return;
               sendMessage.mutate(
-                { body: text },
+                { body: html },
                 {
                   onError: (sendError) =>
                     toast.error(getApiErrorMessage(sendError)),

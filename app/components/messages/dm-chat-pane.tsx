@@ -122,9 +122,11 @@ export function DmChatPane({
       <MessageComposer
         key={thread.id}
         channelName={otherName}
-        onSend={(_html, text) => {
+        mentionCandidates={[{ id: otherUserId, displayName: otherName }]}
+        onSend={(html, text) => {
+          if (!text.trim()) return;
           sendDm.mutate(
-            { body: text },
+            { body: html },
             {
               onError: (sendError) =>
                 toast.error(getApiErrorMessage(sendError)),

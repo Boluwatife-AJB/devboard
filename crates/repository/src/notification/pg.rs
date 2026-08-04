@@ -111,7 +111,7 @@ impl NotificationRepository for PgNotificationRepository {
     ) -> Result<u64, RepositoryError> {
         let sql = r#"
         SELECT COUNT(*) AS count 
-        FROM notifications
+        FROM notification
         WHERE recipient_id = $1 
           AND organization_id = $2 
           AND read_at IS NULL
@@ -171,7 +171,7 @@ impl NotificationRepository for PgNotificationRepository {
         organization_id: OrganizationId,
     ) -> Result<u64, RepositoryError> {
         let sql = r#"
-        UPDATE notifications
+        UPDATE notification
         SET read_at = NOW()
         WHERE recipient_id = $1 
           AND organization_id = $2 

@@ -53,6 +53,11 @@ import {
 } from "@/hooks/use-messaging";
 import { getApiErrorMessage } from "@/lib/api";
 import { getSelectedOrgId } from "@/lib/auth/cookies";
+import {
+  formatMessageHtml,
+  messageBubbleHtmlClassName,
+  messagePlainText,
+} from "@/lib/message-html";
 import { canEditMessage, formatTime } from "@/lib/message-utils";
 import { avatarColorOf, initialsOf } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
@@ -123,7 +128,7 @@ export function MessageBubble({
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(message.body);
+      await navigator.clipboard.writeText(messagePlainText(message.body));
       toast.success("Message copied");
     } catch {
       toast.error("Failed to copy message");
@@ -135,7 +140,7 @@ export function MessageBubble({
       toast.error("Messages can only be edited within 15 minutes");
       return;
     }
-    setDraft(message.body);
+    setDraft(messagePlainText(message.body));
     setEditing(true);
   };
 
@@ -285,7 +290,11 @@ export function MessageBubble({
                 align="end"
                 className="max-w-full *:data-[slot=bubble-content]:bg-[#1C1B1B] *:data-[slot=bubble-content]:text-[#E5E5E5]"
               >
-                <BubbleContent className="w-full border border-[#2A2A2A] text-sm leading-relaxed whitespace-pre-wrap pr-3!">
+                <BubbleContent
+                  className={messageBubbleHtmlClassName(
+                    "w-full border border-[#2A2A2A] pr-3!",
+                  )}
+                >
                   {editing ? (
                     <div className="flex flex-col gap-2">
                       <Textarea
@@ -317,7 +326,12 @@ export function MessageBubble({
                       </div>
                     </div>
                   ) : (
-                    message.body
+                    <div
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized TipTap HTML
+                      dangerouslySetInnerHTML={{
+                        __html: formatMessageHtml(message.body),
+                      }}
+                    />
                   )}
                 </BubbleContent>
               </Bubble>
@@ -429,8 +443,13 @@ export function MessageBubble({
         </MessageHeader>
 
         <Bubble variant="ghost" align="start" className="max-w-full">
-          <BubbleContent className="text-sm leading-relaxed whitespace-pre-wrap text-[#E5E5E5]">
-            {message.body}
+          <BubbleContent className={messageBubbleHtmlClassName()}>
+            <div
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized TipTap HTML
+              dangerouslySetInnerHTML={{
+                __html: formatMessageHtml(message.body),
+              }}
+            />
           </BubbleContent>
         </Bubble>
 

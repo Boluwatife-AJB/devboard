@@ -29,7 +29,9 @@ export function useNotificationEvents() {
           if (!notification) return;
 
           toast(notification.title, {
-            description: notification.body ?? undefined,
+            description: notification.body
+              ? notification.body.replace(/<[^>]+>/g, " ").trim() || undefined
+              : undefined,
             action: notification.actionUrl
               ? {
                   label: "Open",
@@ -56,9 +58,19 @@ export function useNotificationEvents() {
               (count) => (count ?? 0) + 1,
             );
           }
+
+          void queryClient.invalidateQueries({
+            queryKey: notificationKeys.unreadCount,
+          });
+          void queryClient.invalidateQueries({
+            queryKey: notificationKeys.all,
+          });
         },
         error: (error) => {
           console.warn("notification subscription error", error);
+          void queryClient.invalidateQueries({
+            queryKey: notificationKeys.unreadCount,
+          });
         },
         complete: () => {},
       },
