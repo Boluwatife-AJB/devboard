@@ -431,6 +431,25 @@ impl NotificationService {
         .await
     }
 
+    pub async fn notify_channel_mention(
+        &self,
+        mentioned_user_id: UserId,
+        org_id: OrganizationId,
+        mentioned_by: &str,
+        context: &str,
+        channel_id: ChannelId,
+    ) -> Result<(), ServiceError> {
+        let action_url = format!("{}/messages?channel_id={}", self.app_base_url, channel_id);
+        self.notify_mention(
+            mentioned_user_id,
+            org_id,
+            mentioned_by,
+            context,
+            &action_url,
+        )
+        .await
+    }
+
     pub async fn notify_channel_message(
         &self,
         recipient_id: UserId,

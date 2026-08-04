@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::sync::{Arc, LazyLock};
 
 use chrono::{Duration, Utc};
 use devboard_cache::{MessageBus, MessagingEvent};
@@ -15,24 +16,20 @@ use devboard_repository::{
         MessageRepository,
     },
 };
+use regex::Regex;
 use tokio::sync::mpsc;
+use uuid::Uuid;
 
 use crate::{NotificationService, ServiceError};
+
+static MENTION_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"@\[([^\]]+)\]\(user:([0-9a-fA-F-]{36})\)").expect("valid mention regex")
+});
 
 pub struct UnfurlJob {
     pub message_id: MessageId,
     pub body: String,
 }
-
-/*
-TODO:
-1. Add member to channel
-2. Leave channel
-3. Remove member from channel
-4. Clear channel message for a user
-5. Clear dm messages for a user
-6. Share media
- */
 
 pub struct MessagingServiceDeps {
     pub channel_repo: Arc<dyn ChannelRepository>,
@@ -357,6 +354,18 @@ impl MessagingService {
             })
             .await;
 
+        let mentioned_user_ids = extract_mentioned_user_ids(&body);
+        let members = self
+            .channel_repo
+            .list_members(channel_id)
+            .await
+            .map_err(ServiceError::from)?;
+        let member_ids: HashSet<_> = members.iter().map(|m| m.user_id).collect();
+        let mentioned: Vec<UserId> = mentioned_user_ids
+            .into_iter()
+            .filter(|id| *id != author_id && member_ids.contains(id))
+            .collect();
+
         if contains_url(&body) {
             let _ = self.unfurl_tx.try_send(UnfurlJob {
                 message_id: message.id,
@@ -364,8 +373,36 @@ impl MessagingService {
             });
         }
 
-        self.notify_channel_message_recipients(&channel, author_id, &body, channel_id)
-            .await;
+        if !mentioned.is_empty() {
+            let sender_name = self.display_name_for(author_id).await;
+            let preview: String = body.chars().take(100).collect();
+
+            for mentioned_id in &mentioned {
+                if let Err(err) = self
+                    .notification_service
+                    .notify_channel_mention(
+                        *mentioned_id,
+                        channel.organization_id,
+                        &sender_name,
+                        &preview,
+                        channel_id,
+                    )
+                    .await
+                {
+                    tracing::warn!(
+                        error = %err,
+                        recipient_id = %mentioned_id,
+                        channel_id = %channel_id,
+                        "failed to create mention notification"
+                    );
+                }
+            }
+        }
+
+        self.notify_channel_message_recipients(
+            &channel, author_id, &body, channel_id, &members, &mentioned,
+        )
+        .await;
 
         Ok(message)
     }
@@ -975,23 +1012,14 @@ impl MessagingService {
         author_id: UserId,
         body: &str,
         channel_id: ChannelId,
+        members: &[ChannelMember],
+        skip: &[UserId],
     ) {
-        let members = match self.channel_repo.list_members(channel_id).await {
-            Ok(members) => members,
-            Err(err) => {
-                tracing::warn!(
-                    error = %err,
-                    channel_id = %channel_id,
-                    "failed to list channel members for notifications"
-                );
-                return;
-            }
-        };
-
         let sender_name = self.display_name_for(author_id).await;
+        let skip: HashSet<_> = skip.iter().copied().collect();
 
         for member in members {
-            if member.user_id == author_id {
+            if member.user_id == author_id || skip.contains(&member.user_id) {
                 continue;
             }
 
@@ -1086,4 +1114,24 @@ fn map_remove_member_error(err: RepositoryError) -> ServiceError {
 
 fn contains_url(body: &str) -> bool {
     body.contains("http://") || body.contains("https://")
+}
+
+fn extract_mentioned_user_ids(body: &str) -> Vec<UserId> {
+    let mut seen = HashSet::new();
+    let mut user_ids = Vec::new();
+
+    for caps in MENTION_RE.captures_iter(body) {
+        let Some(id_match) = caps.get(2) else {
+            continue;
+        };
+        let Ok(uuid) = Uuid::parse_str(id_match.as_str()) else {
+            continue;
+        };
+        let user_id = UserId::from(uuid);
+        if seen.insert(user_id) {
+            user_ids.push(user_id);
+        }
+    }
+
+    user_ids
 }
