@@ -6,7 +6,10 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { ANNOUNCEMENT_RECEIVED_SUBSCRIPTION } from "@/lib/graphql/documents";
 import { getWsClient } from "@/lib/graphql/ws";
-import { navigateToActionUrl } from "@/lib/notification-utils";
+import {
+  formatNotificationPreview,
+  navigateToActionUrl,
+} from "@/lib/notification-utils";
 import type { ApiNotification } from "@/types";
 import { useMe } from "./use-me";
 import { notificationKeys } from "./use-notifications";
@@ -30,7 +33,7 @@ export function useNotificationEvents() {
 
           toast(notification.title, {
             description: notification.body
-              ? notification.body.replace(/<[^>]+>/g, " ").trim() || undefined
+              ? formatNotificationPreview(notification.body) || undefined
               : undefined,
             action: notification.actionUrl
               ? {

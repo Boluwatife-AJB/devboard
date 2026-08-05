@@ -15,3 +15,14 @@ export function navigateToActionUrl(
     push(actionUrl);
   }
 }
+
+const MENTION_TOKEN_RE = /@\[([^\]]+)\]\(user:[0-9a-fA-F-]{36}\)/g;
+
+export function formatNotificationPreview(body: string): string {
+  return body
+    .replace(/<[^>]+>?/g, " ")
+    .replace(MENTION_TOKEN_RE, "@$1")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100);
+}

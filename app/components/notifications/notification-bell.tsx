@@ -19,7 +19,10 @@ import {
   useNotifications,
   useUnreadNotificationCount,
 } from "@/hooks/use-notifications";
-import { navigateToActionUrl } from "@/lib/notification-utils";
+import {
+  formatNotificationPreview,
+  navigateToActionUrl,
+} from "@/lib/notification-utils";
 import { formatRelativeTime } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type { ApiNotification } from "@/types";
@@ -135,7 +138,7 @@ export function NotificationBell({ className }: { className?: string }) {
                       </p>
                       {notification.body && (
                         <p className="mt-0.5 line-clamp-2 text-xs text-[#8A8A8A]">
-                          {notification.body}
+                          {formatNotificationPreview(notification.body)}
                         </p>
                       )}
                       <p className="mt-1 text-[10px] text-[#5A5A5A]">

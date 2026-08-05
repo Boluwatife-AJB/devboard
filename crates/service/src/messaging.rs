@@ -22,9 +22,15 @@ use uuid::Uuid;
 
 use crate::{NotificationService, ServiceError};
 
+static HTML_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<[^>]+>?").expect("valid html regex"));
+
 static MENTION_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"@\[([^\]]+)\]\(user:([0-9a-fA-F-]{36})\)").expect("valid mention regex")
 });
+
+static WHITESPACE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\s+").expect("valid whitespace regex"));
 
 pub struct UnfurlJob {
     pub message_id: MessageId,
@@ -375,7 +381,8 @@ impl MessagingService {
 
         if !mentioned.is_empty() {
             let sender_name = self.display_name_for(author_id).await;
-            let preview: String = body.chars().take(100).collect();
+            // let preview: String = body.chars().take(100).collect();
+            let preview: String = format_notification_preview(&body);
 
             for mentioned_id in &mentioned {
                 if let Err(err) = self
@@ -1134,4 +1141,11 @@ fn extract_mentioned_user_ids(body: &str) -> Vec<UserId> {
     }
 
     user_ids
+}
+
+fn format_notification_preview(body: &str) -> String {
+    let text = HTML_RE.replace_all(body, " ");
+    let text = MENTION_RE.replace_all(&text, |caps: &regex::Captures| format!("@{}", &caps[1]));
+    let text = WHITESPACE_RE.replace(&text, " ");
+    text.trim().chars().take(100).collect()
 }
