@@ -26,3 +26,19 @@ export function formatNotificationPreview(body: string): string {
     .trim()
     .slice(0, 100);
 }
+
+const NOTIFICATION_SOUND_SRC = "/sound/mixkit-bell-notification-933.wav";
+
+let notificationAudio: HTMLAudioElement | null = null;
+
+export function playNotificationSound() {
+  if (typeof window === "undefined") return;
+
+  try {
+    if (!notificationAudio) {
+      notificationAudio = new Audio(NOTIFICATION_SOUND_SRC);
+    }
+    notificationAudio.currentTime = 0;
+    void notificationAudio.play().catch(() => {});
+  } catch {}
+}

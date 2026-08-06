@@ -9,6 +9,7 @@ import { getWsClient } from "@/lib/graphql/ws";
 import {
   formatNotificationPreview,
   navigateToActionUrl,
+  playNotificationSound,
 } from "@/lib/notification-utils";
 import type { ApiNotification } from "@/types";
 import { useMe } from "./use-me";
@@ -30,6 +31,8 @@ export function useNotificationEvents() {
         next: (result) => {
           const notification = result.data?.announcementReceived;
           if (!notification) return;
+
+          playNotificationSound();
 
           toast(notification.title, {
             description: notification.body
