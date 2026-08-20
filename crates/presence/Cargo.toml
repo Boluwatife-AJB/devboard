@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 devboard-domain = { path = "../domain" }
-redis = { version = "1", features = ["tokio-comp", "connection-manager"] }
+redis = { version = "1", features = ["tokio-comp", "connection-manager", "tokio-native-tls-comp"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
