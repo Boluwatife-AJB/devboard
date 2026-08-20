@@ -9,6 +9,9 @@ pub struct CacheConnections {
 }
 
 pub async fn connect_cache(url: &str) -> Result<CacheConnections, RedisError> {
+    // Required when using rustls without a single process-wide provider already installed.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     let client = Client::open(url)?;
     let pool = ConnectionManager::new(client.clone()).await?;
     Ok(CacheConnections { pool, client })
