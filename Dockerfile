@@ -19,6 +19,9 @@ COPY crates/config/Cargo.toml crates/config/
 COPY crates/service/Cargo.toml crates/service/
 COPY crates/repository/Cargo.toml crates/repository/
 COPY crates/graphql/Cargo.toml crates/graphql/
+COPY crates/presence/Cargo.toml crates/presence/
+COPY crates/cache/Cargo.toml crates/cache/
+COPY migration/ migration/
 
 RUN for crate in domain db auth config service repository graphql; do \
         mkdir -p "crates/$crate/src" && \
