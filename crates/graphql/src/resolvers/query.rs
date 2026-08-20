@@ -1,7 +1,9 @@
 use async_graphql::{Context, ID, MergedObject, Object};
 use devboard_domain::{
-    ChannelId, DmMessageId, DmThreadId, MessageId, ProjectId, TaskId, TaskStatus, TeamId,
+    ChannelId, DmMessageId, DmThreadId, MessageId, NotificationId, ProjectId, TaskId, TaskStatus,
+    TeamId,
 };
+use devboard_repository::notification::ListNotifications;
 
 use crate::{
     GqlUser,
@@ -9,8 +11,8 @@ use crate::{
     error::IntoGraphQLResult,
     types::{
         GqlAttachment, GqlChannel, GqlChannelMember, GqlComment, GqlDmMessage, GqlDmThread,
-        GqlInvitation, GqlMessage, GqlOrgMember, GqlProject, GqlTask, GqlTaskStatus, GqlTeam,
-        GqlTeamMember, GqlUserPresence,
+        GqlInvitation, GqlMessage, GqlNotification, GqlNotificationKind, GqlNotificationPreference,
+        GqlOrgMember, GqlProject, GqlTask, GqlTaskStatus, GqlTeam, GqlTeamMember, GqlUserPresence,
         pagination::{
             ConnectionArgs, PageInfo, TaskConnection, TaskEdge, decode_cursor, encode_cursor,
         },
@@ -443,5 +445,87 @@ impl MessagingQueryFields {
     }
 }
 
+#[derive(Default)]
+pub struct NotificationQueryFields;
+
+#[Object]
+impl NotificationQueryFields {
+    async fn notifications(
+        &self,
+        ctx: &Context<'_>,
+        unread_only: Option<bool>,
+        limit: Option<i32>,
+        before_id: Option<ID>,
+    ) -> async_graphql::Result<Vec<GqlNotification>> {
+        let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
+        let services = ctx.services()?;
+
+        let before = before_id
+            .map(|id| parse_id::<NotificationId>(&id))
+            .transpose()?;
+
+        let notifications = services
+            .notification_service
+            .list(ListNotifications {
+                recipient_id: auth.user_id,
+                organization_id: org.organization_id,
+                unread_only: unread_only.unwrap_or(false),
+                limit: limit.unwrap_or(50) as u64,
+                before_id: before,
+            })
+            .await
+            .map_gql_err()?;
+
+        Ok(notifications
+            .into_iter()
+            .map(GqlNotification::from)
+            .collect())
+    }
+
+    async fn unread_notification_count(&self, ctx: &Context<'_>) -> async_graphql::Result<i32> {
+        let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
+        let services = ctx.services()?;
+
+        let count = services
+            .notification_service
+            .unread_count(auth.user_id, org.organization_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(count as i32)
+    }
+
+    async fn notification_preferences(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Vec<GqlNotificationPreference>> {
+        let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
+        let services = ctx.services()?;
+
+        let preferences = services
+            .notification_service
+            .get_preferences(auth.user_id, org.organization_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(preferences
+            .into_iter()
+            .map(|p| GqlNotificationPreference {
+                kind: GqlNotificationKind::from(p.kind),
+                in_app: p.in_app,
+                email: p.email,
+                push: p.push,
+            })
+            .collect())
+    }
+}
+
 #[derive(MergedObject, Default)]
-pub struct QueryRoot(pub CoreQuery, pub MessagingQueryFields);
+pub struct QueryRoot(
+    pub CoreQuery,
+    pub MessagingQueryFields,
+    pub NotificationQueryFields,
+);

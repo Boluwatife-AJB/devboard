@@ -1,5 +1,6 @@
 use async_graphql::{Context, ID, MergedSubscription, Subscription};
 use devboard_cache::{MessageBus, MessagingEvent};
+use tokio::sync::broadcast::error::RecvError;
 use tokio_stream::{Stream, StreamExt, wrappers::errors::BroadcastStreamRecvError};
 
 use devboard_domain::{ChannelId, DmThreadId, MessageId, ProjectId};
@@ -10,8 +11,9 @@ use crate::{
     error::IntoGraphQLResult,
     resolvers::query::parse_id,
     types::{
-        GqlDmMessage, GqlMessage, GqlMessageEvent, GqlPresenceStatus, GqlReactionEvent, GqlTask,
-        GqlUserPresence, TaskEventKind, TaskUpdatedEvent,
+        GqlDmMessage, GqlDmMessageEvent, GqlMessage, GqlMessageEvent, GqlNotification,
+        GqlPresenceStatus, GqlReactionEvent, GqlTask, GqlUserPresence, TaskEventKind,
+        TaskUpdatedEvent,
     },
 };
 
@@ -194,7 +196,7 @@ impl MessagingSubscriptionFields {
         &self,
         ctx: &Context<'_>,
         thread_id: ID,
-    ) -> async_graphql::Result<impl Stream<Item = GqlDmMessage> + use<>> {
+    ) -> async_graphql::Result<impl Stream<Item = GqlDmMessageEvent> + use<>> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
@@ -213,7 +215,27 @@ impl MessagingSubscriptionFields {
             .map_err(|err| async_graphql::Error::new(err.to_string()))?;
 
         Ok(redis_stream.filter_map(|event| match event {
-            MessagingEvent::DmReceived { message, .. } => Some(GqlDmMessage::from(message)),
+            MessagingEvent::DmReceived { thread_id, message } => Some(GqlDmMessageEvent {
+                kind: "NEW".into(),
+                thread_id: ID(thread_id.to_string()),
+                message_id: ID(message.id.to_string()),
+                message: Some(GqlDmMessage::from(message)),
+            }),
+            MessagingEvent::DmEdited { thread_id, message } => Some(GqlDmMessageEvent {
+                kind: "EDITED".into(),
+                thread_id: ID(thread_id.to_string()),
+                message_id: ID(message.id.to_string()),
+                message: Some(GqlDmMessage::from(message)),
+            }),
+            MessagingEvent::DmDeleted {
+                thread_id,
+                message_id,
+            } => Some(GqlDmMessageEvent {
+                kind: "DELETED".into(),
+                thread_id: ID(thread_id.to_string()),
+                message_id: ID(message_id.to_string()),
+                message: None,
+            }),
             _ => None,
         }))
     }
@@ -243,5 +265,44 @@ impl MessagingSubscriptionFields {
     }
 }
 
+#[derive(Default)]
+pub struct NotificationSubscriptionFields;
+
+#[Subscription]
+impl NotificationSubscriptionFields {
+    async fn announcement_received(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<impl Stream<Item = GqlNotification> + use<>> {
+        let auth = ctx.authenticated_user()?;
+        let caller_id = auth.user_id;
+
+        let services = ctx.services()?;
+        let mut receiver = services.notification_service.subscribe();
+
+        let stream = async_stream::stream! {
+          loop {
+            match receiver.recv().await {
+              Ok(event) => {
+                if event.recipient_id == caller_id {
+                    yield GqlNotification::from(event.notification);
+                }
+              }
+              Err(RecvError::Lagged(n)) => {
+                tracing::warn!(skipped = n, "subscription subscriber lagged, events skipped");
+                continue;
+              }
+              Err(RecvError::Closed) => break,
+            }
+          }
+        };
+        Ok(stream)
+    }
+}
+
 #[derive(MergedSubscription, Default)]
-pub struct SubscriptionRoot(pub CoreSubscription, pub MessagingSubscriptionFields);
+pub struct SubscriptionRoot(
+    pub CoreSubscription,
+    pub MessagingSubscriptionFields,
+    pub NotificationSubscriptionFields,
+);

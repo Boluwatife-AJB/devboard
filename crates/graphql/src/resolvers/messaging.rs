@@ -306,7 +306,12 @@ impl MessagingMutation {
 
         let message = services
             .messaging_service
-            .send_dm(thread_id, auth.user_id, input.body)
+            .send_dm(
+                thread_id,
+                auth.user_id,
+                auth.require_org()?.organization_id,
+                input.body,
+            )
             .await
             .map_gql_err()?;
 

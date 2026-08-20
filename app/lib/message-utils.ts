@@ -34,3 +34,7 @@ export function groupMessagesByDay(messages: DisplayMessage[]) {
   }
   return groups;
 }
+
+export function canEditMessage(createdAt: string, windowMs = 15 * 60 * 1000) {
+  return Date.now() - new Date(createdAt).getTime() <= windowMs;
+}

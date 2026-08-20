@@ -1,14 +1,26 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChatHeader } from "@/components/messages/chat-header";
 import { MessageComposer } from "@/components/messages/message-composer";
 import { MessageList } from "@/components/messages/message-list";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  useChannelMembers,
   useChannelMessages,
+  useClearChannelMessages,
   useJoinChannel,
   useMarkChannelAsRead,
   useSendMessage,
@@ -37,10 +49,26 @@ export function ChannelChatPane({
     error,
   } = useChannelMessages(isMember ? channel.id : "");
   useChannelMessageEvents(isMember ? channel.id : "");
+  const { data: channelMembers = [] } = useChannelMembers(
+    isMember ? channel.id : "",
+  );
   const sendMessage = useSendMessage(channel.id);
   const joinChannel = useJoinChannel();
   const markAsRead = useMarkChannelAsRead();
+  const clearMessages = useClearChannelMessages(channel.id);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [clearOpen, setClearOpen] = useState(false);
+
+  const mentionCandidates = useMemo(
+    () =>
+      channelMembers
+        .filter((member) => member.userId !== me?.id)
+        .map((member) => ({
+          id: member.userId,
+          displayName: member.user?.displayName ?? displayNameOf(member.userId),
+        })),
+    [channelMembers, displayNameOf, me?.id],
+  );
 
   const lastMessageId = messages[messages.length - 1]?.id;
 
@@ -62,7 +90,39 @@ export function ChannelChatPane({
         detailsOpen={detailsOpen}
         onToggleDetails={onToggleDetails}
         kind={channel.kind}
+        onClearMessages={isMember ? () => setClearOpen(true) : undefined}
+        clearPending={clearMessages.isPending}
       />
+
+      <AlertDialog open={clearOpen} onOpenChange={setClearOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear messages?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This hides the message history for you in #{channel.slug}. Other
+              members will still see the messages. New messages will still
+              appear.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={clearMessages.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                clearMessages.mutate(undefined, {
+                  onSuccess: () => setClearOpen(false),
+                  onError: (clearError) =>
+                    toast.error(getApiErrorMessage(clearError)),
+                })
+              }
+              disabled={clearMessages.isPending}
+            >
+              {clearMessages.isPending ? "Clearing…" : "Clear messages"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {isMember ? (
         <>
@@ -83,9 +143,11 @@ export function ChannelChatPane({
           <MessageComposer
             key={channel.id}
             channelName={channel.name}
-            onSend={(_html, text) => {
+            mentionCandidates={mentionCandidates}
+            onSend={(html, text) => {
+              if (!text.trim()) return;
               sendMessage.mutate(
-                { body: text },
+                { body: html },
                 {
                   onError: (sendError) =>
                     toast.error(getApiErrorMessage(sendError)),

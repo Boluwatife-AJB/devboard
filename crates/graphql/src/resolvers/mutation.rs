@@ -1,10 +1,11 @@
 use async_graphql::{Context, ID, MergedObject, Object};
 
 use devboard_domain::{
-    AttachmentId, AttachmentKind, ChannelId, ChannelKind, CommentId, DmThreadId, InvitationId,
-    MessageId, OrganizationId, ProjectId, TaskId, TeamId, UserId,
+    AttachmentId, AttachmentKind, ChannelId, ChannelKind, CommentId, DmMessageId, DmThreadId,
+    InvitationId, MessageId, NotificationId, NotificationPreference, OrgRole::OrgAdmin,
+    OrganizationId, ProjectId, TaskId, TeamId, UserId,
 };
-use devboard_service::task::CreateTaskCommand;
+use devboard_service::{ServiceError, task::CreateTaskCommand};
 
 use crate::{
     context::ContextExt,
@@ -12,16 +13,19 @@ use crate::{
     inputs::{
         AddAttachmentInput, AddChannelMemberInput, AddProjectMemberInput, AddTeamMemberInput,
         AssignTaskInput, CreateChannelInput, CreateProjectInput, CreateTaskInput, CreateTeamInput,
-        DeleteMessageInput, EditMessageInput, MarkChannelAsReadInput, ReactionInput,
-        RemoveChannelMemberInput, SendDmInput, SendMessageInput, UpdateTaskStatusInput,
+        DeleteDmInput, DeleteMessageInput, EditDmInput, EditMessageInput, MarkChannelAsReadInput,
+        ReactionInput, RegisterPushSubscriptionInput, RemoveChannelMemberInput,
+        SendAnnouncementInput, SendDmInput, SendMessageInput, UnregisterPushSubscriptionInput,
+        UpdateNotificationPreferencesInput, UpdateTaskStatusInput,
         comment::{CreateCommentInput, EditCommentInput},
         project::UpdateProjectInput,
         task::UpdateTaskDueDateInput,
     },
     resolvers::query::parse_id,
     types::{
-        GqlAttachment, GqlChannel, GqlComment, GqlDmMessage, GqlDmThread, GqlMessage, GqlProject,
-        GqlReactionSummary, GqlTask, GqlTeam,
+        GqlAttachment, GqlChannel, GqlComment, GqlDmMessage, GqlDmThread, GqlMessage,
+        GqlNotificationKind, GqlNotificationPreference, GqlProject, GqlReactionSummary, GqlTask,
+        GqlTeam,
     },
 };
 
@@ -771,6 +775,7 @@ impl MessagingMutationFields {
             .send_dm(
                 parse_id::<DmThreadId>(&input.thread_id)?,
                 auth.user_id,
+                auth.require_org()?.organization_id,
                 input.body,
             )
             .await
@@ -795,7 +800,227 @@ impl MessagingMutationFields {
 
         Ok(true)
     }
+
+    async fn edit_dm(
+        &self,
+        ctx: &Context<'_>,
+        input: EditDmInput,
+    ) -> async_graphql::Result<GqlDmMessage> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let message = services
+            .messaging_service
+            .edit_dm(
+                parse_id::<DmMessageId>(&input.message_id)?,
+                auth.user_id,
+                input.body,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlDmMessage::from(message))
+    }
+
+    async fn delete_dm(
+        &self,
+        ctx: &Context<'_>,
+        input: DeleteDmInput,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        services
+            .messaging_service
+            .delete_dm(parse_id::<DmMessageId>(&input.message_id)?, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    async fn clear_channel_messages(
+        &self,
+        ctx: &Context<'_>,
+        channel_id: ID,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        services
+            .messaging_service
+            .clear_channel_for_user(parse_id::<ChannelId>(&channel_id)?, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    async fn clear_dm_messages(
+        &self,
+        ctx: &Context<'_>,
+        thread_id: ID,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        services
+            .messaging_service
+            .clear_dm_for_user(parse_id::<DmThreadId>(&thread_id)?, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+}
+
+#[derive(Default)]
+pub struct NotificationMutationFields;
+
+#[Object]
+impl NotificationMutationFields {
+    async fn mark_notification_read(
+        &self,
+        ctx: &Context<'_>,
+        notification_id: ID,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        services
+            .notification_service
+            .mark_as_read(parse_id::<NotificationId>(&notification_id)?, auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    async fn mark_all_notifications_read(&self, ctx: &Context<'_>) -> async_graphql::Result<i32> {
+        let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
+        let services = ctx.services()?;
+
+        let count = services
+            .notification_service
+            .mark_all_as_read(auth.user_id, org.organization_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(count as i32)
+    }
+
+    async fn update_notification_preferences(
+        &self,
+        ctx: &Context<'_>,
+        input: UpdateNotificationPreferencesInput,
+    ) -> async_graphql::Result<GqlNotificationPreference> {
+        let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
+        let services = ctx.services()?;
+
+        let preference = services
+            .notification_service
+            .update_preferences(NotificationPreference {
+                user_id: auth.user_id,
+                organization_id: org.organization_id,
+                kind: input.kind.into(),
+                in_app: input.in_app,
+                email: input.email,
+                push: input.push,
+            })
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlNotificationPreference {
+            kind: GqlNotificationKind::from(preference.kind),
+            in_app: preference.in_app,
+            email: preference.email,
+            push: preference.push,
+        })
+    }
+
+    async fn register_push_subscription(
+        &self,
+        ctx: &Context<'_>,
+        input: RegisterPushSubscriptionInput,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        services
+            .notification_service
+            .register_push(
+                auth.user_id,
+                input.endpoint,
+                input.p256dh,
+                input.auth,
+                input.user_agent,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    async fn unregister_push_subscription(
+        &self,
+        ctx: &Context<'_>,
+        input: UnregisterPushSubscriptionInput,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        services
+            .notification_service
+            .unregister_push(auth.user_id, input.endpoint)
+            .await
+            .map_gql_err()?;
+
+        Ok(true)
+    }
+
+    async fn send_announcement(
+        &self,
+        ctx: &Context<'_>,
+        input: SendAnnouncementInput,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
+        let services = ctx.services()?;
+
+        if !org.role.at_least(OrgAdmin) {
+            return Err(crate::error::to_graphql_error(ServiceError::Forbidden {
+                reason: "requires OrgAdmin to send announcements".into(),
+            }));
+        }
+
+        let recipients = input
+            .recipient_ids
+            .iter()
+            .map(parse_id::<UserId>)
+            .collect::<async_graphql::Result<Vec<_>>>()?;
+
+        for recipient_id in recipients {
+            let _ = services
+                .notification_service
+                .notify_announcement(
+                    recipient_id,
+                    org.organization_id,
+                    input.title.clone(),
+                    input.body.clone(),
+                    input.action_url.clone(),
+                )
+                .await;
+        }
+
+        Ok(true)
+    }
 }
 
 #[derive(MergedObject, Default)]
-pub struct MutationRoot(pub CoreMutation, pub MessagingMutationFields);
+pub struct MutationRoot(
+    pub CoreMutation,
+    pub MessagingMutationFields,
+    pub NotificationMutationFields,
+);

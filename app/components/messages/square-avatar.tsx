@@ -26,7 +26,7 @@ export function SquareAvatar({
   return (
     <div className="relative shrink-0">
       <div
-        className="flex size-7 items-center justify-center rounded-xs text-[10px] font-semibold text-white"
+        className="flex size-7.5 items-center justify-center rounded-xs text-[10px] font-semibold text-white"
         style={{ backgroundColor: color }}
       >
         {initials}

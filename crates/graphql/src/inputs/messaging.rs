@@ -57,3 +57,14 @@ pub struct SendDmInput {
     pub thread_id: ID,
     pub body: String,
 }
+
+#[derive(InputObject)]
+pub struct EditDmInput {
+    pub message_id: ID,
+    pub body: String,
+}
+
+#[derive(InputObject)]
+pub struct DeleteDmInput {
+    pub message_id: ID,
+}

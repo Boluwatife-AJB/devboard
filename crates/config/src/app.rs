@@ -6,6 +6,25 @@ use crate::{
     server::ServerConfig,
 };
 
+#[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AppEnvironment {
+    #[default]
+    Development,
+    Production,
+    Test,
+}
+
+impl AppEnvironment {
+    pub fn is_production(&self) -> bool {
+        matches!(self, Self::Production)
+    }
+
+    pub fn is_development(&self) -> bool {
+        matches!(self, Self::Development)
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct AppConfig {
     pub database: DatabaseConfig,
@@ -14,6 +33,15 @@ pub struct AppConfig {
     pub observability: ObservabilityConfig,
     pub redis: RedisConfig,
     pub email: EmailConfig,
+    pub environment: AppEnvironment,
+    pub vapid: VapidConfig,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct VapidConfig {
+    pub public_key: String,
+    pub private_key: String,
+    pub subject: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -69,6 +97,25 @@ impl AppConfig {
             auth.jwt_secret.len()
         );
 
+        let environment = match raw
+            .get_string("app_environment")
+            .unwrap_or_else(|_| "development".into())
+            .to_lowercase()
+            .as_str()
+        {
+            "production" | "prod" => AppEnvironment::Production,
+            "test" => AppEnvironment::Test,
+            _ => AppEnvironment::Development,
+        };
+
+        let vapid = VapidConfig {
+            public_key: raw.get_string("vapid_public_key").unwrap_or_default(),
+            private_key: raw.get_string("vapid_private_key").unwrap_or_default(),
+            subject: raw
+                .get_string("vapid_subject")
+                .unwrap_or_else(|_| "mailto:admin@devboard.dev".into()),
+        };
+
         let observability = ObservabilityConfig {
             log_filter: raw
                 .get_string("rust_log")
@@ -100,6 +147,8 @@ impl AppConfig {
             observability,
             redis,
             email,
+            environment,
+            vapid,
         })
     }
 }

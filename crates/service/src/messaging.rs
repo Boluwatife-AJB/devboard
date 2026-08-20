@@ -1,5 +1,7 @@
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::sync::{Arc, LazyLock};
 
+use chrono::{Duration, Utc};
 use devboard_cache::{MessageBus, MessagingEvent};
 use devboard_domain::{
     Channel, ChannelId, ChannelKind, ChannelMember, DmMessage, DmMessageId, DmThread, DmThreadId,
@@ -8,59 +10,69 @@ use devboard_domain::{
 };
 use devboard_presence::PresenceService;
 use devboard_repository::{
-    OrgMembershipRepository, RepositoryError,
+    OrgMembershipRepository, RepositoryError, UserRepository,
     messaging::{
         ChannelRepository, CreateChannelParams, CreateMessageParams, DmRepository,
         MessageRepository,
     },
 };
+use regex::Regex;
 use tokio::sync::mpsc;
+use uuid::Uuid;
 
-use crate::ServiceError;
+use crate::{NotificationService, ServiceError};
+
+static HTML_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<[^>]+>?").expect("valid html regex"));
+
+static MENTION_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"@\[([^\]]+)\]\(user:([0-9a-fA-F-]{36})\)").expect("valid mention regex")
+});
+
+static WHITESPACE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\s+").expect("valid whitespace regex"));
 
 pub struct UnfurlJob {
     pub message_id: MessageId,
     pub body: String,
 }
 
-/*
-TODO:
-1. Add member to channel
-2. Leave channel
-3. Remove member from channel
-4. Clear channel message for a user
-5. Clear dm messages for a user
-6. Share media
- */
+pub struct MessagingServiceDeps {
+    pub channel_repo: Arc<dyn ChannelRepository>,
+    pub message_repo: Arc<dyn MessageRepository>,
+    pub dm_repo: Arc<dyn DmRepository>,
+    pub org_member_repo: Arc<dyn OrgMembershipRepository>,
+    pub user_repo: Arc<dyn UserRepository>,
+    pub message_bus: Arc<MessageBus>,
+    pub presence: Arc<PresenceService>,
+    pub notification_service: Arc<NotificationService>,
+    pub unfurl_tx: mpsc::Sender<UnfurlJob>,
+}
 
 pub struct MessagingService {
     channel_repo: Arc<dyn ChannelRepository>,
     message_repo: Arc<dyn MessageRepository>,
     dm_repo: Arc<dyn DmRepository>,
     org_member_repo: Arc<dyn OrgMembershipRepository>,
+    user_repo: Arc<dyn UserRepository>,
     message_bus: Arc<MessageBus>,
     presence: Arc<PresenceService>,
+    notification_service: Arc<NotificationService>,
     unfurl_tx: mpsc::Sender<UnfurlJob>,
 }
 
 impl MessagingService {
-    pub fn new(
-        channel_repo: Arc<dyn ChannelRepository>,
-        message_repo: Arc<dyn MessageRepository>,
-        dm_repo: Arc<dyn DmRepository>,
-        org_member_repo: Arc<dyn OrgMembershipRepository>,
-        message_bus: Arc<MessageBus>,
-        presence: Arc<PresenceService>,
-        unfurl_tx: mpsc::Sender<UnfurlJob>,
-    ) -> Self {
+    pub fn new(deps: MessagingServiceDeps) -> Self {
         Self {
-            channel_repo,
-            message_repo,
-            dm_repo,
-            org_member_repo,
-            message_bus,
-            presence,
-            unfurl_tx,
+            channel_repo: deps.channel_repo,
+            message_repo: deps.message_repo,
+            dm_repo: deps.dm_repo,
+            org_member_repo: deps.org_member_repo,
+            user_repo: deps.user_repo,
+            message_bus: deps.message_bus,
+            presence: deps.presence,
+            notification_service: deps.notification_service,
+            unfurl_tx: deps.unfurl_tx,
         }
     }
 
@@ -295,9 +307,14 @@ impl MessagingService {
         self.require_channel_member(channel_id, caller_id).await?;
 
         let limit = limit.clamp(1, 100);
+        let cleared_at = self
+            .channel_repo
+            .get_cleared_at(channel_id, caller_id)
+            .await
+            .map_err(ServiceError::from)?;
 
         self.message_repo
-            .find_by_channel(channel_id, before_id, limit)
+            .find_by_channel(channel_id, before_id, limit, cleared_at)
             .await
             .map_err(ServiceError::from)
     }
@@ -318,6 +335,12 @@ impl MessagingService {
         validate_message_body(&body)?;
         self.require_channel_member(channel_id, author_id).await?;
 
+        let channel = self
+            .channel_repo
+            .find_by_id(channel_id)
+            .await?
+            .ok_or_else(|| ServiceError::Internal("channel not found".into()))?;
+
         let message = self
             .message_repo
             .create(CreateMessageParams {
@@ -337,12 +360,56 @@ impl MessagingService {
             })
             .await;
 
+        let mentioned_user_ids = extract_mentioned_user_ids(&body);
+        let members = self
+            .channel_repo
+            .list_members(channel_id)
+            .await
+            .map_err(ServiceError::from)?;
+        let member_ids: HashSet<_> = members.iter().map(|m| m.user_id).collect();
+        let mentioned: Vec<UserId> = mentioned_user_ids
+            .into_iter()
+            .filter(|id| *id != author_id && member_ids.contains(id))
+            .collect();
+
         if contains_url(&body) {
             let _ = self.unfurl_tx.try_send(UnfurlJob {
                 message_id: message.id,
-                body,
+                body: body.clone(),
             });
         }
+
+        if !mentioned.is_empty() {
+            let sender_name = self.display_name_for(author_id).await;
+            // let preview: String = body.chars().take(100).collect();
+            let preview: String = format_notification_preview(&body);
+
+            for mentioned_id in &mentioned {
+                if let Err(err) = self
+                    .notification_service
+                    .notify_channel_mention(
+                        *mentioned_id,
+                        channel.organization_id,
+                        &sender_name,
+                        &preview,
+                        channel_id,
+                    )
+                    .await
+                {
+                    tracing::warn!(
+                        error = %err,
+                        recipient_id = %mentioned_id,
+                        channel_id = %channel_id,
+                        "failed to create mention notification"
+                    );
+                }
+            }
+        }
+
+        self.notify_channel_message_recipients(
+            &channel, author_id, &body, channel_id, &members, &mentioned,
+        )
+        .await;
 
         Ok(message)
     }
@@ -364,6 +431,12 @@ impl MessagingService {
         if message.author_id != caller_id {
             return Err(ServiceError::Forbidden {
                 reason: "you are not the author of this message".into(),
+            });
+        }
+
+        if Utc::now().signed_duration_since(message.created_at) > Duration::minutes(15) {
+            return Err(ServiceError::Forbidden {
+                reason: "you can only edit messages within 15 minutes of sending".into(),
             });
         }
 
@@ -595,9 +668,14 @@ impl MessagingService {
         }
 
         let limit = limit.clamp(1, 100);
+        let cleared_at = self
+            .dm_repo
+            .get_cleared_at(thread_id, caller_id)
+            .await
+            .map_err(ServiceError::from)?;
 
         self.dm_repo
-            .find_messages(thread_id, before_id, limit)
+            .find_messages(thread_id, before_id, limit, cleared_at)
             .await
             .map_err(ServiceError::from)
     }
@@ -606,6 +684,7 @@ impl MessagingService {
         &self,
         thread_id: DmThreadId,
         author_id: UserId,
+        org_id: OrganizationId,
         body: String,
     ) -> Result<DmMessage, ServiceError> {
         validate_message_body(&body)?;
@@ -624,7 +703,7 @@ impl MessagingService {
 
         let message = self
             .dm_repo
-            .create_message(DmMessageId::new(), thread_id, author_id, body)
+            .create_message(DmMessageId::new(), thread_id, author_id, body.clone())
             .await
             .map_err(ServiceError::from)?;
 
@@ -636,6 +715,22 @@ impl MessagingService {
             })
             .await;
 
+        if let Some(recipient_id) = thread.other_participant(author_id) {
+            let sender_name = self.display_name_for(author_id).await;
+            if let Err(err) = self
+                .notification_service
+                .notify_dm_message(recipient_id, org_id, &sender_name, &body, thread_id)
+                .await
+            {
+                tracing::warn!(
+                    error = %err,
+                    recipient_id = %recipient_id,
+                    thread_id = %thread_id,
+                    "failed to create dm notification"
+                );
+            }
+        }
+
         Ok(message)
     }
 
@@ -646,6 +741,164 @@ impl MessagingService {
     ) -> Result<(), ServiceError> {
         self.dm_repo
             .mark_read(thread_id, reader_id)
+            .await
+            .map_err(ServiceError::from)
+    }
+
+    pub async fn get_unread_dm_count(
+        &self,
+        thread_id: DmThreadId,
+        reader_id: UserId,
+    ) -> Result<u64, ServiceError> {
+        let thread = self
+            .dm_repo
+            .find_thread_by_id(thread_id)
+            .await?
+            .ok_or(ServiceError::Internal("thread not found".into()))?;
+
+        if thread.participant_a != reader_id && thread.participant_b != reader_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you are not a participant of this DM thread".into(),
+            });
+        }
+
+        self.dm_repo
+            .unread_count(thread_id, reader_id)
+            .await
+            .map_err(ServiceError::from)
+    }
+
+    pub async fn edit_dm(
+        &self,
+        message_id: DmMessageId,
+        caller_id: UserId,
+        new_body: String,
+    ) -> Result<DmMessage, ServiceError> {
+        validate_message_body(&new_body)?;
+
+        let message = self
+            .dm_repo
+            .find_message_by_id(message_id)
+            .await?
+            .ok_or(ServiceError::Internal("message not found".into()))?;
+
+        if message.author_id != caller_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you are not the author of this message".into(),
+            });
+        }
+
+        if Utc::now().signed_duration_since(message.created_at) > Duration::minutes(15) {
+            return Err(ServiceError::Forbidden {
+                reason: "you can only edit messages within 15 minutes of sending".into(),
+            });
+        }
+
+        let thread = self
+            .dm_repo
+            .find_thread_by_id(message.thread_id)
+            .await?
+            .ok_or(ServiceError::Internal("thread not found".into()))?;
+
+        if thread.participant_a != caller_id && thread.participant_b != caller_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you are not a participant of this DM thread".into(),
+            });
+        }
+
+        let updated = self
+            .dm_repo
+            .edit_message(message_id, new_body)
+            .await
+            .map_err(ServiceError::from)?;
+
+        let _ = self
+            .message_bus
+            .publish(&MessagingEvent::DmEdited {
+                thread_id: message.thread_id,
+                message: updated.clone(),
+            })
+            .await;
+
+        Ok(updated)
+    }
+
+    pub async fn delete_dm(
+        &self,
+        message_id: DmMessageId,
+        caller_id: UserId,
+    ) -> Result<(), ServiceError> {
+        let message = self
+            .dm_repo
+            .find_message_by_id(message_id)
+            .await?
+            .ok_or(ServiceError::Internal("message not found".into()))?;
+
+        if message.author_id != caller_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you are not the author of this message".into(),
+            });
+        }
+
+        let thread = self
+            .dm_repo
+            .find_thread_by_id(message.thread_id)
+            .await?
+            .ok_or(ServiceError::Internal("thread not found".into()))?;
+
+        if thread.participant_a != caller_id && thread.participant_b != caller_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you are not a participant of this DM thread".into(),
+            });
+        }
+
+        self.dm_repo
+            .delete_message(message_id)
+            .await
+            .map_err(ServiceError::from)?;
+
+        let _ = self
+            .message_bus
+            .publish(&MessagingEvent::DmDeleted {
+                thread_id: message.thread_id,
+                message_id,
+            })
+            .await;
+
+        Ok(())
+    }
+
+    pub async fn clear_channel_for_user(
+        &self,
+        channel_id: ChannelId,
+        user_id: UserId,
+    ) -> Result<(), ServiceError> {
+        self.require_channel_member(channel_id, user_id).await?;
+        self.channel_repo
+            .set_cleared_at(channel_id, user_id, Utc::now())
+            .await
+            .map_err(ServiceError::from)
+    }
+
+    pub async fn clear_dm_for_user(
+        &self,
+        thread_id: DmThreadId,
+        user_id: UserId,
+    ) -> Result<(), ServiceError> {
+        let thread = self
+            .dm_repo
+            .find_thread_by_id(thread_id)
+            .await?
+            .ok_or(ServiceError::Internal("thread not found".into()))?;
+
+        if thread.participant_a != user_id && thread.participant_b != user_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you are not a participant of this DM thread".into(),
+            });
+        }
+
+        self.dm_repo
+            .set_cleared_at(thread_id, user_id, Utc::now())
             .await
             .map_err(ServiceError::from)
     }
@@ -749,6 +1002,55 @@ impl MessagingService {
             })?;
         Ok(())
     }
+
+    async fn display_name_for(&self, user_id: UserId) -> String {
+        self.user_repo
+            .find_by_id(user_id)
+            .await
+            .ok()
+            .flatten()
+            .map(|user| user.display_name)
+            .unwrap_or_else(|| "Someone".to_string())
+    }
+
+    async fn notify_channel_message_recipients(
+        &self,
+        channel: &Channel,
+        author_id: UserId,
+        body: &str,
+        channel_id: ChannelId,
+        members: &[ChannelMember],
+        skip: &[UserId],
+    ) {
+        let sender_name = self.display_name_for(author_id).await;
+        let skip: HashSet<_> = skip.iter().copied().collect();
+
+        for member in members {
+            if member.user_id == author_id || skip.contains(&member.user_id) {
+                continue;
+            }
+
+            if let Err(err) = self
+                .notification_service
+                .notify_channel_message(
+                    member.user_id,
+                    channel.organization_id,
+                    &channel.name,
+                    &sender_name,
+                    body,
+                    channel_id,
+                )
+                .await
+            {
+                tracing::warn!(
+                    error = %err,
+                    recipient_id = %member.user_id,
+                    channel_id = %channel_id,
+                    "failed to create channel notification"
+                );
+            }
+        }
+    }
 }
 
 fn validate_message_body(body: &str) -> Result<(), ServiceError> {
@@ -819,4 +1121,31 @@ fn map_remove_member_error(err: RepositoryError) -> ServiceError {
 
 fn contains_url(body: &str) -> bool {
     body.contains("http://") || body.contains("https://")
+}
+
+fn extract_mentioned_user_ids(body: &str) -> Vec<UserId> {
+    let mut seen = HashSet::new();
+    let mut user_ids = Vec::new();
+
+    for caps in MENTION_RE.captures_iter(body) {
+        let Some(id_match) = caps.get(2) else {
+            continue;
+        };
+        let Ok(uuid) = Uuid::parse_str(id_match.as_str()) else {
+            continue;
+        };
+        let user_id = UserId::from(uuid);
+        if seen.insert(user_id) {
+            user_ids.push(user_id);
+        }
+    }
+
+    user_ids
+}
+
+fn format_notification_preview(body: &str) -> String {
+    let text = HTML_RE.replace_all(body, " ");
+    let text = MENTION_RE.replace_all(&text, |caps: &regex::Captures| format!("@{}", &caps[1]));
+    let text = WHITESPACE_RE.replace(&text, " ");
+    text.trim().chars().take(100).collect()
 }

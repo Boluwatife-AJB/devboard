@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 use axum::{
     Extension, Json, Router,
@@ -14,6 +17,90 @@ use serde::{Deserialize, Serialize};
 use devboard_service::{
     AuthPayload, AuthService, MessagingService, ServiceError, auth::RegistrationIntent,
 };
+
+static EXPOSE_REST_INTERNALS: AtomicBool = AtomicBool::new(true);
+
+pub fn configure_rest_error_mode(is_production: bool) {
+    EXPOSE_REST_INTERNALS.store(!is_production, Ordering::Relaxed);
+}
+
+fn _service_error_response(err: ServiceError) -> (StatusCode, Json<ErrorResponse>) {
+    let expose = EXPOSE_REST_INTERNALS.load(Ordering::Relaxed);
+
+    match &err {
+        ServiceError::InvalidCredentials => (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse {
+                error: "Invalid email or password".into(),
+                code: "INVALID_CREDENTIALS".into(),
+            }),
+        ),
+        ServiceError::Unauthenticated => (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse {
+                error: "Authentication required".into(),
+                code: "UNAUTHENTICATED".into(),
+            }),
+        ),
+        ServiceError::Forbidden { .. } => (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse {
+                error: "You do not have permission to perform this action".into(),
+                code: "FORBIDDEN".into(),
+            }),
+        ),
+        ServiceError::Conflict { message } => (
+            StatusCode::CONFLICT,
+            Json(ErrorResponse {
+                error: message.clone(),
+                code: "CONFLICT".into(),
+            }),
+        ),
+        ServiceError::Validation { field, message } => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(ErrorResponse {
+                error: format!("{field}: {message}"),
+                code: "VALIDATION_ERROR".into(),
+            }),
+        ),
+        ServiceError::UserNotFound { .. }
+        | ServiceError::ProjectNotFound { .. }
+        | ServiceError::TaskNotFound { .. } => (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "The requested resource was not found".into(),
+                code: "NOT_FOUND".into(),
+            }),
+        ),
+        other => {
+            tracing::error!(
+                error = %other,
+                error_debug = ?other,
+                "internal error in REST handler"
+            );
+
+            if expose {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: other.to_string(),
+                        code: "INTERNAL_ERROR".into(),
+                    }),
+                )
+            } else {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: "An unexpected error occurred. \
+                        Please try again later."
+                            .into(),
+                        code: "INTERNAL_ERROR".into(),
+                    }),
+                )
+            }
+        }
+    }
+}
 
 use crate::AppState;
 

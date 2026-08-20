@@ -4,6 +4,7 @@ pub mod error;
 pub mod ids;
 pub mod invitation;
 pub mod messaging;
+pub mod notification;
 pub mod organization;
 pub mod project;
 pub mod rbac;
@@ -20,6 +21,7 @@ pub use messaging::{
     Channel, ChannelKind, ChannelMember, DmMessage, DmThread, Message, MessageEmbed,
     PresenceStatus, ReactionSummary, UserPresence,
 };
+pub use notification::{Notification, NotificationKind, NotificationPreference, PushSubscription};
 pub use organization::{OrgMembership, OrgRole, OrgSummary, Organization};
 pub use project::*;
 pub use rbac::*;

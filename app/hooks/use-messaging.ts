@@ -8,10 +8,14 @@ import {
   CHANNEL_MEMBERS_QUERY,
   CHANNEL_MESSAGES_QUERY,
   CHANNELS_QUERY,
+  CLEAR_CHANNEL_MESSAGES_MUTATION,
+  CLEAR_DM_MESSAGES_MUTATION,
   CREATE_CHANNEL_MUTATION,
+  DELETE_DM_MUTATION,
   DELETE_MESSAGE_MUTATION,
   DM_MESSAGES_QUERY,
   DM_THREADS_QUERY,
+  EDIT_DM_MUTATION,
   EDIT_MESSAGE_MUTATION,
   JOIN_CHANNEL_MUTATION,
   LEAVE_CHANNEL_MUTATION,
@@ -31,7 +35,9 @@ import type {
   ApiMessage,
   ApiReactionSummary,
   CreateChannelInput,
+  DeleteDmInput,
   DeleteMessageInput,
+  EditDmInput,
   EditMessageInput,
   MarkChannelAsReadInput,
   ReactionInput,
@@ -321,12 +327,16 @@ export function useRemoveReaction(channelId: string) {
 }
 
 export function useMarkChannelAsRead() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: MarkChannelAsReadInput) => {
       await graphqlRequest<{ markChannelAsRead: boolean }>(
         MARK_CHANNEL_AS_READ_MUTATION,
         { input },
       );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: messagingKeys.channels });
     },
   });
 }
@@ -409,11 +419,93 @@ export function useSendDm(threadId: string) {
 }
 
 export function useMarkDmAsRead() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (threadId: string) => {
       await graphqlRequest<{ markDmAsRead: boolean }>(
         MARK_DM_AS_READ_MUTATION,
         { threadId },
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: messagingKeys.dmThreads });
+    },
+  });
+}
+
+export function useEditDm(threadId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: EditDmInput) => {
+      const data = await graphqlRequest<{ editDm: ApiDmMessage }>(
+        EDIT_DM_MUTATION,
+        { input },
+      );
+      return data.editDm;
+    },
+    onSuccess: (message) => {
+      queryClient.setQueryData<ApiDmMessage[]>(
+        messagingKeys.dmMessages(threadId),
+        (messages) =>
+          messages?.map((item) => (item.id === message.id ? message : item)),
+      );
+    },
+  });
+}
+
+export function useDeleteDm(threadId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: DeleteDmInput) => {
+      await graphqlRequest<{ deleteDm: boolean }>(DELETE_DM_MUTATION, {
+        input,
+      });
+      return input.messageId;
+    },
+    onSuccess: (messageId) => {
+      queryClient.setQueryData<ApiDmMessage[]>(
+        messagingKeys.dmMessages(threadId),
+        (messages) => messages?.filter((message) => message.id !== messageId),
+      );
+    },
+  });
+}
+
+export function useClearChannelMessages(channelId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      await graphqlRequest<{ clearChannelMessages: boolean }>(
+        CLEAR_CHANNEL_MESSAGES_MUTATION,
+        { channelId },
+      );
+    },
+    onSuccess: () => {
+      queryClient.setQueryData<ApiMessage[]>(
+        messagingKeys.channelMessages(channelId),
+        [],
+      );
+    },
+  });
+}
+
+export function useClearDmMessages(threadId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      await graphqlRequest<{ clearDmMessages: boolean }>(
+        CLEAR_DM_MESSAGES_MUTATION,
+        { threadId },
+      );
+    },
+    onSuccess: () => {
+      queryClient.setQueryData<ApiDmMessage[]>(
+        messagingKeys.dmMessages(threadId),
+        [],
       );
     },
   });

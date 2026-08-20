@@ -78,6 +78,7 @@ const CHANNEL_FIELDS = `
   kind
   createdAt
   isMember
+  unreadCount
 `;
 
 const MESSAGE_EMBED_FIELDS = `
@@ -120,6 +121,7 @@ const DM_THREAD_FIELDS = `
   participantA
   participantB
   createdAt
+  unreadCount
 `;
 
 const DM_MESSAGE_FIELDS = `
@@ -190,6 +192,16 @@ const INVITATION_FIELDS = `
   invitedBy
   inviteUrl
   expiresAt
+  createdAt
+`;
+
+export const NOTIFICATION_FIELDS = `
+  id
+  kind
+  title
+  body
+  actionUrl
+  isRead
   createdAt
 `;
 
@@ -469,6 +481,32 @@ export const DELETE_MESSAGE_MUTATION = `
   }
 `;
 
+export const EDIT_DM_MUTATION = `
+  mutation EditDm($input: EditDmInput!) {
+    editDm(input: $input) {
+      ${DM_MESSAGE_FIELDS}
+    }
+  }
+`;
+
+export const DELETE_DM_MUTATION = `
+  mutation DeleteDm($input: DeleteDmInput!) {
+    deleteDm(input: $input)
+  }
+`;
+
+export const CLEAR_CHANNEL_MESSAGES_MUTATION = `
+  mutation ClearChannelMessages($channelId: ID!) {
+    clearChannelMessages(channelId: $channelId)
+  }
+`;
+
+export const CLEAR_DM_MESSAGES_MUTATION = `
+  mutation ClearDmMessages($threadId: ID!) {
+    clearDmMessages(threadId: $threadId)
+  }
+`;
+
 export const ADD_REACTION_MUTATION = `
   mutation AddReaction($input: ReactionInput!) {
     addReaction(input: $input) {
@@ -549,7 +587,12 @@ export const CHANNEL_MESSAGES_SUBSCRIPTION = `
 export const DM_RECEIVED_SUBSCRIPTION = `
   subscription DmReceived($threadId: ID!) {
     dmReceived(threadId: $threadId) {
-      ${DM_MESSAGE_FIELDS}
+      kind
+      threadId
+      messageId
+      message {
+        ${DM_MESSAGE_FIELDS}
+      }
     }
   }
 `;
@@ -575,6 +618,40 @@ export const MESSAGE_REACTIONS_SUBSCRIPTION = `
     messageReactions(messageId: $messageId) {
       channelId
       messageId
+    }
+  }
+`;
+
+export const NOTIFICATIONS_QUERY = `
+  query Notifications($unreadOnly: Boolean, $limit: Int) {
+    notifications(unreadOnly: $unreadOnly, limit: $limit) {
+      ${NOTIFICATION_FIELDS}
+    }
+  }
+`;
+
+export const UNREAD_NOTIFICATION_COUNT_QUERY = `
+  query UnreadNotificationCount {
+    unreadNotificationCount
+  }
+`;
+
+export const MARK_NOTIFICATION_READ_MUTATION = `
+  mutation MarkNotificationRead($notificationId: ID!) {
+    markNotificationRead(notificationId: $notificationId)
+  }
+`;
+
+export const MARK_ALL_NOTIFICATIONS_READ_MUTATION = `
+  mutation MarkAllNotificationsRead {
+    markAllNotificationsRead
+  }
+`;
+
+export const ANNOUNCEMENT_RECEIVED_SUBSCRIPTION = `
+  subscription AnnouncementReceived {
+    announcementReceived {
+      ${NOTIFICATION_FIELDS}
     }
   }
 `;

@@ -33,13 +33,14 @@ use devboard_graphql::{
 };
 use devboard_repository::{
     OrgMembershipRepository, PgAttachmentRepository, PgCommentRepository, PgInvitationRepository,
-    PgOrgMembershipRepository, PgOrganizationRepository, PgProjectRepository, PgTaskRepository,
-    PgTeamRepository, PgUserRepository,
+    PgNotificationRepository, PgOrgMembershipRepository, PgOrganizationRepository,
+    PgProjectRepository, PgTaskRepository, PgTeamRepository, PgUserRepository,
     messaging::pg::{PgChannelRepository, PgDmRepository, PgMessageRepository},
 };
 use devboard_service::{
-    AttachmentService, AuthService, CommentService, MessagingService, ProjectService, TaskService,
-    TeamService, retention, unfurl,
+    AttachmentService, AuthService, CommentService, MessagingService, MessagingServiceDeps,
+    NotificationService, ProjectService, TaskService, TeamService, retention,
+    spawn_due_soon_checker, spawn_email_digest_job, unfurl,
 };
 
 mod auth_routes;
@@ -57,6 +58,11 @@ struct AppState {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let config = AppConfig::load().context("failed to load application config")?;
+
+    devboard_graphql::error::configure_error_mode(config.environment.is_production());
+    auth_routes::configure_rest_error_mode(config.environment.is_production());
+
+    tracing::info!(environment = ?config.environment, "error reporting mode configured");
 
     init_tracing(&config.observability.log_filter);
 
@@ -105,6 +111,7 @@ async fn main() -> anyhow::Result<()> {
     let channel_repo = Arc::new(PgChannelRepository::new(db.clone()));
     let message_repo = Arc::new(PgMessageRepository::new(db.clone()));
     let dm_repo = Arc::new(PgDmRepository::new(db.clone()));
+    let notification_repo = Arc::new(PgNotificationRepository::new(db.clone()));
 
     let unfurl_tx = unfurl::spawn_unfurl_worker(message_repo.clone());
 
@@ -118,7 +125,7 @@ async fn main() -> anyhow::Result<()> {
         org_repo.clone(),
         org_membership_repo.clone(),
         invitation_repo.clone(),
-        email_provider,
+        email_provider.clone(),
         jwt_service,
         config.email.app_base_url.clone(),
     ));
@@ -153,15 +160,27 @@ async fn main() -> anyhow::Result<()> {
         team_repo.clone(),
     ));
 
-    let messaging_service = Arc::new(MessagingService::new(
-        channel_repo.clone(),
-        message_repo.clone(),
-        dm_repo.clone(),
-        org_membership_repo.clone(),
-        message_bus.clone(),
-        presence_service,
+    let (notification_service, _notification_rx) = NotificationService::new(
+        notification_repo.clone(),
+        email_provider.clone(),
+        config.vapid.public_key.clone(),
+        config.vapid.private_key.clone(),
+        config.vapid.subject.clone(),
+        config.email.app_base_url.clone(),
+    );
+    let notification_service = Arc::new(notification_service);
+
+    let messaging_service = Arc::new(MessagingService::new(MessagingServiceDeps {
+        channel_repo: channel_repo.clone(),
+        message_repo: message_repo.clone(),
+        dm_repo: dm_repo.clone(),
+        org_member_repo: org_membership_repo.clone(),
+        user_repo: user_repo.clone(),
+        message_bus: message_bus.clone(),
+        presence: presence_service,
+        notification_service: notification_service.clone(),
         unfurl_tx,
-    ));
+    }));
 
     retention::spawn_retention_job(channel_repo.clone());
 
@@ -173,6 +192,7 @@ async fn main() -> anyhow::Result<()> {
         attachment_service,
         team_service,
         messaging_service: messaging_service.clone(),
+        notification_service: notification_service.clone(),
     };
 
     let schema = build_schema(
@@ -191,6 +211,9 @@ async fn main() -> anyhow::Result<()> {
         org_membership_repo: org_membership_repo.clone(),
         messaging_service: messaging_service.clone(),
     };
+
+    spawn_due_soon_checker(task_repo.clone(), notification_service.clone());
+    spawn_email_digest_job(notification_repo.clone(), notification_service.clone());
 
     let app = build_router(state);
 
@@ -409,7 +432,9 @@ fn init_tracing(log_filter: &str) {
                 .with_target(true)
                 .with_thread_ids(true)
                 .with_file(true)
-                .with_line_number(true),
+                .with_line_number(true)
+                .pretty()
+                .with_target(true),
         )
         .init();
 }

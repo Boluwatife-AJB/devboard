@@ -22,27 +22,49 @@ pub enum Relation {
     Channel,
     #[sea_orm(has_many = "super::channel_member::Entity")]
     ChannelMember,
+    #[sea_orm(has_many = "super::channel_message_clear::Entity")]
+    ChannelMessageClear,
     #[sea_orm(has_many = "super::comment::Entity")]
     Comment,
     #[sea_orm(has_many = "super::dm_message::Entity")]
     DmMessage,
+    #[sea_orm(has_many = "super::dm_message_clear::Entity")]
+    DmMessageClear,
     #[sea_orm(has_many = "super::invitation::Entity")]
     Invitation,
     #[sea_orm(has_many = "super::message::Entity")]
     Message,
     #[sea_orm(has_many = "super::message_reaction::Entity")]
     MessageReaction,
+    #[sea_orm(has_many = "super::notification::Entity")]
+    Notification,
+    #[sea_orm(has_many = "super::notification_preference::Entity")]
+    NotificationPreference,
     #[sea_orm(has_many = "super::org_membership::Entity")]
     OrgMembership,
     #[sea_orm(has_many = "super::project_membership::Entity")]
     ProjectMembership,
+    #[sea_orm(has_many = "super::push_subscription::Entity")]
+    PushSubscription,
     #[sea_orm(has_many = "super::task_attachment::Entity")]
     TaskAttachment,
+}
+
+impl Related<super::channel::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Channel.def()
+    }
 }
 
 impl Related<super::channel_member::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ChannelMember.def()
+    }
+}
+
+impl Related<super::channel_message_clear::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ChannelMessageClear.def()
     }
 }
 
@@ -58,21 +80,33 @@ impl Related<super::dm_message::Entity> for Entity {
     }
 }
 
+impl Related<super::dm_message_clear::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::DmMessageClear.def()
+    }
+}
+
 impl Related<super::invitation::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Invitation.def()
     }
 }
 
-impl Related<super::message::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Message.def()
-    }
-}
-
 impl Related<super::message_reaction::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::MessageReaction.def()
+    }
+}
+
+impl Related<super::notification::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Notification.def()
+    }
+}
+
+impl Related<super::notification_preference::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::NotificationPreference.def()
     }
 }
 
@@ -88,18 +122,33 @@ impl Related<super::project_membership::Entity> for Entity {
     }
 }
 
+impl Related<super::push_subscription::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::PushSubscription.def()
+    }
+}
+
 impl Related<super::task_attachment::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TaskAttachment.def()
     }
 }
 
-impl Related<super::channel::Entity> for Entity {
+impl Related<super::dm_thread::Entity> for Entity {
     fn to() -> RelationDef {
-        super::channel_member::Relation::Channel.def()
+        super::dm_message_clear::Relation::DmThread.def()
     }
     fn via() -> Option<RelationDef> {
-        Some(super::channel_member::Relation::User.def().rev())
+        Some(super::dm_message_clear::Relation::User.def().rev())
+    }
+}
+
+impl Related<super::message::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::message_reaction::Relation::Message.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::message_reaction::Relation::User.def().rev())
     }
 }
 

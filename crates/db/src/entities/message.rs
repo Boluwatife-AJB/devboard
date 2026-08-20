@@ -54,7 +54,10 @@ impl Related<super::message_reaction::Entity> for Entity {
 
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::User.def()
+        super::message_reaction::Relation::User.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::message_reaction::Relation::Message.def().rev())
     }
 }
 

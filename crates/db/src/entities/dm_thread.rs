@@ -19,6 +19,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::dm_message::Entity")]
     DmMessage,
+    #[sea_orm(has_many = "super::dm_message_clear::Entity")]
+    DmMessageClear,
     #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::ParticipantA",
@@ -40,6 +42,21 @@ pub enum Relation {
 impl Related<super::dm_message::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::DmMessage.def()
+    }
+}
+
+impl Related<super::dm_message_clear::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::DmMessageClear.def()
+    }
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::dm_message_clear::Relation::User.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::dm_message_clear::Relation::DmThread.def().rev())
     }
 }
 

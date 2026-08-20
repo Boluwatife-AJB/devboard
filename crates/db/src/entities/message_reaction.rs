@@ -10,7 +10,6 @@ pub struct Model {
     pub message_id: Uuid,
     #[sea_orm(primary_key, auto_increment = false)]
     pub user_id: Uuid,
-    #[sea_orm(primary_key, auto_increment = false)]
     pub emoji: String,
     pub created_at: DateTimeWithTimeZone,
 }

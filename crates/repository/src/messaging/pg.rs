@@ -1,12 +1,11 @@
 use async_trait::async_trait;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use devboard_db::entities::{
     channel::{self, Entity as ChannelEntity},
     channel_member::{self, Entity as ChannelMemberEntity},
     dm_message::{self, Entity as DmMessageEntity},
     dm_thread::{self, Entity as DmThreadEntity},
     message::{self, Entity as MessageEntity},
-    message_reaction,
 };
 use devboard_domain::{
     Channel, ChannelId, ChannelKind, ChannelMember, DmMessage, DmMessageId, DmThread, DmThreadId,
@@ -328,6 +327,61 @@ impl ChannelRepository for PgChannelRepository {
 
         Ok(result.rows_affected())
     }
+
+    async fn get_cleared_at(
+        &self,
+        channel_id: ChannelId,
+        user_id: UserId,
+    ) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+        let sql = r#"
+            SELECT cleared_at
+            FROM channel_message_clear
+            WHERE channel_id = $1 AND user_id = $2
+        "#;
+        let row = self
+            .db
+            .query_one_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [Uuid::from(channel_id).into(), Uuid::from(user_id).into()],
+            ))
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        row.map(|r| {
+            r.try_get::<sea_orm::prelude::DateTimeWithTimeZone>("", "cleared_at")
+                .map_err(RepositoryError::from_db_err)
+                .map(|dt| dt.into())
+        })
+        .transpose()
+    }
+
+    async fn set_cleared_at(
+        &self,
+        channel_id: ChannelId,
+        user_id: UserId,
+        cleared_at: DateTime<Utc>,
+    ) -> Result<(), RepositoryError> {
+        let sql = r#"
+            INSERT INTO channel_message_clear (user_id, channel_id, cleared_at)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id, channel_id)
+            DO UPDATE SET cleared_at = EXCLUDED.cleared_at
+        "#;
+        self.db
+            .execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [
+                    Uuid::from(user_id).into(),
+                    Uuid::from(channel_id).into(),
+                    cleared_at.into(),
+                ],
+            ))
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+        Ok(())
+    }
 }
 
 // Message Repo impl
@@ -357,11 +411,16 @@ impl MessageRepository for PgMessageRepository {
         channel_id: ChannelId,
         before_id: Option<MessageId>,
         limit: u64,
+        after_created_at: Option<DateTime<Utc>>,
     ) -> Result<Vec<Message>, RepositoryError> {
         let mut query = MessageEntity::find()
             .filter(message::Column::ChannelId.eq(Uuid::from(channel_id)))
             .order_by_desc(message::Column::CreatedAt)
             .limit(limit);
+
+        if let Some(after) = after_created_at {
+            query = query.filter(message::Column::CreatedAt.gt(after));
+        }
 
         if let Some(before) = before_id
             && let Some(cursor_msg) = MessageEntity::find_by_id(Uuid::from(before))
@@ -516,29 +575,27 @@ impl MessageRepository for PgMessageRepository {
         user_id: UserId,
         emoji: String,
     ) -> Result<(), RepositoryError> {
-        let now = Utc::now();
+        // Replace any existing reaction for this user on the message.
+        let sql = r#"
+            INSERT INTO message_reaction (message_id, user_id, emoji, created_at)
+            VALUES ($1, $2, $3, NOW())
+            ON CONFLICT (message_id, user_id)
+            DO UPDATE SET
+              emoji = EXCLUDED.emoji,
+              created_at = EXCLUDED.created_at
+        "#;
 
-        let active = message_reaction::ActiveModel {
-            message_id: ActiveValue::Set(Uuid::from(message_id)),
-            user_id: ActiveValue::Set(Uuid::from(user_id)),
-            emoji: ActiveValue::Set(emoji),
-            created_at: ActiveValue::Set(now.into()),
-        };
-
-        active
-            .insert(&self.db)
+        self.db
+            .execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [
+                    Uuid::from(message_id).into(),
+                    Uuid::from(user_id).into(),
+                    emoji.into(),
+                ],
+            ))
             .await
-            .map(|_| ())
-            .or_else(|err| {
-                if matches!(
-                    err,
-                    sea_orm::error::DbErr::Query(sea_orm::RuntimeErr::SqlxError(_))
-                ) {
-                    Ok(())
-                } else {
-                    Err(err)
-                }
-            })
             .map_err(RepositoryError::from_db_err)?;
 
         Ok(())
@@ -731,11 +788,16 @@ impl DmRepository for PgDmRepository {
         thread_id: DmThreadId,
         before_id: Option<DmMessageId>,
         limit: u64,
+        after_created_at: Option<DateTime<Utc>>,
     ) -> Result<Vec<DmMessage>, RepositoryError> {
         let mut query = DmMessageEntity::find()
             .filter(dm_message::Column::ThreadId.eq(Uuid::from(thread_id)))
             .order_by_desc(dm_message::Column::CreatedAt)
             .limit(limit);
+
+        if let Some(after) = after_created_at {
+            query = query.filter(dm_message::Column::CreatedAt.gt(after));
+        }
 
         if let Some(before) = before_id
             && let Some(cursor) = DmMessageEntity::find_by_id(Uuid::from(before))
@@ -808,6 +870,25 @@ impl DmRepository for PgDmRepository {
         Ok(dm_message_model_to_domain(updated))
     }
 
+    async fn find_message_by_id(
+        &self,
+        id: DmMessageId,
+    ) -> Result<Option<DmMessage>, RepositoryError> {
+        let model = DmMessageEntity::find_by_id(Uuid::from(id))
+            .one(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+        Ok(model.map(dm_message_model_to_domain))
+    }
+
+    async fn delete_message(&self, id: DmMessageId) -> Result<(), RepositoryError> {
+        DmMessageEntity::delete_by_id(Uuid::from(id))
+            .exec(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+        Ok(())
+    }
+
     async fn mark_read(
         &self,
         thread_id: DmThreadId,
@@ -830,6 +911,89 @@ impl DmRepository for PgDmRepository {
             .await
             .map_err(RepositoryError::from_db_err)?;
 
+        Ok(())
+    }
+
+    async fn unread_count(
+        &self,
+        thread_id: DmThreadId,
+        reader_id: UserId,
+    ) -> Result<u64, RepositoryError> {
+        let sql = r#"
+            SELECT COUNT(*) AS COUNT
+            FROM dm_message
+            WHERE thread_id = $1
+              AND author_id != $2
+              AND read_by_recipient_at IS NULL
+        "#;
+        let row = self
+            .db
+            .query_one_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [Uuid::from(thread_id).into(), Uuid::from(reader_id).into()],
+            ))
+            .await
+            .map_err(RepositoryError::from_db_err)?
+            .ok_or(RepositoryError::NotFound)?;
+        let count: i64 = row
+            .try_get("", "count")
+            .map_err(RepositoryError::from_db_err)?;
+        Ok(count as u64)
+    }
+
+    async fn get_cleared_at(
+        &self,
+        thread_id: DmThreadId,
+        user_id: UserId,
+    ) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+        let sql = r#"
+            SELECT cleared_at
+            FROM dm_message_clear
+            WHERE thread_id = $1 AND user_id = $2
+        "#;
+        let row = self
+            .db
+            .query_one_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [Uuid::from(thread_id).into(), Uuid::from(user_id).into()],
+            ))
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        row.map(|r| {
+            r.try_get::<sea_orm::prelude::DateTimeWithTimeZone>("", "cleared_at")
+                .map_err(RepositoryError::from_db_err)
+                .map(|dt| dt.into())
+        })
+        .transpose()
+    }
+
+    async fn set_cleared_at(
+        &self,
+        thread_id: DmThreadId,
+        user_id: UserId,
+        cleared_at: DateTime<Utc>,
+    ) -> Result<(), RepositoryError> {
+        let sql = r#"
+            INSERT INTO dm_message_clear (user_id, thread_id, cleared_at)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id, thread_id)
+            DO UPDATE SET cleared_at = EXCLUDED.cleared_at
+        "#;
+        self.db
+            .execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [
+                    Uuid::from(user_id).into(),
+                    Uuid::from(thread_id).into(),
+                    cleared_at.into(),
+                ],
+            ))
+            .await
+            .map_err(RepositoryError::from_db_err)?;
         Ok(())
     }
 }

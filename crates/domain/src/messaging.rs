@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{ChannelId, DmMessageId, DmThreadId, MessageId, OrganizationId, UserId};
@@ -76,7 +76,11 @@ pub struct Message {
 
 impl Message {
     pub fn is_edited(&self) -> bool {
-        self.edited_at.is_none()
+        self.edited_at.is_some()
+    }
+
+    pub fn is_editable(&self, now: DateTime<Utc>) -> bool {
+        now.signed_duration_since(self.created_at) <= Duration::minutes(15)
     }
 }
 
@@ -129,6 +133,14 @@ pub struct DmMessage {
 impl DmMessage {
     pub fn is_read(&self) -> bool {
         self.read_by_recipient_at.is_some()
+    }
+
+    pub fn is_edited(&self) -> bool {
+        self.edited_at.is_some()
+    }
+
+    pub fn is_editable(&self, now: DateTime<Utc>) -> bool {
+        now.signed_duration_since(self.created_at) <= Duration::minutes(15)
     }
 }
 

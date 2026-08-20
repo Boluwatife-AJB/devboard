@@ -80,6 +80,28 @@ type OrgRole = "ORG_OWNER" | "ORG_ADMIN" | "ORG_MEMBER";
 
 type InvitationStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
 
+type NotificationKind =
+  | "TASK_ASSIGNED"
+  | "TASK_DUE_SOON"
+  | "TASK_STATUS_CHANGED"
+  | "TASK_CREATED"
+  | "MENTION"
+  | "TASK_COMMENT"
+  | "CHANNEL_MESSAGE"
+  | "DM_THREAD_MESSAGE"
+  | "ANNOUNCEMENT"
+  | "INVITE_RECEIVED";
+
+interface ApiNotification {
+  id: string;
+  kind: NotificationKind;
+  title: string;
+  body: string | null;
+  actionUrl: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
 interface ApiInvitation {
   id: string;
   email: string;
@@ -343,6 +365,7 @@ interface ApiChannel {
   kind: ChannelKind;
   createdAt: string;
   isMember: boolean;
+  unreadCount: number;
 }
 
 interface ApiChannelMember {
@@ -399,6 +422,15 @@ interface DeleteMessageInput {
   orgId: string;
 }
 
+interface EditDmInput {
+  messageId: string;
+  body: string;
+}
+
+interface DeleteDmInput {
+  messageId: string;
+}
+
 interface ReactionInput {
   messageId: string;
   emoji: string;
@@ -420,6 +452,7 @@ interface ApiDmThread {
   participantA: string;
   participantB: string;
   createdAt: string;
+  unreadCount: number;
 }
 
 interface ApiDmMessage {
@@ -444,6 +477,13 @@ interface ApiMessageEvent {
   channelId: string;
   messageId: string;
   message: ApiMessage | null;
+}
+
+interface ApiDmMessageEvent {
+  kind: MessageEventKind | string;
+  threadId: string;
+  messageId: string;
+  message: ApiDmMessage | null;
 }
 
 interface ApiReactionEvent {

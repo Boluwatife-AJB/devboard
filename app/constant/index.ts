@@ -1,6 +1,5 @@
 import {
   ChatTextIcon,
-  CheckSquareIcon,
   FolderIcon,
   GearIcon,
   SquaresFourIcon,
@@ -32,11 +31,11 @@ export const sidebarMenu: SidebarLink[] = [
     name: "Teams",
     icon: UsersThreeIcon,
   },
-  {
-    path: "/tasks",
-    name: "Tasks",
-    icon: CheckSquareIcon,
-  },
+  // {
+  //   path: "/tasks",
+  //   name: "Tasks",
+  //   icon: CheckSquareIcon,
+  // },
   {
     path: "/messages",
     name: "Messages",

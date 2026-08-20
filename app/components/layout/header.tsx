@@ -1,4 +1,5 @@
-import { BellIcon, MagnifyingGlassIcon } from "@phosphor-icons/react/dist/ssr";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/ssr";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Input } from "../ui/input";
 import { OrgSwitcher } from "./org-switcher";
@@ -28,7 +29,7 @@ export default function DashboardHeader() {
           Deploy
         </Button> */}
 
-        <BellIcon className="w-5 h-5 text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors" />
+        <NotificationBell />
 
         <Avatar>
           <AvatarImage

@@ -25,6 +25,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::channel_member::Entity")]
     ChannelMember,
+    #[sea_orm(has_many = "super::channel_message_clear::Entity")]
+    ChannelMessageClear,
     #[sea_orm(has_many = "super::message::Entity")]
     Message,
     #[sea_orm(
@@ -51,6 +53,12 @@ impl Related<super::channel_member::Entity> for Entity {
     }
 }
 
+impl Related<super::channel_message_clear::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ChannelMessageClear.def()
+    }
+}
+
 impl Related<super::message::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Message.def()
@@ -65,10 +73,7 @@ impl Related<super::organization::Entity> for Entity {
 
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
-        super::channel_member::Relation::User.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::channel_member::Relation::Channel.def().rev())
+        Relation::User.def()
     }
 }
 
