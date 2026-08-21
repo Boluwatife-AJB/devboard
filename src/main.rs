@@ -6,7 +6,7 @@ use async_graphql_axum::{GraphQLProtocol, GraphQLWebSocket};
 use axum::{
     Extension, Router,
     extract::{State, WebSocketUpgrade},
-    http::Method,
+    http::{HeaderName, HeaderValue, Method, header},
     middleware,
     response::IntoResponse,
     routing::{get, post},
@@ -18,10 +18,7 @@ use devboard_email::{
 };
 use devboard_presence::PresenceService;
 use migration::{Migrator, MigratorTrait};
-use tower_http::{
-    cors::{Any, CorsLayer},
-    trace::TraceLayer,
-};
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 use devboard_auth::JwtService;
@@ -235,10 +232,17 @@ async fn main() -> anyhow::Result<()> {
 }
 
 fn build_router(state: AppState) -> Router {
+    let origin =
+        HeaderValue::from_str("&app_base_url").expect("APP_BASE_URL must be a valid origin");
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS, Method::DELETE])
-        .allow_headers(Any)
-        .allow_origin(Any);
+        .allow_headers([
+            header::AUTHORIZATION,
+            header::CONTENT_TYPE,
+            header::ACCEPT,
+            HeaderName::from_static("x-organization-id"),
+        ])
+        .allow_origin(origin);
 
     Router::new()
         .merge(auth_router())
