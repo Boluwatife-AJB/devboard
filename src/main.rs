@@ -212,7 +212,7 @@ async fn main() -> anyhow::Result<()> {
     spawn_due_soon_checker(task_repo.clone(), notification_service.clone());
     spawn_email_digest_job(notification_repo.clone(), notification_service.clone());
 
-    let app = build_router(state);
+    let app = build_router(state, &config.email.app_base_url);
 
     let address = config.server.address();
     let listener = tokio::net::TcpListener::bind(&address)
@@ -231,9 +231,8 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn build_router(state: AppState) -> Router {
-    let origin =
-        HeaderValue::from_str("&app_base_url").expect("APP_BASE_URL must be a valid origin");
+fn build_router(state: AppState, app_base_url: &str) -> Router {
+    let origin = HeaderValue::from_str(app_base_url).expect("APP_BASE_URL must be a valid origin");
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS, Method::DELETE])
         .allow_headers([
