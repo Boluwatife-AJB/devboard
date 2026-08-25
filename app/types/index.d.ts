@@ -507,3 +507,76 @@ interface DisplayMessage {
   reactions?: ApiReactionSummary[];
   channelId?: string;
 }
+
+type StatTone = "default" | "warning" | "accent";
+
+type DashboardStat = {
+  id: string;
+  label: string;
+  value: number;
+  hint: string;
+  icon: Icon;
+  tone?: StatTone;
+};
+
+type RiskTaskStatus = "Blocked" | "In Progress" | "Todo";
+
+type RiskTask = {
+  id: string;
+  key: string;
+  title: string;
+  status: RiskTaskStatus;
+  dueLabel: string;
+  overdue?: boolean;
+};
+
+type AttentionItem = {
+  id: string;
+  title: string;
+  description: string;
+  actionLabel: string;
+};
+
+type QuickAction = {
+  id: string;
+  label: string;
+  href: string;
+  icon: Icon;
+};
+
+type WorkloadPoint = {
+  team: string;
+  todo: number;
+  inProgress: number;
+  done: number;
+};
+
+type MemberTaskStatus = "OVERDUE" | "IN_PROGRESS" | "TODO";
+
+type MemberTask = {
+  id: string;
+  key: string;
+  title: string;
+  status: MemberTaskStatus;
+  dueLabel: string;
+};
+
+type MemberProject = {
+  id: string;
+  name: string;
+  tag: string;
+  openTasks: number;
+  members: { id: string; name: string; initials: string }[];
+};
+
+type UpcomingEvent = {
+  id: string;
+  dateLabel: string;
+  title: string;
+  time: string;
+};
+
+type CompletionPoint = {
+  day: string;
+  completed: number;
+};

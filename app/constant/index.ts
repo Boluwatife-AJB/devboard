@@ -1,18 +1,34 @@
 import {
+  CalendarBlankIcon,
   ChatTextIcon,
+  CheckSquareIcon,
+  ClipboardTextIcon,
   FolderIcon,
   GearIcon,
+  LightningIcon,
+  PlusSquareIcon,
   SquaresFourIcon,
+  UserCirclePlusIcon,
   UserIcon,
   UsersThreeIcon,
+  WarningCircleIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import type {
+  AttentionItem,
   ChannelMember,
   ChatMessage,
+  CompletionPoint,
+  DashboardStat,
   DirectMessage,
+  MemberProject,
+  MemberTask,
   MessageChannel,
+  QuickAction,
+  RiskTask,
   SharedFile,
   SidebarLink,
+  UpcomingEvent,
+  WorkloadPoint,
 } from "@/types";
 
 export const sidebarMenu: SidebarLink[] = [
@@ -261,4 +277,282 @@ export const sharedFiles: SharedFile[] = [
     date: "Oct 20",
     kind: "code",
   },
+];
+
+export const adminStats: DashboardStat[] = [
+  {
+    id: "active-projects",
+    label: "Active Projects",
+    value: 12,
+    hint: "3 launching this sprint",
+    icon: FolderIcon,
+    tone: "accent",
+  },
+  {
+    id: "open-tasks",
+    label: "Open Tasks",
+    value: 143,
+    hint: "18 moved this week",
+    icon: ClipboardTextIcon,
+  },
+  {
+    id: "overdue",
+    label: "Overdue",
+    value: 8,
+    hint: "Needs owner follow-up",
+    icon: WarningCircleIcon,
+    tone: "warning",
+  },
+  {
+    id: "unassigned",
+    label: "Unassigned",
+    value: 24,
+    hint: "4 marked critical",
+    icon: UserIcon,
+  },
+  {
+    id: "pending-invites",
+    label: "Pending Invites",
+    value: 3,
+    hint: "Expire in 5 days",
+    icon: UserCirclePlusIcon,
+  },
+  {
+    id: "member-count",
+    label: "Members",
+    value: 42,
+    hint: "Across 6 teams",
+    icon: UsersThreeIcon,
+    tone: "accent",
+  },
+];
+
+export const riskTasks: RiskTask[] = [
+  {
+    id: "1",
+    key: "ENG-402",
+    title: "Update auth schema migrations",
+    status: "Blocked",
+    dueLabel: "Overdue (2d)",
+    overdue: true,
+  },
+  {
+    id: "2",
+    key: "WEB-118",
+    title: "Finalize responsive nav implementation",
+    status: "In Progress",
+    dueLabel: "Today",
+  },
+  {
+    id: "3",
+    key: "SYS-899",
+    title: "Audit logging missing entries",
+    status: "In Progress",
+    dueLabel: "in 3 days",
+  },
+];
+
+export const attentionItems: AttentionItem[] = [
+  {
+    id: "1",
+    title: "High-priority unassigned tasks",
+    description: "4 critical bugs waiting for an owner",
+    actionLabel: "Assign",
+  },
+  {
+    id: "2",
+    title: "Stale reviews",
+    description: "7 PRs stuck without reviewer activity",
+    actionLabel: "Ping Reviewers",
+  },
+  {
+    id: "3",
+    title: "Pending invitations",
+    description: "3 team members have not accepted yet",
+    actionLabel: "Resend Invites",
+  },
+];
+
+export const adminQuickActions: QuickAction[] = [
+  {
+    id: "create-project",
+    label: "Create Project",
+    href: "/projects",
+    icon: FolderIcon,
+  },
+  {
+    id: "invite-member",
+    label: "Invite Member",
+    href: "/settings",
+    icon: UserCirclePlusIcon,
+  },
+  {
+    id: "create-team",
+    label: "Create Team",
+    href: "/teams",
+    icon: UsersThreeIcon,
+  },
+  {
+    id: "open-settings",
+    label: "Open Settings",
+    href: "/settings",
+    icon: GearIcon,
+  },
+];
+
+export const workloadData: WorkloadPoint[] = [
+  { team: "FE", todo: 12, inProgress: 18, done: 24 },
+  { team: "BE", todo: 16, inProgress: 22, done: 30 },
+  { team: "Des", todo: 8, inProgress: 10, done: 14 },
+  { team: "QA", todo: 10, inProgress: 14, done: 20 },
+  { team: "Ops", todo: 6, inProgress: 9, done: 16 },
+];
+
+export const memberStats: DashboardStat[] = [
+  {
+    id: "assigned",
+    label: "Assigned to Me",
+    value: 9,
+    hint: "2 started today",
+    icon: ClipboardTextIcon,
+    tone: "accent",
+  },
+  {
+    id: "due-week",
+    label: "Due This Week",
+    value: 4,
+    hint: "Next due tomorrow",
+    icon: CalendarBlankIcon,
+  },
+  {
+    id: "overdue",
+    label: "Overdue",
+    value: 1,
+    hint: "Blocker for ENG-402",
+    icon: WarningCircleIcon,
+    tone: "warning",
+  },
+  {
+    id: "in-progress",
+    label: "In Progress",
+    value: 3,
+    hint: "On track",
+    icon: LightningIcon,
+  },
+  {
+    id: "completed-week",
+    label: "Completed",
+    value: 6,
+    hint: "This week",
+    icon: CheckSquareIcon,
+    tone: "accent",
+  },
+];
+
+export const memberTasks: MemberTask[] = [
+  {
+    id: "1",
+    key: "DEV-4921",
+    title: "Update API documentation for auth endpoints",
+    status: "OVERDUE",
+    dueLabel: "Yesterday",
+  },
+  {
+    id: "2",
+    key: "DEV-4888",
+    title: "Wire notification preferences to GraphQL",
+    status: "IN_PROGRESS",
+    dueLabel: "Tomorrow",
+  },
+  {
+    id: "3",
+    key: "DEV-4902",
+    title: "Polish empty states on projects page",
+    status: "TODO",
+    dueLabel: "Oct 24",
+  },
+  {
+    id: "4",
+    key: "DEV-4870",
+    title: "Add invite resend action in settings",
+    status: "IN_PROGRESS",
+    dueLabel: "Oct 25",
+  },
+];
+
+export const memberProjects: MemberProject[] = [
+  {
+    id: "1",
+    name: "Core Infrastructure v3",
+    tag: "Q4",
+    openTasks: 14,
+    members: [
+      { id: "a", name: "Alex Lim", initials: "AL" },
+      { id: "b", name: "Sarah Kang", initials: "SK" },
+      { id: "c", name: "Marcus Reed", initials: "MR" },
+    ],
+  },
+  {
+    id: "2",
+    name: "Developer Experience",
+    tag: "Active",
+    openTasks: 8,
+    members: [
+      { id: "d", name: "Jordan Lee", initials: "JL" },
+      { id: "e", name: "Priya Sharma", initials: "PS" },
+    ],
+  },
+];
+
+export const memberQuickActions: QuickAction[] = [
+  {
+    id: "create-task",
+    label: "Create task",
+    href: "/projects",
+    icon: PlusSquareIcon,
+  },
+  {
+    id: "messages",
+    label: "Messages",
+    href: "/messages",
+    icon: ChatTextIcon,
+  },
+];
+
+export const upcomingEvents: UpcomingEvent[] = [
+  {
+    id: "1",
+    dateLabel: "OCT 24",
+    title: "Sprint Review",
+    time: "10:00 AM",
+  },
+  {
+    id: "2",
+    dateLabel: "OCT 28",
+    title: "Design Critique",
+    time: "2:00 PM",
+  },
+  {
+    id: "3",
+    dateLabel: "NOV 01",
+    title: "Planning Poker",
+    time: "11:30 AM",
+  },
+];
+
+export const completionTrend: CompletionPoint[] = [
+  { day: "Mon", completed: 2 },
+  { day: "Tue", completed: 4 },
+  { day: "Wed", completed: 3 },
+  { day: "Thu", completed: 5 },
+  { day: "Fri", completed: 4 },
+  { day: "Sat", completed: 1 },
+  { day: "Sun", completed: 2 },
+  { day: "Mon", completed: 6 },
+  { day: "Tue", completed: 5 },
+  { day: "Wed", completed: 7 },
+  { day: "Thu", completed: 4 },
+  { day: "Fri", completed: 8 },
+  { day: "Sat", completed: 3 },
+  { day: "Today", completed: 5 },
 ];
