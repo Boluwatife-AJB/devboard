@@ -34,7 +34,7 @@ export function CompletionTrendChart({ data }: CompletionTrendChartProps) {
       <CardContent className="pt-4">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-48 w-full"
+          className="aspect-auto h-64 w-full"
         >
           <AreaChart
             accessibilityLayer

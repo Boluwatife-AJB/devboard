@@ -1,11 +1,9 @@
 import {
   CalendarBlankIcon,
   ChatTextIcon,
-  CheckSquareIcon,
   ClipboardTextIcon,
   FolderIcon,
   GearIcon,
-  LightningIcon,
   PlusSquareIcon,
   SquaresFourIcon,
   UserCirclePlusIcon,
@@ -281,21 +279,6 @@ export const sharedFiles: SharedFile[] = [
 
 export const adminStats: DashboardStat[] = [
   {
-    id: "active-projects",
-    label: "Active Projects",
-    value: 12,
-    hint: "3 launching this sprint",
-    icon: FolderIcon,
-    tone: "accent",
-  },
-  {
-    id: "open-tasks",
-    label: "Open Tasks",
-    value: 143,
-    hint: "18 moved this week",
-    icon: ClipboardTextIcon,
-  },
-  {
     id: "overdue",
     label: "Overdue",
     value: 8,
@@ -318,12 +301,11 @@ export const adminStats: DashboardStat[] = [
     icon: UserCirclePlusIcon,
   },
   {
-    id: "member-count",
-    label: "Members",
-    value: 42,
-    hint: "Across 6 teams",
-    icon: UsersThreeIcon,
-    tone: "accent",
+    id: "open-tasks",
+    label: "Open Tasks",
+    value: 143,
+    hint: "18 moved this week",
+    icon: ClipboardTextIcon,
   },
 ];
 
@@ -431,21 +413,6 @@ export const memberStats: DashboardStat[] = [
     hint: "Blocker for ENG-402",
     icon: WarningCircleIcon,
     tone: "warning",
-  },
-  {
-    id: "in-progress",
-    label: "In Progress",
-    value: 3,
-    hint: "On track",
-    icon: LightningIcon,
-  },
-  {
-    id: "completed-week",
-    label: "Completed",
-    value: 6,
-    hint: "This week",
-    icon: CheckSquareIcon,
-    tone: "accent",
   },
 ];
 

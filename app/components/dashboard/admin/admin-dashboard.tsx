@@ -5,7 +5,7 @@ import { AttentionRequiredCard } from "@/components/dashboard/admin/attention-re
 import { RiskDeadlinesCard } from "@/components/dashboard/admin/risk-deadlines-card";
 import { WorkloadAreaChart } from "@/components/dashboard/admin/workload-area-chart";
 import { DashboardGreeting } from "@/components/dashboard/shared/dashboard-greeting";
-import { StatsStrip } from "@/components/dashboard/shared/stats-strip";
+import { StatsGrid } from "@/components/dashboard/shared/stats-grid";
 import {
   adminQuickActions,
   adminStats,
@@ -31,18 +31,20 @@ export function AdminDashboard({
         subtitle="Organization overview"
       />
 
-      <StatsStrip stats={adminStats} />
+      <StatsGrid stats={adminStats} />
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="flex flex-col gap-6 xl:col-span-2">
-          <RiskDeadlinesCard tasks={riskTasks} />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
+        <div className="xl:col-span-2">
           <AttentionRequiredCard items={attentionItems} />
         </div>
-        <div className="flex flex-col gap-6">
-          <AdminQuickActionsCard actions={adminQuickActions} />
-          <WorkloadAreaChart data={workloadData} />
+        <div className="xl:col-span-2">
+          <RiskDeadlinesCard tasks={riskTasks} />
         </div>
       </div>
+
+      <WorkloadAreaChart data={workloadData} />
+
+      <AdminQuickActionsCard actions={adminQuickActions} />
     </div>
   );
 }

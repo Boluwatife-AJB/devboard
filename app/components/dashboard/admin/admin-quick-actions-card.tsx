@@ -16,10 +16,7 @@ type AdminQuickActionsCardProps = {
 function ActionButton({ action }: { action: QuickAction }) {
   const Icon = action.icon;
   const trigger = (
-    <Button
-      variant="ghost"
-      className="h-10 w-full justify-start rounded-xs px-3"
-    >
+    <Button variant="outline" size="sm" className="rounded-xs">
       <Icon data-icon="inline-start" />
       {action.label}
     </Button>
@@ -37,8 +34,9 @@ function ActionButton({ action }: { action: QuickAction }) {
 
   return (
     <Button
-      variant="ghost"
-      className="h-10 w-full justify-start rounded-xs px-3"
+      variant="outline"
+      size="sm"
+      className="rounded-xs"
       render={<Link href={action.href} />}
     >
       <Icon data-icon="inline-start" />
@@ -49,18 +47,18 @@ function ActionButton({ action }: { action: QuickAction }) {
 
 export function AdminQuickActionsCard({ actions }: AdminQuickActionsCardProps) {
   return (
-    <Card className="rounded-xs">
-      <CardHeader className="border-b">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <LightningIcon className="size-4 text-muted-foreground" />
+    <Card className="rounded-xs py-3">
+      <CardHeader className="flex flex-row items-center gap-3 border-0 px-4 py-0">
+        <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
+          <LightningIcon className="size-4" />
           Quick Actions
         </CardTitle>
+        <CardContent className="flex flex-1 flex-wrap items-center gap-2 p-0">
+          {actions.map((action) => (
+            <ActionButton key={action.id} action={action} />
+          ))}
+        </CardContent>
       </CardHeader>
-      <CardContent className="flex flex-col gap-1 pt-2">
-        {actions.map((action) => (
-          <ActionButton key={action.id} action={action} />
-        ))}
-      </CardContent>
     </Card>
   );
 }

@@ -11,11 +11,16 @@ function DashboardSkeleton() {
   return (
     <div className="flex flex-col gap-8">
       <DashboardGreetingSkeleton />
-      <Skeleton className="h-28 w-full rounded-xs" />
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Skeleton className="h-72 rounded-xs xl:col-span-2" />
-        <Skeleton className="h-72 rounded-xs" />
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+        {["a", "b", "c", "d"].map((key) => (
+          <Skeleton key={key} className="h-28 rounded-xs" />
+        ))}
       </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Skeleton className="h-64 rounded-xs xl:col-span-2" />
+        <Skeleton className="h-64 rounded-xs" />
+      </div>
+      <Skeleton className="h-72 w-full rounded-xs" />
     </div>
   );
 }

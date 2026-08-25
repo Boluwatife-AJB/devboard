@@ -44,7 +44,7 @@ export function WorkloadAreaChart({ data }: WorkloadAreaChartProps) {
       <CardContent className="pt-4">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-56 w-full"
+          className="aspect-auto h-72 w-full"
         >
           <AreaChart
             accessibilityLayer

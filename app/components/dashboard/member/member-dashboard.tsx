@@ -6,7 +6,7 @@ import { MyProjectsCard } from "@/components/dashboard/member/my-projects-card";
 import { MyTasksCard } from "@/components/dashboard/member/my-tasks-card";
 import { UpcomingEventsCard } from "@/components/dashboard/member/upcoming-events-card";
 import { DashboardGreeting } from "@/components/dashboard/shared/dashboard-greeting";
-import { StatsStrip } from "@/components/dashboard/shared/stats-strip";
+import { StatsGrid } from "@/components/dashboard/shared/stats-grid";
 import {
   completionTrend,
   memberProjects,
@@ -33,19 +33,21 @@ export function MemberDashboard({
         subtitle="Your work today"
       />
 
-      <StatsStrip stats={memberStats} />
+      <StatsGrid stats={memberStats} />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="flex flex-col gap-6 xl:col-span-2">
+        <div className="xl:col-span-2">
           <MyTasksCard tasks={memberTasks} />
-          <MyProjectsCard projects={memberProjects} />
         </div>
         <div className="flex flex-col gap-6">
           <MemberQuickActionsCard actions={memberQuickActions} />
           <UpcomingEventsCard events={upcomingEvents} />
-          <CompletionTrendChart data={completionTrend} />
         </div>
       </div>
+
+      <MyProjectsCard projects={memberProjects} />
+
+      <CompletionTrendChart data={completionTrend} />
     </div>
   );
 }
