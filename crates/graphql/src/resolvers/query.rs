@@ -11,8 +11,9 @@ use crate::{
     error::IntoGraphQLResult,
     types::{
         GqlAttachment, GqlChannel, GqlChannelMember, GqlComment, GqlDmMessage, GqlDmThread,
-        GqlInvitation, GqlMessage, GqlNotification, GqlNotificationKind, GqlNotificationPreference,
-        GqlOrgMember, GqlProject, GqlTask, GqlTaskStatus, GqlTeam, GqlTeamMember, GqlUserPresence,
+        GqlInvitation, GqlMessage, GqlMyDashboard, GqlNotification, GqlNotificationKind,
+        GqlNotificationPreference, GqlOrgDashboard, GqlOrgMember, GqlProject, GqlTask,
+        GqlTaskStatus, GqlTeam, GqlTeamMember, GqlUserPresence,
         pagination::{
             ConnectionArgs, PageInfo, TaskConnection, TaskEdge, decode_cursor, encode_cursor,
         },
@@ -311,6 +312,31 @@ impl CoreQuery {
             .map_gql_err()?;
 
         Ok(attachments.into_iter().map(GqlAttachment::from).collect())
+    }
+
+    async fn my_dashboard(&self, ctx: &Context<'_>) -> async_graphql::Result<GqlMyDashboard> {
+        let auth = ctx.authenticated_user()?;
+        let membership = auth.require_org()?;
+        let summary = ctx
+            .services()?
+            .dashboard_service
+            .my_dashboard(auth.user_id, membership)
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlMyDashboard::from(summary))
+    }
+
+    async fn org_dashboard(&self, ctx: &Context<'_>) -> async_graphql::Result<GqlOrgDashboard> {
+        let auth = ctx.authenticated_user()?;
+        let membership = auth.require_org()?;
+        let summary = ctx
+            .services()?
+            .dashboard_service
+            .org_dashboard(auth.user_id, membership)
+            .await
+            .map_gql_err()?;
+        Ok(GqlOrgDashboard::from(summary))
     }
 }
 
