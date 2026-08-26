@@ -1,6 +1,7 @@
 pub mod attachment;
 pub mod auth;
 pub mod comment;
+pub mod dashboard;
 pub mod error;
 pub mod event_bus;
 pub mod events;
@@ -19,6 +20,7 @@ pub use auth::{
     AuthPayload, AuthService, CreateInviteResult, InvitePreview, PendingInvitationView,
 };
 pub use comment::CommentService;
+pub use dashboard::DashboardService;
 pub use error::ServiceError;
 pub use event_bus::EventBus;
 pub use events::TaskEvent;

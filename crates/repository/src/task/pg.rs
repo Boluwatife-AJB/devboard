@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QueryOrder, QuerySelect,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend,
+    EntityTrait, QueryFilter, QueryOrder, QuerySelect, Statement,
 };
 use uuid::Uuid;
 
@@ -10,7 +10,13 @@ use devboard_db::entities::task::{self, Entity as TaskEntity};
 use devboard_domain::{ProjectId, Task, TaskId, TaskPriority, TaskStatus, UserId};
 
 use super::{TaskRepository, model_to_domain, priority_to_str, status_to_str};
-use crate::{error::RepositoryError, task::CreateTaskParams};
+use crate::{
+    error::RepositoryError,
+    task::{
+        CompletionDayRow, CreateTaskParams, DashboardTaskRow, TeamWorkloadRow,
+        dashboard_task_row_from_query,
+    },
+};
 
 pub struct PgTaskRepository {
     db: DatabaseConnection,
@@ -92,6 +98,7 @@ impl TaskRepository for PgTaskRepository {
             assignee_id: ActiveValue::Set(params.assignee_id.map(Uuid::from)),
             created_at: ActiveValue::Set(now.into()),
             updated_at: ActiveValue::Set(now.into()),
+            completed_at: ActiveValue::Set(None),
         };
 
         let model = active_model
@@ -248,5 +255,148 @@ impl TaskRepository for PgTaskRepository {
             .map_err(RepositoryError::from_db_err)?;
 
         model_to_domain(updated)
+    }
+
+    async fn list_for_dashboard(
+        &self,
+        project_ids: &[ProjectId],
+    ) -> Result<Vec<DashboardTaskRow>, RepositoryError> {
+        if project_ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let ids: Vec<Uuid> = project_ids.iter().copied().map(Uuid::from).collect();
+
+        let sql = r#"
+            SELECT
+                t.id, t.project_id, t.task_number, t.title, t.description, t.status, t.priority, t.assignee_id, t.reporter_id, t.due_date, t.completed_at, t.created_at, t.updated_at,
+                p.key AS project_key,
+                p.name AS project_name,
+                tm.name AS team_name
+            FROM task t
+            JOIN project p ON p.id = t.project_id
+            JOIN team tm ON tm.id = p.team_id
+            WHERE t.project_id = ANY($1)
+                AND t.status <> 'CANCELLED'
+        "#;
+
+        let rows = self
+            .db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [ids.into()],
+            ))
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        rows.into_iter()
+            .map(|r| dashboard_task_row_from_query(&r))
+            .collect()
+    }
+
+    async fn completion_by_day(
+        &self,
+        project_ids: &[ProjectId],
+        assignee_id: Option<UserId>,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> Result<Vec<CompletionDayRow>, RepositoryError> {
+        if project_ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let ids: Vec<Uuid> = project_ids.iter().copied().map(Uuid::from).collect();
+        let assignee = assignee_id.map(Uuid::from);
+
+        let sql = r#"
+            SELECT (completed_at AT TIME ZONE 'UTC')::date AS day, COUNT(*)::bigint AS completed
+            FROM tasks
+            WHERE project_id = ANY($1)
+                AND completed_at IS NOT NULL
+                AND completed_at >= $2
+                AND completed_at < $3
+                AND ($4::uuid IS NULL OR assignee_id = $4)
+            GROUP BY 1
+            ORDER BY 1
+        "#;
+
+        let rows = self
+            .db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [ids.into(), from.into(), to.into(), assignee.into()],
+            ))
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(CompletionDayRow {
+                    day: row
+                        .try_get("", "day")
+                        .map_err(RepositoryError::from_db_err)?,
+                    completed: row
+                        .try_get("", "completed")
+                        .map_err(RepositoryError::from_db_err)?,
+                })
+            })
+            .collect()
+    }
+
+    async fn workload_by_team(
+        &self,
+        project_ids: &[ProjectId],
+    ) -> Result<Vec<TeamWorkloadRow>, RepositoryError> {
+        if project_ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let ids: Vec<Uuid> = project_ids.iter().copied().map(Uuid::from).collect();
+
+        let sql = r#"
+            SELECT 
+                tm.name AS team_name, 
+                COUNT(*) FILTER (WHERE t.status IN ('BACKLOG', 'TODO'))::bigint AS todo,
+                COUNT(*) FILTER (WHERE t.status IN ('IN_PROGRESS', 'IN_REVIEW'))::bigint AS in_progress,
+                COUNT(*) FILTER (WHERE t.status IN ('DONE'))::bigint AS done,
+            FROM task t
+            JOIN project p ON p.id = t.project_id
+            JOIN team tm ON tm.id = p.team_id
+            WHERE t.project_id = ANY($1)
+                AND t.status <> 'CANCELLED'
+            GROUP BY tm.name
+            ORDER BY tm.name
+        "#;
+
+        let rows = self
+            .db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [ids.into()],
+            ))
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(TeamWorkloadRow {
+                    team_name: row
+                        .try_get("", "team_name")
+                        .map_err(RepositoryError::from_db_err)?,
+                    todo: row
+                        .try_get("", "todo")
+                        .map_err(RepositoryError::from_db_err)?,
+                    in_progress: row
+                        .try_get("", "in_progress")
+                        .map_err(RepositoryError::from_db_err)?,
+                    done: row
+                        .try_get("", "done")
+                        .map_err(RepositoryError::from_db_err)?,
+                })
+            })
+            .collect()
     }
 }

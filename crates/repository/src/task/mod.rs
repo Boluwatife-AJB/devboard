@@ -1,7 +1,9 @@
 pub mod pg;
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use devboard_domain::{ProjectId, Task, TaskId, TaskPriority, TaskStatus, UserId};
+use sea_orm::{QueryResult, prelude::DateTimeWithTimeZone};
+use uuid::Uuid;
 
 use crate::error::RepositoryError;
 
@@ -17,6 +19,28 @@ pub struct CreateTaskParams {
     pub reporter_id: UserId,
     pub assignee_id: Option<UserId>,
     pub due_date: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DashboardTaskRow {
+    pub task: Task,
+    pub project_key: String,
+    pub project_name: String,
+    pub team_name: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct CompletionDayRow {
+    pub day: NaiveDate,
+    pub completed: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct TeamWorkloadRow {
+    pub team_name: String,
+    pub todo: i64,
+    pub in_progress: i64,
+    pub done: i64,
 }
 
 #[async_trait]
@@ -62,6 +86,24 @@ pub trait TaskRepository: Send + Sync {
         id: TaskId,
         due_date: Option<DateTime<Utc>>,
     ) -> Result<Task, RepositoryError>;
+
+    async fn list_for_dashboard(
+        &self,
+        project_ids: &[ProjectId],
+    ) -> Result<Vec<DashboardTaskRow>, RepositoryError>;
+
+    async fn completion_by_day(
+        &self,
+        project_ids: &[ProjectId],
+        assignee_id: Option<UserId>,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> Result<Vec<CompletionDayRow>, RepositoryError>;
+
+    async fn workload_by_team(
+        &self,
+        project_ids: &[ProjectId],
+    ) -> Result<Vec<TeamWorkloadRow>, RepositoryError>;
 }
 
 pub(crate) fn status_to_str(status: &TaskStatus) -> &'static str {
@@ -126,5 +168,71 @@ pub(crate) fn model_to_domain(
         due_date: model.due_date.map(Into::into),
         created_at: model.created_at.into(),
         updated_at: model.updated_at.into(),
+    })
+}
+
+pub(crate) fn dashboard_task_row_from_query(
+    row: &QueryResult,
+) -> Result<DashboardTaskRow, RepositoryError> {
+    let status: String = row
+        .try_get("", "status")
+        .map_err(RepositoryError::from_db_err)?;
+    let priority: String = row
+        .try_get("", "priority")
+        .map_err(RepositoryError::from_db_err)?;
+
+    let task = Task {
+        id: TaskId::from(
+            row.try_get::<Uuid>("", "id")
+                .map_err(RepositoryError::from_db_err)?,
+        ),
+        project_id: ProjectId::from(
+            row.try_get::<Uuid>("", "project_id")
+                .map_err(RepositoryError::from_db_err)?,
+        ),
+        task_number: row
+            .try_get("", "task_number")
+            .map_err(RepositoryError::from_db_err)?,
+        title: row
+            .try_get("", "title")
+            .map_err(RepositoryError::from_db_err)?,
+        description: row
+            .try_get("", "description")
+            .map_err(RepositoryError::from_db_err)?,
+        status: str_to_status(&status)?,
+        priority: str_to_priority(&priority)?,
+        assignee_id: row
+            .try_get::<Option<Uuid>>("", "assignee_id")
+            .map_err(RepositoryError::from_db_err)?
+            .map(UserId::from),
+        reporter_id: UserId::from(
+            row.try_get::<Uuid>("", "reporter_id")
+                .map_err(RepositoryError::from_db_err)?,
+        ),
+        due_date: row
+            .try_get::<Option<DateTimeWithTimeZone>>("", "due_date")
+            .map_err(RepositoryError::from_db_err)?
+            .map(Into::into),
+        created_at: row
+            .try_get::<DateTimeWithTimeZone>("", "created_at")
+            .map_err(RepositoryError::from_db_err)?
+            .into(),
+        updated_at: row
+            .try_get::<DateTimeWithTimeZone>("", "updated_at")
+            .map_err(RepositoryError::from_db_err)?
+            .into(),
+    };
+
+    Ok(DashboardTaskRow {
+        task,
+        project_key: row
+            .try_get("", "project_key")
+            .map_err(RepositoryError::from_db_err)?,
+        project_name: row
+            .try_get("", "project_name")
+            .map_err(RepositoryError::from_db_err)?,
+        team_name: row
+            .try_get("", "team_name")
+            .map_err(RepositoryError::from_db_err)?,
     })
 }

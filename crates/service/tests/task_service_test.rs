@@ -8,7 +8,9 @@ use devboard_domain::{
     OrganizationId, ProjectId, ProjectMembership, ProjectRole, Task, TaskId, TaskPriority,
     TaskStatus, Team, TeamId, TeamMembership, TeamRole, UserId,
 };
-use devboard_repository::task::CreateTaskParams;
+use devboard_repository::task::{
+    CompletionDayRow, CreateTaskParams, DashboardTaskRow, TeamWorkloadRow,
+};
 use devboard_repository::{ProjectRepository, RepositoryError, TaskRepository, TeamRepository};
 use devboard_service::EventBus;
 use devboard_service::task::CreateTaskCommand;
@@ -159,6 +161,46 @@ impl TaskRepository for FakeTaskRepo {
             .remove(&id)
             .ok_or(RepositoryError::NotFound)?;
         Ok(())
+    }
+
+    async fn list_for_dashboard(
+        &self,
+        project_ids: &[ProjectId],
+    ) -> Result<Vec<DashboardTaskRow>, RepositoryError> {
+        let tasks = self.tasks.lock().unwrap();
+        Ok(tasks
+            .values()
+            .filter(|t| project_ids.contains(&t.project_id))
+            .filter(|t| t.status != TaskStatus::Cancelled)
+            .map(|t| DashboardTaskRow {
+                task: t.clone(),
+                project_key: "TEST".into(),
+                project_name: "Test Project".into(),
+                team_name: "Test Team".into(),
+            })
+            .collect())
+    }
+
+    async fn completion_by_day(
+        &self,
+        project_ids: &[ProjectId],
+        assignee_id: Option<UserId>,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> Result<Vec<CompletionDayRow>, RepositoryError> {
+        // let tasks = self.tasks.lock().unwrap();
+        // Ok(tasks.values().filter(|t| project_ids.contains(&t.project_id)).filter(|t| assignee_id.as_ref().is_none_or(|id| t.assignee_id == *id)).filter(|t| t.completed_at.is_some()).cloned().collect())
+
+        let _ = (project_ids, assignee_id, from, to);
+        Ok(vec![])
+    }
+
+    async fn workload_by_team(
+        &self,
+        project_ids: &[ProjectId],
+    ) -> Result<Vec<TeamWorkloadRow>, RepositoryError> {
+        let _ = project_ids;
+        Ok(vec![])
     }
 }
 
