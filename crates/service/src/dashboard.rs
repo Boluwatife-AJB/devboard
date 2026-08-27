@@ -61,10 +61,7 @@ impl DashboardService {
         let user = user.ok_or(ServiceError::Unauthenticated)?;
         let org = org.ok_or(ServiceError::Internal("Organization not found".into()))?;
 
-        let projects = self
-            .project_service
-            .list_projects(org_id, caller_id)
-            .await?;
+        let projects = self.project_service.list_projects(&membership).await?;
         let project_ids: Vec<_> = projects.iter().map(|p| p.id).collect();
 
         let rows = self.task_repo.list_for_dashboard(&project_ids).await?;

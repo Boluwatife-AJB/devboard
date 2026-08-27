@@ -51,7 +51,7 @@ export const createProjectSchema = z.object({
   key: z
     .string()
     .min(2, "Key must be at least 2 characters")
-    .max(6, "Key must be at most 6 characters")
+    .max(10, "Key must be at most 6 characters")
     .regex(
       /^[A-Z][A-Z0-9#_-]*$/,
       "Key must be uppercase letters and numbers (e.g. CORE)",

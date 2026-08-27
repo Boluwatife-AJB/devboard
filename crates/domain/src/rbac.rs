@@ -1,21 +1,136 @@
 use crate::{
+    OrgMembership, OrgRole, TeamRole,
     project::{ProjectMembership, ProjectRole},
     team::TeamMembership,
 };
+
+#[derive(Debug, Clone)]
+pub struct EffectiveContext {
+    pub org: OrgMembership,
+    pub team: Option<TeamMembership>,
+    pub project: Option<ProjectMembership>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Action {
+    // Org
+    InviteOrgMember,
+    ChangeOrgMemberRole,
+    CreateTeam,
+    ViewOrgDashboard,
+    // Team
+    UpdateTeam,
+    DeleteTeam,
+    ManageTeamMembers,
+    AssignTeamRole,
+    // Project
+    CreateProject,
+    UpdateProject,
+    DeleteProject,
+    ManageProjectMembers,
+    ViewProject,
+    // Task
+    CreateTask,
+    UpdateTask,
+    DeleteTask,
+    AssignTask,
+    // Event
+    CreateEvent,
+    UpdateEvent,
+    DeleteEvent,
+}
+
+pub fn effective_project_role(
+    team: Option<&TeamMembership>,
+    project: Option<&ProjectMembership>,
+) -> Option<ProjectRole> {
+    let baseline = team.map(|tm| ProjectRole::from(tm.role));
+
+    match (project.and_then(|pm| pm.role_override), baseline) {
+        (Some(override_role), Some(base)) => {
+            if override_role.at_least(base) {
+                Some(base)
+            } else {
+                Some(override_role)
+            }
+        }
+        (Some(override_role), None) => Some(override_role),
+        (None, base) => base,
+    }
+}
+
+pub fn can(ctx: &EffectiveContext, action: Action) -> bool {
+    let org = ctx.org.role;
+    let team = ctx.team.as_ref().map(|tm| tm.role);
+    let project = effective_project_role(ctx.team.as_ref(), ctx.project.as_ref());
+
+    match action {
+        Action::CreateTeam => org.at_least(OrgRole::OrgAdmin),
+        Action::DeleteTeam => {
+            org.at_least(OrgRole::OrgAdmin) || team.is_some_and(|r| r == TeamRole::Owner)
+        }
+        Action::ManageTeamMembers | Action::UpdateTeam => {
+            org.at_least(OrgRole::OrgAdmin) || team.is_some_and(|r| r.at_least(TeamRole::Admin))
+        }
+        Action::CreateProject => {
+            org.at_least(OrgRole::OrgAdmin) || team.is_some_and(|r| r.at_least(TeamRole::Admin))
+        }
+        Action::DeleteProject => {
+            org.at_least(OrgRole::OrgAdmin)
+                || project.is_some_and(|r| r.at_least(ProjectRole::Owner))
+        }
+        Action::ManageProjectMembers | Action::UpdateProject => {
+            org.at_least(OrgRole::OrgAdmin)
+                || project.is_some_and(|r| r.at_least(ProjectRole::Admin))
+        }
+        Action::ViewProject => project.is_some_and(|r| r.at_least(ProjectRole::Viewer)),
+        Action::CreateTask | Action::AssignTask => {
+            project.is_some_and(|r| r.at_least(ProjectRole::Contributor))
+        }
+        Action::UpdateTask => project.is_some_and(|r| r.at_least(ProjectRole::Contributor)),
+        Action::DeleteTask => project.is_some_and(|r| r.at_least(ProjectRole::Admin)),
+        Action::InviteOrgMember | Action::ChangeOrgMemberRole | Action::ViewOrgDashboard => {
+            org.at_least(OrgRole::OrgAdmin)
+        }
+        Action::AssignTeamRole => {
+            org.at_least(OrgRole::OrgAdmin) || team.is_some_and(|r| r.at_least(TeamRole::Admin))
+        }
+        Action::CreateEvent | Action::UpdateEvent | Action::DeleteEvent => {
+            org.at_least(OrgRole::OrgAdmin)
+        }
+    }
+}
+
+pub fn can_assign_team_role(
+    assigner: &EffectiveContext,
+    target_is_self: bool,
+    new_role: TeamRole,
+) -> bool {
+    if target_is_self {
+        return false;
+    }
+    if assigner.org.role.at_least(OrgRole::OrgAdmin) {
+        return true;
+    }
+    let Some(assigner_team) = assigner.team.as_ref() else {
+        return false;
+    };
+    if !assigner_team.role.at_least(TeamRole::Admin) {
+        return false;
+    }
+    if assigner_team.role == TeamRole::Admin {
+        return new_role == TeamRole::Member;
+    }
+    new_role.at_least(TeamRole::Admin)
+        && assigner_team.role.at_least(new_role)
+        && new_role != TeamRole::Owner
+}
 
 pub fn resolve_project_role(
     team_membership: Option<&TeamMembership>,
     project_membership: Option<&ProjectMembership>,
 ) -> Option<ProjectRole> {
-    match (project_membership, team_membership) {
-        (Some(pm), _) if pm.role_override.is_some() => pm.role_override,
-
-        (_, Some(tm)) => Some(ProjectRole::from(tm.role)),
-
-        (Some(_), None) => None,
-
-        (None, None) => None,
-    }
+    effective_project_role(team_membership, project_membership)
 }
 
 pub fn has_project_permission(
@@ -23,7 +138,7 @@ pub fn has_project_permission(
     project_membership: Option<&ProjectMembership>,
     required: ProjectRole,
 ) -> bool {
-    resolve_project_role(team_membership, project_membership)
+    effective_project_role(team_membership, project_membership)
         .map(|role| role.at_least(required))
         .unwrap_or(false)
 }
@@ -72,7 +187,17 @@ mod tests {
         let pm = project_membership(Some(ProjectRole::Admin));
         assert_eq!(
             resolve_project_role(Some(&tm), Some(&pm)),
-            Some(ProjectRole::Admin)
+            Some(ProjectRole::Contributor)
+        )
+    }
+
+    #[test]
+    fn project_override_cannot_exceed_team_baseline() {
+        let tm = team_membership(TeamRole::Member);
+        let pm = project_membership(Some(ProjectRole::Admin));
+        assert_eq!(
+            effective_project_role(Some(&tm), Some(&pm)),
+            Some(ProjectRole::Contributor)
         )
     }
 
@@ -105,7 +230,6 @@ mod tests {
         assert_eq!(resolve_project_role(None, Some(&pm)), None);
     }
 
-    // !FIXME: This test fails
     #[test]
     fn has_permission_respects_minimum_role() {
         let tm = team_membership(TeamRole::Member);

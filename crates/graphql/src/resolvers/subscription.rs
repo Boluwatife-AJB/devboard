@@ -29,6 +29,8 @@ impl CoreSubscription {
     ) -> async_graphql::Result<impl Stream<Item = TaskUpdatedEvent> + 'ctx> {
         let auth = ctx.authenticated_user()?;
 
+        let membership = auth.require_org()?;
+
         let project_id: ProjectId = project_id
             .parse::<uuid::Uuid>()
             .map(ProjectId::from)
@@ -38,7 +40,7 @@ impl CoreSubscription {
 
         let project = services
             .project_service
-            .get_project(project_id, auth.user_id)
+            .get_project(&membership, project_id)
             .await
             .map_err(crate::error::to_graphql_error)?;
 

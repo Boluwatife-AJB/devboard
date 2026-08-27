@@ -19,6 +19,7 @@ import type {
   RiskTaskStatus,
 } from "@/types";
 import { formatDate } from "../task-ui";
+import { format, parseISO } from "date-fns";
 
 function dueLabel(dueDate: string | null, isOverdue: boolean) {
   if (!dueDate) return "No due date";
@@ -80,7 +81,7 @@ export function mapCompletionTrend(
   points: ApiMyDashboard["completionTrend"],
 ): CompletionPoint[] {
   return points.map((p) => ({
-    day: p.day,
+    day: format(parseISO(p.day), "MMM d"),
     completed: p.completed,
   }));
 }

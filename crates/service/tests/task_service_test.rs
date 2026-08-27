@@ -5,8 +5,8 @@ use async_trait::async_trait;
 
 use chrono::{DateTime, Utc};
 use devboard_domain::{
-    OrganizationId, ProjectId, ProjectMembership, ProjectRole, Task, TaskId, TaskPriority,
-    TaskStatus, Team, TeamId, TeamMembership, TeamRole, UserId,
+    OrgMembership, OrgRole, OrganizationId, ProjectId, ProjectMembership, ProjectRole, Task,
+    TaskId, TaskPriority, TaskStatus, Team, TeamId, TeamMembership, TeamRole, UserId,
 };
 use devboard_repository::task::{
     CompletionDayRow, CreateTaskParams, DashboardTaskRow, TeamWorkloadRow,
@@ -451,13 +451,24 @@ impl TeamRepository for FakeTeamRepo {
     }
 }
 
+fn test_org_membership(org_id: OrganizationId, user_id: UserId) -> OrgMembership {
+    OrgMembership {
+        organization_id: org_id,
+        user_id,
+        role: OrgRole::OrgMember,
+        joined_at: Utc::now(),
+    }
+}
+
 fn setup() -> (
     devboard_service::TaskService,
     Arc<FakeProjectRepo>,
     Arc<FakeTeamRepo>,
+    OrgMembership,
     ProjectId,
     TeamId,
     UserId,
+    OrganizationId,
 ) {
     use chrono::Utc;
 
@@ -465,6 +476,7 @@ fn setup() -> (
     let team_id = TeamId::new();
     let org_id = OrganizationId::new();
     let project_id = ProjectId::new();
+    let caller_org = test_org_membership(org_id, user_id);
 
     let project = devboard_domain::Project {
         id: project_id,
@@ -494,15 +506,18 @@ fn setup() -> (
         service,
         project_repo,
         team_repo,
+        caller_org,
         project_id,
         team_id,
         user_id,
+        org_id,
     )
 }
 
 #[tokio::test]
 async fn contributor_can_create_task() {
-    let (service, _project_repo, team_repo, project_id, team_id, user_id) = setup();
+    let (service, _project_repo, team_repo, caller_org, project_id, team_id, user_id, _org_id) =
+        setup();
 
     team_repo.add_membership(TeamMembership {
         team_id,
@@ -512,15 +527,18 @@ async fn contributor_can_create_task() {
     });
 
     let task = service
-        .create_task(CreateTaskCommand {
-            project_id,
-            reporter_id: user_id,
-            title: "Fix the bug".into(),
-            description: None,
-            priority: TaskPriority::High,
-            assignee_id: None,
-            due_date: None,
-        })
+        .create_task(
+            &caller_org,
+            CreateTaskCommand {
+                project_id,
+                reporter_id: user_id,
+                title: "Fix the bug".into(),
+                description: None,
+                priority: TaskPriority::High,
+                assignee_id: None,
+                due_date: None,
+            },
+        )
         .await
         .expect("contributor should be able to create tasks");
 
@@ -532,7 +550,8 @@ async fn contributor_can_create_task() {
 
 #[tokio::test]
 async fn viewer_cannot_create_task() {
-    let (service, project_repo, _team_repo, project_id, _team_id, user_id) = setup();
+    let (service, project_repo, _team_repo, caller_org, project_id, _team_id, user_id, _org_id) =
+        setup();
 
     project_repo.add_membership(ProjectMembership {
         project_id,
@@ -542,15 +561,18 @@ async fn viewer_cannot_create_task() {
     });
 
     let result = service
-        .create_task(CreateTaskCommand {
-            project_id,
-            reporter_id: user_id,
-            title: "Sneaky task".into(),
-            description: None,
-            priority: TaskPriority::Low,
-            assignee_id: None,
-            due_date: None,
-        })
+        .create_task(
+            &caller_org,
+            CreateTaskCommand {
+                project_id,
+                reporter_id: user_id,
+                title: "Sneaky task".into(),
+                description: None,
+                priority: TaskPriority::Low,
+                assignee_id: None,
+                due_date: None,
+            },
+        )
         .await;
 
     assert!(
@@ -564,20 +586,25 @@ async fn viewer_cannot_create_task() {
 
 #[tokio::test]
 async fn unauthenticated_user_cannot_create_task() {
-    let (service, _project_repo, _team_repo, project_id, _team_id, _) = setup();
+    let (service, _project_repo, _team_repo, _caller_org, project_id, _team_id, _user_id, org_id) =
+        setup();
 
     let stranger = UserId::new();
+    let stranger_org = test_org_membership(org_id, stranger);
 
     let result = service
-        .create_task(CreateTaskCommand {
-            project_id,
-            reporter_id: stranger,
-            title: "Ghost task".into(),
-            description: None,
-            priority: TaskPriority::Low,
-            assignee_id: None,
-            due_date: None,
-        })
+        .create_task(
+            &stranger_org,
+            CreateTaskCommand {
+                project_id,
+                reporter_id: stranger,
+                title: "Ghost task".into(),
+                description: None,
+                priority: TaskPriority::Low,
+                assignee_id: None,
+                due_date: None,
+            },
+        )
         .await;
 
     assert!(matches!(
@@ -588,7 +615,8 @@ async fn unauthenticated_user_cannot_create_task() {
 
 #[tokio::test]
 async fn task_numbers_increment_sequentially() {
-    let (service, _project_repo, team_repo, project_id, team_id, user_id) = setup();
+    let (service, _project_repo, team_repo, caller_org, project_id, team_id, user_id, _org_id) =
+        setup();
 
     team_repo.add_membership(TeamMembership {
         team_id,
@@ -598,40 +626,49 @@ async fn task_numbers_increment_sequentially() {
     });
 
     let t1 = service
-        .create_task(CreateTaskCommand {
-            project_id,
-            reporter_id: user_id,
-            title: "First".into(),
-            description: None,
-            priority: TaskPriority::Low,
-            assignee_id: None,
-            due_date: None,
-        })
+        .create_task(
+            &caller_org,
+            CreateTaskCommand {
+                project_id,
+                reporter_id: user_id,
+                title: "First".into(),
+                description: None,
+                priority: TaskPriority::Low,
+                assignee_id: None,
+                due_date: None,
+            },
+        )
         .await
         .unwrap();
 
     let t2 = service
-        .create_task(CreateTaskCommand {
-            project_id,
-            reporter_id: user_id,
-            title: "Second".into(),
-            description: None,
-            priority: TaskPriority::Low,
-            assignee_id: None,
-            due_date: None,
-        })
+        .create_task(
+            &caller_org,
+            CreateTaskCommand {
+                project_id,
+                reporter_id: user_id,
+                title: "Second".into(),
+                description: None,
+                priority: TaskPriority::Low,
+                assignee_id: None,
+                due_date: None,
+            },
+        )
         .await
         .unwrap();
     let t3 = service
-        .create_task(CreateTaskCommand {
-            project_id,
-            reporter_id: user_id,
-            title: "Third".into(),
-            description: None,
-            priority: TaskPriority::Low,
-            assignee_id: None,
-            due_date: None,
-        })
+        .create_task(
+            &caller_org,
+            CreateTaskCommand {
+                project_id,
+                reporter_id: user_id,
+                title: "Third".into(),
+                description: None,
+                priority: TaskPriority::Low,
+                assignee_id: None,
+                due_date: None,
+            },
+        )
         .await
         .unwrap();
 

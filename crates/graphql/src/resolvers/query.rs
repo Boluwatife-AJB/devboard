@@ -44,9 +44,10 @@ impl CoreQuery {
 
         let project_id = parse_id::<ProjectId>(&id)?;
 
+        let membership = auth.require_org()?;
         let project = services
             .project_service
-            .get_project(project_id, auth.user_id)
+            .get_project(&membership, project_id)
             .await
             .map_gql_err()?;
 
@@ -57,11 +58,11 @@ impl CoreQuery {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
-        let memberships = auth.require_org()?;
+        let membership = auth.require_org()?;
 
         let projects = services
             .project_service
-            .list_projects(memberships.organization_id, auth.user_id)
+            .list_projects(&membership)
             .await
             .map_gql_err()?;
 
@@ -158,18 +159,19 @@ impl CoreQuery {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
+        let membership = auth.require_org()?;
         let project_id = parse_id::<ProjectId>(&project_id)?;
         let status_filter = status.map(TaskStatus::from);
 
         let project = services
             .project_service
-            .get_project(project_id, auth.user_id)
+            .get_project(&membership, project_id)
             .await
             .map_gql_err()?;
 
         let tasks = services
             .task_service
-            .list_tasks(project_id, auth.user_id, status_filter)
+            .list_tasks(&membership, project_id, status_filter)
             .await
             .map_gql_err()?;
 
@@ -194,15 +196,16 @@ impl CoreQuery {
         let task_id = parse_id::<TaskId>(&id)?;
         let project_id = parse_id::<ProjectId>(&project_id)?;
 
+        let membership = auth.require_org()?;
         let project = services
             .project_service
-            .get_project(project_id, auth.user_id)
+            .get_project(&membership, project_id)
             .await
             .map_gql_err()?;
 
         let task = services
             .task_service
-            .get_task(task_id, auth.user_id, project_id)
+            .get_task(&membership, task_id, project_id)
             .await
             .map_gql_err()?;
 
@@ -232,15 +235,16 @@ impl CoreQuery {
             .and_then(decode_cursor)
             .and_then(|s| s.parse::<uuid::Uuid>().ok());
 
+        let membership = auth.require_org()?;
         let project = services
             .project_service
-            .get_project(project_id, auth.user_id)
+            .get_project(&membership, project_id)
             .await
             .map_gql_err()?;
 
         let (tasks, has_next) = services
             .task_service
-            .list_tasks_paginated(project_id, auth.user_id, status_filter, after_id, limit)
+            .list_tasks_paginated(&membership, project_id, status_filter, after_id, limit)
             .await
             .map_gql_err()?;
 

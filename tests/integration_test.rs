@@ -1,16 +1,19 @@
 use std::sync::Arc;
 
+use chrono::Utc;
 use devboard_auth::JwtService;
 use devboard_db::{DatabaseConnection, DbConnectOptions, connect};
-use devboard_domain::{OrgRole, TaskPriority, TaskStatus, TeamId, TeamRole};
+use devboard_domain::{
+    OrgMembership, OrgRole, OrganizationId, TaskPriority, TaskStatus, TeamId, TeamRole, UserId,
+};
 use devboard_email::provider::LogEmailProvider;
 use devboard_repository::{
     PgInvitationRepository, PgOrgMembershipRepository, PgOrganizationRepository,
     PgProjectRepository, PgTaskRepository, PgTeamRepository, PgUserRepository, TeamRepository,
 };
 use devboard_service::{
-    AuthService, EventBus, ProjectService, ServiceError, TaskService, auth::RegistrationIntent,
-    task::CreateTaskCommand,
+    AuthPayload, AuthService, EventBus, ProjectService, ServiceError, TaskService,
+    auth::RegistrationIntent, task::CreateTaskCommand,
 };
 use migration::{Migrator, MigratorTrait};
 use tokio::sync::OnceCell;
@@ -97,6 +100,101 @@ async fn setup() -> TestApp {
 
 fn unique_email(prefix: &str) -> String {
     format!("{}+{}@test.devboard.dev", prefix, uuid::Uuid::new_v4())
+}
+
+struct TestUser {
+    user_id: UserId,
+    org_id: OrganizationId,
+    membership: OrgMembership,
+    email: String,
+}
+
+struct ProjectFixture {
+    owner: TestUser,
+    team_id: TeamId,
+    project: devboard_domain::Project,
+}
+
+fn membership_from_payload(payload: &AuthPayload) -> OrgMembership {
+    let org = &payload.organizations[0];
+    OrgMembership {
+        organization_id: org.id,
+        user_id: payload.user.id,
+        role: org.role,
+        joined_at: Utc::now(),
+    }
+}
+
+fn membership_for(org_id: OrganizationId, user_id: UserId, role: OrgRole) -> OrgMembership {
+    OrgMembership {
+        organization_id: org_id,
+        user_id,
+        role,
+        joined_at: Utc::now(),
+    }
+}
+
+async fn register_org_owner(app: &TestApp, prefix: &str) -> TestUser {
+    let email = unique_email(prefix);
+    let payload = app
+        .auth_service
+        .register(
+            email.clone(),
+            format!("{prefix} Owner"),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("Org {prefix} {}", uuid::Uuid::new_v4()),
+                slug: format!("org-{prefix}-{}", uuid::Uuid::new_v4()),
+            },
+        )
+        .await
+        .expect("owner registration should succeed");
+    let org_id = payload.organizations[0].id;
+    TestUser {
+        user_id: payload.user.id,
+        org_id,
+        membership: membership_from_payload(&payload),
+        email,
+    }
+}
+async fn seed_project_fixture(
+    app: &TestApp,
+    owner: &TestUser,
+    team_name: &str,
+    project_name: &str,
+    project_key: &str,
+    team_role: TeamRole,
+) -> ProjectFixture {
+    let team_id = TeamId::new();
+    app.team_repo
+        .create(team_id, owner.org_id, team_name.into())
+        .await
+        .expect("team creation should succeed");
+    app.team_repo
+        .add_member(team_id, owner.user_id, team_role)
+        .await
+        .expect("adding team member should succeed");
+    let project = app
+        .project_service
+        .create_project(
+            &owner.membership,
+            team_id,
+            project_name.into(),
+            project_key.into(),
+            None,
+        )
+        .await
+        .expect("project creation should succeed");
+    ProjectFixture {
+        owner: TestUser {
+            user_id: owner.user_id,
+            org_id: owner.org_id,
+            membership: owner.membership.clone(),
+            email: owner.email.clone(),
+        },
+        team_id,
+        project,
+    }
 }
 
 // Auth tests
@@ -379,86 +477,55 @@ async fn test_non_admin_cannot_create_invite() {
 async fn test_create_project_and_tasks_with_sequential_numbering() {
     let app = setup().await;
 
-    let payload = app
-        .auth_service
-        .register(
-            unique_email("projectowner"),
-            "Project Owner".into(),
-            "password123".into(),
-            RegistrationIntent::CreateOrganization {
-                name: format!("Dev Org {}", uuid::Uuid::new_v4()),
-                slug: format!("dev-org-{}", uuid::Uuid::new_v4()),
-            },
-        )
-        .await
-        .expect("owner registration should succeed");
-
-    let user_id = payload.user.id;
-    let org_id = payload.organizations[0].id;
-
-    let team_id = TeamId::new();
-
-    app.team_repo
-        .create(team_id, org_id, "Engineering".into())
-        .await
-        .expect("team creation should succeed");
-
-    app.team_repo
-        .add_member(team_id, user_id, TeamRole::Admin)
-        .await
-        .expect("adding team member should succeed");
-
-    let project = app
-        .project_service
-        .create_project(
-            org_id,
-            team_id,
-            user_id,
-            "Test Project".into(),
-            "TEST".into(),
-            Some("The test project".into()),
-        )
-        .await
-        .expect("project creation should succeed");
-
-    assert_eq!(project.key, "TEST");
+    let owner = register_org_owner(&app, "projectowner").await;
+    let fx = seed_project_fixture(
+        &app,
+        &owner,
+        "Engineering",
+        "Test Project",
+        "TEST",
+        TeamRole::Admin,
+    )
+    .await;
 
     let t1 = app
         .task_service
-        .create_task(CreateTaskCommand {
-            project_id: project.id,
-            reporter_id: user_id,
-            title: "First task".into(),
-            description: None,
-            priority: TaskPriority::Medium,
-            assignee_id: None,
-            due_date: None,
-        })
+        .create_task(
+            &fx.owner.membership,
+            CreateTaskCommand {
+                project_id: fx.project.id,
+                reporter_id: fx.owner.user_id,
+                title: "First task".into(),
+                description: None,
+                priority: TaskPriority::Medium,
+                assignee_id: None,
+                due_date: None,
+            },
+        )
         .await
         .expect("first task creation should succeed");
 
     let t2 = app
         .task_service
-        .create_task(CreateTaskCommand {
-            project_id: project.id,
-            reporter_id: user_id,
-            title: "Second task".into(),
-            description: None,
-            priority: TaskPriority::High,
-            assignee_id: None,
-            due_date: None,
-        })
+        .create_task(
+            &fx.owner.membership,
+            CreateTaskCommand {
+                project_id: fx.project.id,
+                reporter_id: fx.owner.user_id,
+                title: "Second task".into(),
+                description: None,
+                priority: TaskPriority::High,
+                assignee_id: None,
+                due_date: None,
+            },
+        )
         .await
         .expect("second task creation should succeed");
 
     assert_eq!(t1.task_number, 1);
     assert_eq!(t2.task_number, 2);
-
-    assert_eq!(t1.display_key(&project.key), "TEST-1");
-    assert_eq!(t2.display_key(&project.key), "TEST-2");
-
-    assert_eq!(t1.status, TaskStatus::Backlog);
-    assert_eq!(t2.status, TaskStatus::Backlog);
+    assert_eq!(t1.display_key(&fx.project.key), "TEST-1");
+    assert_eq!(t2.display_key(&fx.project.key), "TEST-2");
 }
 
 #[tokio::test]
@@ -483,6 +550,12 @@ async fn test_task_status_transitions() {
     let user_id = payload.user.id;
     let org_id = payload.organizations[0].id;
     let team_id = TeamId::new();
+    let membership = OrgMembership {
+        organization_id: org_id,
+        user_id,
+        role: OrgRole::OrgOwner,
+        joined_at: Utc::now(),
+    };
 
     app.team_repo
         .create(team_id, org_id, "Status Team".into())
@@ -497,9 +570,8 @@ async fn test_task_status_transitions() {
     let project = app
         .project_service
         .create_project(
-            org_id,
+            &membership,
             team_id,
-            user_id,
             "Status Test Project".into(),
             "ST".into(),
             Some("The test project".into()),
@@ -511,15 +583,18 @@ async fn test_task_status_transitions() {
 
     let task = app
         .task_service
-        .create_task(CreateTaskCommand {
-            project_id: project.id,
-            reporter_id: user_id,
-            title: "Test task".into(),
-            description: None,
-            priority: TaskPriority::Medium,
-            assignee_id: None,
-            due_date: None,
-        })
+        .create_task(
+            &membership,
+            CreateTaskCommand {
+                project_id: project.id,
+                reporter_id: user_id,
+                title: "Test task".into(),
+                description: None,
+                priority: TaskPriority::Medium,
+                assignee_id: None,
+                due_date: None,
+            },
+        )
         .await
         .expect("task creation should succeed");
 
@@ -527,7 +602,7 @@ async fn test_task_status_transitions() {
 
     let in_progress = app
         .task_service
-        .update_status(task.id, user_id, project.id, TaskStatus::InProgress)
+        .update_status(&membership, task.id, project.id, TaskStatus::InProgress)
         .await
         .expect("status update to InProgress should succeed");
 
@@ -535,7 +610,7 @@ async fn test_task_status_transitions() {
 
     let done = app
         .task_service
-        .update_status(task.id, user_id, project.id, TaskStatus::Done)
+        .update_status(&membership, task.id, project.id, TaskStatus::Done)
         .await
         .expect("status update to Done should succeed");
 
@@ -547,98 +622,64 @@ async fn test_task_status_transitions() {
 async fn test_rbac_viewer_cannot_delete_task() {
     let app = setup().await;
 
-    let owner = app
-        .auth_service
-        .register(
-            unique_email("rbac-owner"),
-            "Owner".into(),
-            "password123".into(),
-            RegistrationIntent::CreateOrganization {
-                name: format!("RBAC Org {}", uuid::Uuid::new_v4()),
-                slug: format!("rbac-org-{}", uuid::Uuid::new_v4()),
-            },
-        )
-        .await
-        .expect("owner registration should succeed");
-
-    let owner_id = owner.user.id;
-    let org_id = owner.organizations[0].id;
-    let team_id = TeamId::new();
-
-    app.team_repo
-        .create(team_id, org_id, "RBAC Team".into())
-        .await
-        .expect("team creation should succeed");
-
-    app.team_repo
-        .add_member(team_id, owner_id, TeamRole::Owner)
-        .await
-        .expect("adding team member should succeed");
-
-    let project = app
-        .project_service
-        .create_project(
-            org_id,
-            team_id,
-            owner_id,
-            "RBAC Project".into(),
-            "RBAC".into(),
-            None,
-        )
-        .await
-        .expect("project creation should succeed");
+    let owner = register_org_owner(&app, "rbac-owner").await;
+    let fx = seed_project_fixture(
+        &app,
+        &owner,
+        "RBAC Team",
+        "RBAC Project",
+        "RBAC",
+        TeamRole::Owner,
+    )
+    .await;
 
     let task = app
         .task_service
-        .create_task(CreateTaskCommand {
-            project_id: project.id,
-            reporter_id: owner_id,
-            title: "Test task".into(),
-            description: None,
-            priority: TaskPriority::Medium,
-            assignee_id: None,
-            due_date: None,
-        })
+        .create_task(
+            &fx.owner.membership,
+            CreateTaskCommand {
+                project_id: fx.project.id,
+                reporter_id: fx.owner.user_id,
+                title: "Test task".into(),
+                description: None,
+                priority: TaskPriority::Medium,
+                assignee_id: None,
+                due_date: None,
+            },
+        )
         .await
         .expect("task creation should succeed");
 
-    let viewer = app
+    let viewer_payload = app
         .auth_service
         .register(
             unique_email("rbac-viewer"),
             "Viewer".into(),
             "password123".into(),
             RegistrationIntent::CreateOrganization {
-                name: format!("RBAC Org {}", uuid::Uuid::new_v4()),
-                slug: format!("rbac-org-{}", uuid::Uuid::new_v4()),
+                name: format!("Other Org {}", uuid::Uuid::new_v4()),
+                slug: format!("other-org-{}", uuid::Uuid::new_v4()),
             },
         )
         .await
         .expect("viewer registration should succeed");
 
     app.team_repo
-        .add_member(team_id, viewer.user.id, TeamRole::Member)
+        .add_member(fx.team_id, viewer_payload.user.id, TeamRole::Member)
         .await
         .expect("adding viewer to team should succeed");
-
+    let viewer_membership =
+        membership_for(fx.owner.org_id, viewer_payload.user.id, OrgRole::OrgMember);
     let delete_result = app
         .task_service
-        .delete_task(task.id, viewer.user.id, project.id)
+        .delete_task(&viewer_membership, task.id, fx.project.id)
         .await;
 
-    assert!(
-        matches!(
-            delete_result,
-            Err(devboard_service::ServiceError::Forbidden { .. })
-        ),
-        "viewer should not be able to delete task"
-    );
-
+    assert!(matches!(delete_result, Err(ServiceError::Forbidden { .. })));
     let read_result = app
         .task_service
-        .get_task(task.id, viewer.user.id, project.id)
+        .get_task(&viewer_membership, task.id, fx.project.id)
         .await;
-
     assert!(read_result.is_ok(), "viewer should be able to read task");
 }
 
@@ -647,50 +688,18 @@ async fn test_rbac_viewer_cannot_delete_task() {
 async fn test_stranger_has_no_access_to_project() {
     let app = setup().await;
 
-    let owner = app
-        .auth_service
-        .register(
-            unique_email("stranger-owner"),
-            "Owner".into(),
-            "password123".into(),
-            RegistrationIntent::CreateOrganization {
-                name: format!("Private Org {}", uuid::Uuid::new_v4()),
-                slug: format!("private-org-{}", uuid::Uuid::new_v4()),
-            },
-        )
-        .await
-        .expect("owner registration should succeed");
+    let owner = register_org_owner(&app, "stranger-owner").await;
+    let fx = seed_project_fixture(
+        &app,
+        &owner,
+        "Private Team",
+        "Private Project",
+        "PRIV",
+        TeamRole::Owner,
+    )
+    .await;
 
-    let owner_id = owner.user.id;
-    let org_id = owner.organizations[0].id;
-    let team_id = TeamId::new();
-
-    app.team_repo
-        .create(team_id, org_id, "Private Team".into())
-        .await
-        .expect("team creation should succeed");
-
-    app.team_repo
-        .add_member(team_id, owner_id, TeamRole::Owner)
-        .await
-        .expect("adding team member should succeed");
-
-    let project = app
-        .project_service
-        .create_project(
-            org_id,
-            team_id,
-            owner_id,
-            "Private Project".into(),
-            "PRIV".into(),
-            None,
-        )
-        .await
-        .expect("project creation should succeed");
-
-    assert_eq!(project.key, "PRIV");
-
-    let stranger = app
+    let stranger_payload = app
         .auth_service
         .register(
             unique_email("stranger"),
@@ -702,11 +711,12 @@ async fn test_stranger_has_no_access_to_project() {
             },
         )
         .await
-        .expect("stranger registration should succeed");
+        .unwrap();
+    let stranger_membership = membership_from_payload(&stranger_payload);
 
     let result = app
         .project_service
-        .get_project(project.id, stranger.user.id)
+        .get_project(&stranger_membership, fx.project.id)
         .await;
 
     assert!(

@@ -311,7 +311,7 @@ impl TaskRepository for PgTaskRepository {
 
         let sql = r#"
             SELECT (completed_at AT TIME ZONE 'UTC')::date AS day, COUNT(*)::bigint AS completed
-            FROM tasks
+            FROM task
             WHERE project_id = ANY($1)
                 AND completed_at IS NOT NULL
                 AND completed_at >= $2
@@ -360,7 +360,7 @@ impl TaskRepository for PgTaskRepository {
                 tm.name AS team_name, 
                 COUNT(*) FILTER (WHERE t.status IN ('BACKLOG', 'TODO'))::bigint AS todo,
                 COUNT(*) FILTER (WHERE t.status IN ('IN_PROGRESS', 'IN_REVIEW'))::bigint AS in_progress,
-                COUNT(*) FILTER (WHERE t.status IN ('DONE'))::bigint AS done,
+                COUNT(*) FILTER (WHERE t.status IN ('DONE'))::bigint AS done
             FROM task t
             JOIN project p ON p.id = t.project_id
             JOIN team tm ON tm.id = p.team_id
