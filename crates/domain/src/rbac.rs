@@ -36,6 +36,8 @@ pub enum Action {
     AssignTask,
     // Messaging
     CreateChannel,
+    ManageChannelMembers,
+    EditChannelInfo,
     // Event
     CreateEvent,
     UpdateEvent,
@@ -91,9 +93,11 @@ pub fn can(ctx: &EffectiveContext, action: Action) -> bool {
         }
         Action::UpdateTask => project.is_some_and(|r| r.at_least(ProjectRole::Contributor)),
         Action::DeleteTask => project.is_some_and(|r| r.at_least(ProjectRole::Admin)),
-        Action::InviteOrgMember | Action::ViewOrgDashboard | Action::CreateChannel => {
-            org.at_least(OrgRole::OrgAdmin)
-        }
+        Action::InviteOrgMember
+        | Action::ViewOrgDashboard
+        | Action::CreateChannel
+        | Action::ManageChannelMembers
+        | Action::EditChannelInfo => org.at_least(OrgRole::OrgAdmin),
         Action::ChangeOrgMemberRole => org == OrgRole::OrgOwner,
         Action::AssignTeamRole => {
             org.at_least(OrgRole::OrgAdmin) || team.is_some_and(|r| r.at_least(TeamRole::Admin))
@@ -176,6 +180,8 @@ mod tests {
     use chrono::Utc;
     use uuid::Uuid;
 
+    use crate::OrganizationId;
+
     fn user_id() -> UserId {
         UserId(Uuid::new_v4())
     }
@@ -201,6 +207,23 @@ mod tests {
             user_id: user_id(),
             role_override: override_role,
             added_at: Utc::now(),
+        }
+    }
+
+    fn org_membership(role: OrgRole) -> OrgMembership {
+        OrgMembership {
+            organization_id: OrganizationId::new(),
+            user_id: user_id(),
+            role,
+            joined_at: Utc::now(),
+        }
+    }
+
+    fn org_ctx(role: OrgRole) -> EffectiveContext {
+        EffectiveContext {
+            org: org_membership(role),
+            team: None,
+            project: None,
         }
     }
 
@@ -294,5 +317,19 @@ mod tests {
         assert!(can_assign_org_role(OrgRole::OrgOwner, OrgRole::OrgMember));
         assert!(!can_assign_org_role(OrgRole::OrgAdmin, OrgRole::OrgAdmin));
         assert!(can_assign_org_role(OrgRole::OrgAdmin, OrgRole::OrgMember));
+    }
+
+    #[test]
+    fn org_admin_can_manage_channel_members_and_edit_channel_info() {
+        let ctx = org_ctx(OrgRole::OrgAdmin);
+        assert!(can(&ctx, Action::ManageChannelMembers));
+        assert!(can(&ctx, Action::EditChannelInfo));
+    }
+
+    #[test]
+    fn org_member_cannot_manage_channel_members_or_edit_channel_info() {
+        let ctx = org_ctx(OrgRole::OrgMember);
+        assert!(!can(&ctx, Action::ManageChannelMembers));
+        assert!(!can(&ctx, Action::EditChannelInfo));
     }
 }

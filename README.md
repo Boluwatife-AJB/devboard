@@ -93,6 +93,8 @@ DevBoard uses a three-layer permission model. Higher layers take precedence: **O
 | Revoke pending invitation | ✓ | ✓ | ✗ |
 | Create team | ✓ | ✓ | ✗ |
 | Create channel | ✓ | ✓ | ✗ |
+| Manage channel members | ✓ | ✓ | ✗ |
+| Edit channel info | ✓ | ✓ | ✗ |
 | Send org announcement | ✓ | ✓ | ✗ |
 
 ### Team roles

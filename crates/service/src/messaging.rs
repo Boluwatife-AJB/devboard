@@ -220,7 +220,16 @@ impl MessagingService {
         target_user_id: UserId,
         org_id: OrganizationId,
     ) -> Result<ChannelMember, ServiceError> {
-        self.require_org_admin(caller_id, org_id).await?;
+        let membership = self
+            .org_member_repo
+            .find(caller_id, org_id)
+            .await
+            .map_err(ServiceError::from)?
+            .ok_or(ServiceError::Forbidden {
+                reason: "not a member of this organization".into(),
+            })?;
+
+        authorize(&org_context(&membership), Action::ManageChannelMembers)?;
         self.require_org_member(target_user_id, org_id).await?;
 
         let channel = self
@@ -281,7 +290,16 @@ impl MessagingService {
         target_user_id: UserId,
         org_id: OrganizationId,
     ) -> Result<(), ServiceError> {
-        self.require_org_admin(caller_id, org_id).await?;
+        let membership = self
+            .org_member_repo
+            .find(caller_id, org_id)
+            .await
+            .map_err(ServiceError::from)?
+            .ok_or(ServiceError::Forbidden {
+                reason: "not a member of this organization".into(),
+            })?;
+
+        authorize(&org_context(&membership), Action::ManageChannelMembers)?;
 
         let channel = self
             .channel_repo
