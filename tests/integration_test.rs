@@ -471,6 +471,82 @@ async fn test_non_admin_cannot_create_invite() {
     );
 }
 
+#[tokio::test]
+#[ignore = "requires running Postgres + Redis — run with: cargo test --test integration_test -- --ignored"]
+async fn test_only_org_owner_can_invite_org_admin() {
+    let app = setup().await;
+
+    let owner_payload = app
+        .auth_service
+        .register(
+            unique_email("invite-owner"),
+            "Owner".into(),
+            "password123".into(),
+            RegistrationIntent::CreateOrganization {
+                name: format!("Org {}", uuid::Uuid::new_v4()),
+                slug: format!("org-{}", uuid::Uuid::new_v4()),
+            },
+        )
+        .await
+        .expect("owner registration should succeed");
+
+    let owner_id = owner_payload.user.id;
+    let org_id = owner_payload.organizations[0].id;
+
+    let admin_email = unique_email("invite-admin");
+    let invite = app
+        .auth_service
+        .create_invite(owner_id, org_id, admin_email.clone(), OrgRole::OrgAdmin)
+        .await
+        .expect("owner should be able to invite OrgAdmin");
+
+    let token = invite
+        .invite_url
+        .split("token=")
+        .nth(1)
+        .expect("invite URL should contain token");
+
+    let admin_payload = app
+        .auth_service
+        .register(
+            admin_email,
+            "Org Admin".into(),
+            "password123".into(),
+            RegistrationIntent::AcceptInvite {
+                token: token.to_string(),
+            },
+        )
+        .await
+        .expect("admin should accept invite");
+
+    let admin_id = admin_payload.user.id;
+
+    let forbidden = app
+        .auth_service
+        .create_invite(
+            admin_id,
+            org_id,
+            unique_email("another-admin"),
+            OrgRole::OrgAdmin,
+        )
+        .await;
+
+    assert!(
+        matches!(forbidden, Err(ServiceError::Forbidden { .. })),
+        "OrgAdmin should not be able to invite another OrgAdmin"
+    );
+
+    app.auth_service
+        .create_invite(
+            admin_id,
+            org_id,
+            unique_email("new-member"),
+            OrgRole::OrgMember,
+        )
+        .await
+        .expect("OrgAdmin should be able to invite OrgMember");
+}
+
 // Project & Task flow test
 #[tokio::test]
 #[ignore = "requires running Postgres + Redis — run with: cargo test --test integration_test -- --ignored"]

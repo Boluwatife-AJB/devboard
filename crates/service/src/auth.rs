@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use devboard_auth::{JwtService, hash_password, verify_password};
 use devboard_domain::{
-    Invitation, InvitationId, InvitationStatus, OrgRole, OrgSummary, OrganizationId, PublicUser,
-    UserId,
+    Action, Invitation, InvitationId, InvitationStatus, OrgRole, OrgSummary, OrganizationId,
+    PublicUser, UserId, can_invite_with_role,
 };
 use devboard_email::{EmailProvider, templates::InviteEmailData};
 use devboard_repository::{
@@ -13,7 +13,10 @@ use devboard_repository::{
     org_membership::OrgMembershipRepository,
 };
 
-use crate::error::ServiceError;
+use crate::{
+    authz::{authorize, org_context},
+    error::ServiceError,
+};
 
 #[derive(Debug, Clone)]
 pub struct AuthPayload {
@@ -224,9 +227,15 @@ impl AuthService {
                 reason: "you are not a member of this organization".into(),
             })?;
 
-        if !caller_membership.role.at_least(OrgRole::OrgAdmin) {
+        authorize(&org_context(&caller_membership), Action::InviteOrgMember)?;
+
+        if !can_invite_with_role(caller_membership.role, role) {
             return Err(ServiceError::Forbidden {
-                reason: "requires OrgAdmin role to invite members".into(),
+                reason: if role == OrgRole::OrgAdmin {
+                    "only OrgOwner can invite or assign OrgAdmin role".into()
+                } else {
+                    "cannot invite with this organization role".into()
+                },
             });
         }
 

@@ -34,6 +34,8 @@ pub enum Action {
     UpdateTask,
     DeleteTask,
     AssignTask,
+    // Messaging
+    CreateChannel,
     // Event
     CreateEvent,
     UpdateEvent,
@@ -89,15 +91,36 @@ pub fn can(ctx: &EffectiveContext, action: Action) -> bool {
         }
         Action::UpdateTask => project.is_some_and(|r| r.at_least(ProjectRole::Contributor)),
         Action::DeleteTask => project.is_some_and(|r| r.at_least(ProjectRole::Admin)),
-        Action::InviteOrgMember | Action::ChangeOrgMemberRole | Action::ViewOrgDashboard => {
+        Action::InviteOrgMember | Action::ViewOrgDashboard | Action::CreateChannel => {
             org.at_least(OrgRole::OrgAdmin)
         }
+        Action::ChangeOrgMemberRole => org == OrgRole::OrgOwner,
         Action::AssignTeamRole => {
             org.at_least(OrgRole::OrgAdmin) || team.is_some_and(|r| r.at_least(TeamRole::Admin))
         }
         Action::CreateEvent | Action::UpdateEvent | Action::DeleteEvent => {
             org.at_least(OrgRole::OrgAdmin)
         }
+    }
+}
+
+pub fn can_invite_with_role(caller: OrgRole, invited_role: OrgRole) -> bool {
+    if !caller.at_least(OrgRole::OrgAdmin) {
+        return false;
+    }
+
+    match invited_role {
+        OrgRole::OrgMember => true,
+        OrgRole::OrgAdmin => caller == OrgRole::OrgOwner,
+        OrgRole::OrgOwner => false,
+    }
+}
+
+pub fn can_assign_org_role(assigner: OrgRole, new_role: OrgRole) -> bool {
+    match assigner {
+        OrgRole::OrgOwner => matches!(new_role, OrgRole::OrgAdmin | OrgRole::OrgMember),
+        OrgRole::OrgAdmin => new_role == OrgRole::OrgMember,
+        OrgRole::OrgMember => false,
     }
 }
 
@@ -241,5 +264,35 @@ mod tests {
         ));
         assert!(!has_project_permission(Some(&tm), None, ProjectRole::Admin));
         assert!(!has_project_permission(Some(&tm), None, ProjectRole::Owner));
+    }
+
+    #[test]
+    fn org_admin_can_invite_member_but_not_admin() {
+        assert!(can_invite_with_role(OrgRole::OrgAdmin, OrgRole::OrgMember));
+        assert!(!can_invite_with_role(OrgRole::OrgAdmin, OrgRole::OrgAdmin));
+        assert!(!can_invite_with_role(OrgRole::OrgAdmin, OrgRole::OrgOwner));
+    }
+
+    #[test]
+    fn org_owner_can_invite_admin_and_member() {
+        assert!(can_invite_with_role(OrgRole::OrgOwner, OrgRole::OrgMember));
+        assert!(can_invite_with_role(OrgRole::OrgOwner, OrgRole::OrgAdmin));
+        assert!(!can_invite_with_role(OrgRole::OrgOwner, OrgRole::OrgOwner));
+    }
+
+    #[test]
+    fn org_member_cannot_invite() {
+        assert!(!can_invite_with_role(
+            OrgRole::OrgMember,
+            OrgRole::OrgMember
+        ));
+    }
+
+    #[test]
+    fn only_org_owner_can_assign_org_admin() {
+        assert!(can_assign_org_role(OrgRole::OrgOwner, OrgRole::OrgAdmin));
+        assert!(can_assign_org_role(OrgRole::OrgOwner, OrgRole::OrgMember));
+        assert!(!can_assign_org_role(OrgRole::OrgAdmin, OrgRole::OrgAdmin));
+        assert!(can_assign_org_role(OrgRole::OrgAdmin, OrgRole::OrgMember));
     }
 }

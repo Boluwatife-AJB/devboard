@@ -4,8 +4,8 @@ use std::sync::{Arc, LazyLock};
 use chrono::{Duration, Utc};
 use devboard_cache::{MessageBus, MessagingEvent};
 use devboard_domain::{
-    Channel, ChannelId, ChannelKind, ChannelMember, DmMessage, DmMessageId, DmThread, DmThreadId,
-    Message, MessageId, OrganizationId, PresenceStatus, ReactionSummary, UserId,
+    Action, Channel, ChannelId, ChannelKind, ChannelMember, DmMessage, DmMessageId, DmThread,
+    DmThreadId, Message, MessageId, OrganizationId, PresenceStatus, ReactionSummary, UserId,
     messaging::is_allowed_reaction,
 };
 use devboard_presence::PresenceService;
@@ -20,7 +20,10 @@ use regex::Regex;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::{NotificationService, ServiceError};
+use crate::{
+    NotificationService, ServiceError,
+    authz::{authorize, org_context},
+};
 
 static HTML_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"<[^>]+>?").expect("valid html regex"));
@@ -119,7 +122,16 @@ impl MessagingService {
         description: Option<String>,
         kind: ChannelKind,
     ) -> Result<Channel, ServiceError> {
-        self.require_org_admin(caller_id, org_id).await?;
+        let membership = self
+            .org_member_repo
+            .find(caller_id, org_id)
+            .await
+            .map_err(ServiceError::from)?
+            .ok_or(ServiceError::Forbidden {
+                reason: "not a member of this organization".into(),
+            })?;
+
+        authorize(&org_context(&membership), Action::CreateChannel)?;
 
         validate_channel_slug(&slug)?;
         validate_channel_name(&name)?;

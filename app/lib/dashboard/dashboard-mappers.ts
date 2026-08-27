@@ -5,6 +5,7 @@ import {
   UserIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react/dist/ssr";
+import { format, parseISO } from "date-fns";
 import type {
   ApiDashboardTaskItem,
   ApiMyDashboard,
@@ -19,7 +20,6 @@ import type {
   RiskTaskStatus,
 } from "@/types";
 import { formatDate } from "../task-ui";
-import { format, parseISO } from "date-fns";
 
 function dueLabel(dueDate: string | null, isOverdue: boolean) {
   if (!dueDate) return "No due date";
