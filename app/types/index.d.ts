@@ -92,6 +92,83 @@ type NotificationKind =
   | "ANNOUNCEMENT"
   | "INVITE_RECEIVED";
 
+type DashboardCta =
+  | "CREATE_PROJECT"
+  | "INVITE_MEMBER"
+  | "CREATE_TASK"
+  | "EXPLORE";
+
+interface ApiDashboardEmptyState {
+  hasProjects: boolean;
+  hasTasks: boolean;
+  hasAssignedTasks: boolean;
+  primaryCta: DashboardCta;
+}
+
+interface ApiDashboardTaskItem {
+  id: string;
+  projectId: string;
+  key: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate: string | null;
+  isOverdue: boolean;
+}
+
+interface ApiCompletionPoint {
+  day: string;
+  completed: number;
+}
+
+interface ApiMyDashboard {
+  greetingName: string;
+  organizationName: string;
+  emptyState: ApiDashboardEmptyState;
+  stats: {
+    tasksAssignedToMe: number;
+    tasksDueThisWeek: number;
+    overdueTasks: number;
+    tasksInProgress: number;
+  };
+  myTasks: ApiDashboardTaskItem[];
+  myProjects: {
+    id: string;
+    name: string;
+    key: string;
+    openTasks: number;
+    myOpenTasks: number;
+  }[];
+  upcomingEvents: { id: string; title: string; startsAt: string }[];
+  completionTrend: ApiCompletionPoint[];
+}
+
+interface ApiOrgDashboard {
+  greetingName: string;
+  organizationName: string;
+  emptyState: ApiDashboardEmptyState;
+  stats: {
+    overdueTasks: number;
+    unassignedTasks: number;
+    unassignedUrgentTasks: number;
+    pendingInvites: number;
+    openTasks: number;
+    movedThisWeek: number;
+  };
+  riskTasks: ApiDashboardTaskItem[];
+  attention: {
+    id: string;
+    kind: string;
+    title: string;
+    description: string;
+    actionLabel: string;
+    href: string | null;
+    count: number;
+  }[];
+  workloadByTeam: WorkloadPoint[];
+  completionTrend: ApiCompletionPoint[];
+}
+
 interface ApiNotification {
   id: string;
   kind: NotificationKind;
