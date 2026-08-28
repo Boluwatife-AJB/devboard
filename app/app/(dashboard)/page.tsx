@@ -1,15 +1,27 @@
-export default function Dashboard() {
-  return (
-    <div>
-      {/* Title Bar */}
-      <div>
-        <h2 className="text-4xl text-white font-semibold font-heading">
-          DevBoard Dashboard
-        </h2>
-        <p className="text-sm text-gray-500">
-          Welcome to the DevBoard Dashboard
-        </p>
-      </div>
-    </div>
-  );
+"use client";
+
+import { AdminDashboard } from "@/components/dashboard/admin/admin-dashboard";
+import { MemberDashboard } from "@/components/dashboard/member/member-dashboard";
+import { DashboardSkeleton } from "@/components/dashboard/shared/dashboard-states";
+import { useMe } from "@/hooks/use-me";
+import { useSelectedOrganization } from "@/hooks/use-selected-organization";
+
+export default function DashboardPage() {
+  const { data: me, isPending: mePending } = useMe();
+  const { organization, ready, isAdmin } = useSelectedOrganization();
+
+  if (!ready || mePending) {
+    return <DashboardSkeleton />;
+  }
+
+  const shared = {
+    displayName: me?.displayName,
+    organizationName: organization?.name,
+  };
+
+  if (isAdmin) {
+    return <AdminDashboard {...shared} />;
+  }
+
+  return <MemberDashboard {...shared} />;
 }

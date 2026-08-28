@@ -35,8 +35,8 @@ use devboard_repository::{
     messaging::pg::{PgChannelRepository, PgDmRepository, PgMessageRepository},
 };
 use devboard_service::{
-    AttachmentService, AuthService, CommentService, MessagingService, MessagingServiceDeps,
-    NotificationService, ProjectService, TaskService, TeamService, retention,
+    AttachmentService, AuthService, CommentService, DashboardService, MessagingService,
+    MessagingServiceDeps, NotificationService, ProjectService, TaskService, TeamService, retention,
     spawn_due_soon_checker, spawn_email_digest_job, unfurl,
 };
 
@@ -181,6 +181,15 @@ async fn main() -> anyhow::Result<()> {
 
     retention::spawn_retention_job(channel_repo.clone());
 
+    let dashboard_service = Arc::new(DashboardService::new(
+        user_repo.clone(),
+        org_repo.clone(),
+        project_repo.clone(),
+        task_repo.clone(),
+        invitation_repo.clone(),
+        project_service.clone(),
+    ));
+
     let services = Services {
         auth_service: auth_service.clone(),
         task_service,
@@ -190,6 +199,7 @@ async fn main() -> anyhow::Result<()> {
         team_service,
         messaging_service: messaging_service.clone(),
         notification_service: notification_service.clone(),
+        dashboard_service,
     };
 
     let schema = build_schema(

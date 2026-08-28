@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use devboard_domain::{
-    OrganizationId, Project, ProjectId, ProjectMembership, ProjectRole, TeamId, UserId,
+    Action, OrgMembership, Project, ProjectId, ProjectMembership, ProjectRole, TeamId, UserId, can,
 };
 use devboard_repository::{ProjectRepository, TeamRepository};
 
-use crate::error::ServiceError;
+use crate::{
+    authorize, error::ServiceError, load_project_context, load_team_context, require_team_in_org,
+};
 
 pub struct ProjectService {
     project_repo: Arc<dyn ProjectRepository>,
@@ -23,15 +25,14 @@ impl ProjectService {
         }
     }
 
-    #[tracing::instrument(
-      skip(self),
-      fields(org_id = %org_id, caller_id = %caller_id)
-    )]
+    #[tracing::instrument(skip(self, caller_org))]
     pub async fn list_projects(
         &self,
-        org_id: OrganizationId,
-        caller_id: UserId,
+        caller_org: &OrgMembership,
     ) -> Result<Vec<Project>, ServiceError> {
+        let org_id = caller_org.organization_id;
+        let caller_id = caller_org.user_id;
+
         let projects = self
             .project_repo
             .find_by_organization(org_id)
@@ -40,17 +41,16 @@ impl ProjectService {
 
         let mut visible = Vec::new();
         for project in projects {
-            let (team_m, project_m) = tokio::try_join!(
-                self.team_repo.get_membership(project.team_id, caller_id),
-                self.project_repo.get_membership(project.id, caller_id)
+            let (ctx, _) = load_project_context(
+                caller_org,
+                &self.team_repo,
+                &self.project_repo,
+                project.id,
+                caller_id,
             )
-            .map_err(ServiceError::from)?;
+            .await?;
 
-            if devboard_domain::has_project_permission(
-                team_m.as_ref(),
-                project_m.as_ref(),
-                ProjectRole::Viewer,
-            ) {
+            if can(&ctx, Action::ViewProject) {
                 visible.push(project);
             }
         }
@@ -59,32 +59,24 @@ impl ProjectService {
     }
 
     #[tracing::instrument(
-      skip(self),
-      fields(project_id = %project_id, caller_id = %caller_id)
+      skip(self, caller_org),
+      fields(project_id = %project_id)
     )]
     pub async fn get_project(
         &self,
+        caller_org: &OrgMembership,
         project_id: ProjectId,
-        caller_id: UserId,
     ) -> Result<Project, ServiceError> {
-        let project = self
-            .project_repo
-            .find_by_id(project_id)
-            .await?
-            .ok_or_else(|| ServiceError::ProjectNotFound {
-                id: project_id.to_string(),
-            })?;
+        let (ctx, project) = load_project_context(
+            caller_org,
+            &self.team_repo,
+            &self.project_repo,
+            project_id,
+            caller_org.user_id,
+        )
+        .await?;
 
-        let (team_m, project_m) = tokio::try_join!(
-            self.team_repo.get_membership(project.team_id, caller_id),
-            self.project_repo.get_membership(project_id, caller_id)
-        )?;
-
-        if !devboard_domain::has_project_permission(
-            team_m.as_ref(),
-            project_m.as_ref(),
-            ProjectRole::Viewer,
-        ) {
+        if !can(&ctx, Action::ViewProject) {
             return Err(ServiceError::ProjectNotFound {
                 id: project_id.to_string(),
             });
@@ -94,14 +86,13 @@ impl ProjectService {
     }
 
     #[tracing::instrument(
-      skip(self),
-      fields(org_id = %organization_id, team_id = %team_id, caller_id = %caller_id)
+      skip(self, caller_org),
+      fields(team_id = %team_id)
     )]
     pub async fn create_project(
         &self,
-        organization_id: OrganizationId,
+        caller_org: &OrgMembership,
         team_id: TeamId,
-        caller_id: UserId,
         name: String,
         key: String,
         description: Option<String>,
@@ -109,23 +100,11 @@ impl ProjectService {
         validate_project_name(&name)?;
         validate_project_key(&key)?;
 
-        let team_membership = self
-            .team_repo
-            .get_membership(team_id, caller_id)
-            .await
-            .map_err(ServiceError::from)?
-            .ok_or(ServiceError::Forbidden {
-                reason: "must be a team member to create projects".into(),
-            })?;
+        require_team_in_org(&self.team_repo, team_id, caller_org.organization_id).await?;
 
-        if !team_membership
-            .role
-            .at_least(devboard_domain::TeamRole::Admin)
-        {
-            return Err(ServiceError::Forbidden {
-                reason: "requires team Admin role to create projects".into(),
-            });
-        }
+        let ctx =
+            load_team_context(caller_org, &self.team_repo, team_id, caller_org.user_id).await?;
+        authorize(&ctx, Action::CreateProject)?;
 
         let project_id = ProjectId::new();
 
@@ -133,7 +112,7 @@ impl ProjectService {
             .project_repo
             .create(
                 project_id,
-                organization_id,
+                caller_org.organization_id,
                 team_id,
                 name,
                 key.to_uppercase(),
@@ -143,55 +122,36 @@ impl ProjectService {
             .map_err(|err| match err {
                 devboard_repository::RepositoryError::UniqueViolation { .. } => {
                     ServiceError::Conflict {
-                        message: "a project with this key already exists \
-                in the organization"
+                        message: "a project with this key already exists in the organization"
                             .into(),
                     }
                 }
                 other => ServiceError::from(other),
             })?;
 
-        self.project_repo
-            .add_member(project_id, caller_id, Some(ProjectRole::Owner))
-            .await
-            .map_err(ServiceError::from)?;
-
         Ok(project)
     }
 
     #[tracing::instrument(
-      skip(self),
-      fields(project_id = %project_id, caller_id = %caller_id)
+      skip(self, caller_org),
+      fields(project_id = %project_id)
     )]
     pub async fn update_project(
         &self,
+        caller_org: &OrgMembership,
         project_id: ProjectId,
-        caller_id: UserId,
         name: Option<String>,
         description: Option<String>,
     ) -> Result<Project, ServiceError> {
-        let project = self
-            .project_repo
-            .find_by_id(project_id)
-            .await?
-            .ok_or_else(|| ServiceError::ProjectNotFound {
-                id: project_id.to_string(),
-            })?;
-
-        let (team_m, project_m) = tokio::try_join!(
-            self.team_repo.get_membership(project.team_id, caller_id),
-            self.project_repo.get_membership(project_id, caller_id),
-        )?;
-
-        if !devboard_domain::has_project_permission(
-            team_m.as_ref(),
-            project_m.as_ref(),
-            ProjectRole::Admin,
-        ) {
-            return Err(ServiceError::Forbidden {
-                reason: "requires Admin access to edit project settings".into(),
-            });
-        }
+        let (ctx, _) = load_project_context(
+            caller_org,
+            &self.team_repo,
+            &self.project_repo,
+            project_id,
+            caller_org.user_id,
+        )
+        .await?;
+        authorize(&ctx, Action::UpdateProject)?;
 
         if let Some(ref n) = name
             && n.trim().is_empty()
@@ -214,38 +174,25 @@ impl ProjectService {
     }
 
     #[tracing::instrument(
-      skip(self),
-      fields(project_id = %project_id, user_id = %user_id, caller_id = %caller_id)
+      skip(self, caller_org),
+      fields(project_id = %project_id, user_id = %user_id)
     )]
     pub async fn add_member(
         &self,
+        caller_org: &OrgMembership,
         project_id: ProjectId,
-        caller_id: UserId,
         user_id: UserId,
         role_override: Option<ProjectRole>,
     ) -> Result<ProjectMembership, ServiceError> {
-        let project = self
-            .project_repo
-            .find_by_id(project_id)
-            .await?
-            .ok_or_else(|| ServiceError::ProjectNotFound {
-                id: project_id.to_string(),
-            })?;
-
-        let (caller_team_m, caller_project_m) = tokio::try_join!(
-            self.team_repo.get_membership(project.team_id, caller_id),
-            self.project_repo.get_membership(project_id, caller_id)
-        )?;
-
-        if !devboard_domain::has_project_permission(
-            caller_team_m.as_ref(),
-            caller_project_m.as_ref(),
-            ProjectRole::Admin,
-        ) {
-            return Err(ServiceError::Forbidden {
-                reason: "requires Admin access to add project members".into(),
-            });
-        }
+        let (ctx, _) = load_project_context(
+            caller_org,
+            &self.team_repo,
+            &self.project_repo,
+            project_id,
+            caller_org.user_id,
+        )
+        .await?;
+        authorize(&ctx, Action::ManageProjectMembers)?;
 
         self.project_repo
             .add_member(project_id, user_id, role_override)
@@ -265,34 +212,21 @@ impl ProjectService {
             })
     }
 
-    #[tracing::instrument(skip(self), fields(project_id = %project_id))]
+    #[tracing::instrument(skip(self, caller_org), fields(project_id = %project_id))]
     pub async fn delete_project(
         &self,
+        caller_org: &OrgMembership,
         project_id: ProjectId,
-        caller_id: UserId,
     ) -> Result<(), ServiceError> {
-        let project = self
-            .project_repo
-            .find_by_id(project_id)
-            .await?
-            .ok_or_else(|| ServiceError::ProjectNotFound {
-                id: project_id.to_string(),
-            })?;
-
-        let (team_m, project_m) = tokio::try_join!(
-            self.team_repo.get_membership(project.team_id, caller_id),
-            self.project_repo.get_membership(project_id, caller_id),
-        )?;
-
-        if !devboard_domain::has_project_permission(
-            team_m.as_ref(),
-            project_m.as_ref(),
-            ProjectRole::Owner,
-        ) {
-            return Err(ServiceError::Forbidden {
-                reason: "only a project Owner can delete it".into(),
-            });
-        }
+        let (ctx, _) = load_project_context(
+            caller_org,
+            &self.team_repo,
+            &self.project_repo,
+            project_id,
+            caller_org.user_id,
+        )
+        .await?;
+        authorize(&ctx, Action::DeleteProject)?;
 
         self.project_repo
             .delete(project_id)

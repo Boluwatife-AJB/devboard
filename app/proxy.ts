@@ -1,4 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { ACCESS_TOKEN_COOKIE } from "@/lib/auth/cookies";
+import { getRequestOrgRole } from "@/lib/auth/request-org-role";
+import { canAccessRoute } from "@/lib/rbac/route-access";
 
 const PUBLIC_ROUTES = [
   "/sign-in",
@@ -15,6 +18,37 @@ function isPublicRoute(pathname: string) {
   );
 }
 
+function withCacheHeaders(
+  request: NextRequest,
+  response: NextResponse,
+  isProtected = false,
+) {
+  const rscHeader = request.headers.get("rsc");
+  const nextRouterStateTree = request.headers.get("next-router-state-tree");
+
+  response.headers.set(
+    "Vary",
+    "RSC, Next-Router-State-Tree, Next-Router-Prefetch, Accept",
+  );
+
+  if (rscHeader || nextRouterStateTree || isProtected) {
+    response.headers.set(
+      "Cache-Control",
+      "private, no-cache, no-store, must-revalidate",
+    );
+    response.headers.set("CDN-Cache-Control", "no-store");
+    response.headers.set("Cloudflare-CDN-Cache-Control", "no-store");
+  } else {
+    response.headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+    response.headers.set(
+      "CDN-Cache-Control",
+      "max-age=60, stale-while-revalidate=86400",
+    );
+  }
+
+  return response;
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -28,16 +62,24 @@ export function proxy(request: NextRequest) {
   }
 
   if (isPublicRoute(pathname)) {
-    return NextResponse.next();
+    return withCacheHeaders(request, NextResponse.next());
   }
 
-  const token = request.cookies.get("devboard_access_token");
-
+  const token = request.cookies.get(ACCESS_TOKEN_COOKIE);
   if (!token) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
 
-  return NextResponse.next();
+  const orgRole = getRequestOrgRole(request);
+  if (!canAccessRoute(orgRole, pathname)) {
+    return withCacheHeaders(
+      request,
+      NextResponse.redirect(new URL("/", request.url)),
+      true,
+    );
+  }
+
+  return withCacheHeaders(request, NextResponse.next(), true);
 }
 
 export const config = {

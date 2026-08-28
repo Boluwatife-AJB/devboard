@@ -22,6 +22,7 @@ mod m20260729_133700_one_reaction_per_user;
 mod m20260729_164948_create_notifications;
 mod m20260729_170514_create_notification_preferences;
 mod m20260729_171138_create_push_subscriptions;
+mod m20260825_162508_add_completed_at_to_tasks;
 
 pub struct Migrator;
 
@@ -51,6 +52,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260729_164948_create_notifications::Migration),
             Box::new(m20260729_170514_create_notification_preferences::Migration),
             Box::new(m20260729_171138_create_push_subscriptions::Migration),
+            Box::new(m20260825_162508_add_completed_at_to_tasks::Migration),
         ]
     }
 }

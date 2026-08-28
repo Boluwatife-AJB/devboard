@@ -6,7 +6,7 @@ import {
   TrashIcon,
   UserPlusIcon,
 } from "@phosphor-icons/react/dist/ssr";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { canManageInvitations } from "@/hooks/use-invitations";
 import { useMe } from "@/hooks/use-me";
 import {
   useAddChannelMember,
@@ -31,8 +30,10 @@ import {
 } from "@/hooks/use-messaging";
 import { useOrgMembers } from "@/hooks/use-teams";
 import { getApiErrorMessage } from "@/lib/api";
+import { Action } from "@/lib/rbac/actions";
 import { avatarColorOf, initialsOf } from "@/lib/task-ui";
 import type { ApiChannel } from "@/types";
+import { Can } from "../providers/can";
 
 export function DetailsPane({
   channel,
@@ -42,13 +43,8 @@ export function DetailsPane({
   onLeftChannel?: () => void;
 }) {
   const { data: me } = useMe();
-  const [canManage, setCanManage] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    setCanManage(canManageInvitations());
-  }, []);
 
   const {
     data: members = [],
@@ -141,7 +137,7 @@ export function DetailsPane({
               Members
             </p>
 
-            {canManage && (
+            <Can action={Action.ManageChannelMembers}>
               <div className="flex items-end gap-2">
                 <div className="min-w-0 flex-1">
                   <Select
@@ -198,7 +194,7 @@ export function DetailsPane({
                   Add
                 </Button>
               </div>
-            )}
+            </Can>
 
             {membersPending ? (
               <div className="space-y-2">
@@ -243,23 +239,25 @@ export function DetailsPane({
                           </p>
                         )}
                       </div>
-                      {canManage && !isMe && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-[#8A8A8A] hover:bg-[#FF6B6B1A] hover:text-[#FF6B6B]"
-                          disabled={removingUserId === member.userId}
-                          onClick={() => handleRemove(member.userId, name)}
-                          aria-label={`Remove ${name}`}
-                        >
-                          {removingUserId === member.userId ? (
-                            <Spinner className="size-4" />
-                          ) : (
-                            <TrashIcon className="size-4" />
-                          )}
-                        </Button>
-                      )}
+                      <Can action={Action.ManageChannelMembers}>
+                        {!isMe && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-[#8A8A8A] hover:bg-[#FF6B6B1A] hover:text-[#FF6B6B]"
+                            disabled={removingUserId === member.userId}
+                            onClick={() => handleRemove(member.userId, name)}
+                            aria-label={`Remove ${name}`}
+                          >
+                            {removingUserId === member.userId ? (
+                              <Spinner className="size-4" />
+                            ) : (
+                              <TrashIcon className="size-4" />
+                            )}
+                          </Button>
+                        )}
+                      </Can>
                     </li>
                   );
                 })}

@@ -43,15 +43,14 @@ impl CoreMutation {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
-        let team_id = parse_id::<devboard_domain::TeamId>(&input.team_id)?;
-        let org_id = parse_id::<OrganizationId>(&input.organization_id)?;
+        let membership = auth.require_org()?;
+        let team_id = parse_id::<TeamId>(&input.team_id)?;
 
         let project = services
             .project_service
             .create_project(
-                org_id,
+                &membership,
                 team_id,
-                auth.user_id,
                 input.name,
                 input.key,
                 input.description,
@@ -70,11 +69,12 @@ impl CoreMutation {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
+        let membership = auth.require_org()?;
         let project_id = parse_id::<ProjectId>(&input.project_id)?;
 
         let project = services
             .project_service
-            .update_project(project_id, auth.user_id, input.name, input.description)
+            .update_project(&membership, project_id, input.name, input.description)
             .await
             .map_gql_err()?;
 
@@ -89,11 +89,12 @@ impl CoreMutation {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
+        let membership = auth.require_org()?;
         let project_id = parse_id::<ProjectId>(&project_id)?;
 
         services
             .project_service
-            .delete_project(project_id, auth.user_id)
+            .delete_project(&membership, project_id)
             .await
             .map_gql_err()?;
 
@@ -108,13 +109,14 @@ impl CoreMutation {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
+        let membership = auth.require_org()?;
         let project_id = parse_id::<ProjectId>(&input.project_id)?;
         let user_id = parse_id::<UserId>(&input.user_id)?;
         let role = input.role_override.map(devboard_domain::ProjectRole::from);
 
         services
             .project_service
-            .add_member(project_id, auth.user_id, user_id, role)
+            .add_member(&membership, project_id, user_id, role)
             .await
             .map_gql_err()?;
 
@@ -134,7 +136,7 @@ impl CoreMutation {
 
         let team = services
             .team_service
-            .create_team(membership.organization_id, auth.user_id, input.name)
+            .create_team(&membership, input.name)
             .await
             .map_gql_err()?;
 
@@ -152,9 +154,10 @@ impl CoreMutation {
 
         let team_id = parse_id::<TeamId>(&team_id)?;
 
+        let membership = auth.require_org()?;
         services
             .team_service
-            .update_team(team_id, auth.user_id, name)
+            .update_team(&membership, team_id, name)
             .await
             .map_gql_err()?;
 
@@ -169,6 +172,7 @@ impl CoreMutation {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
+        let membership = auth.require_org()?;
         let team_id = parse_id::<TeamId>(&input.team_id)?;
         let user_id = parse_id::<UserId>(&input.user_id)?;
         let role = input
@@ -178,7 +182,7 @@ impl CoreMutation {
 
         services
             .team_service
-            .add_member(team_id, auth.user_id, user_id, role)
+            .add_member(&membership, team_id, user_id, role)
             .await
             .map_gql_err()?;
 
@@ -194,12 +198,13 @@ impl CoreMutation {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
+        let membership = auth.require_org()?;
         let team_id = parse_id::<TeamId>(&team_id)?;
         let user_id = parse_id::<UserId>(&user_id)?;
 
         services
             .team_service
-            .remove_member(team_id, auth.user_id, user_id)
+            .remove_member(&membership, team_id, user_id)
             .await
             .map_gql_err()?;
 
@@ -237,6 +242,7 @@ impl CoreMutation {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
+        let membership = auth.require_org()?;
         let project_id = parse_id::<ProjectId>(&input.project_id)?;
         let assignee_id = input
             .assignee_id
@@ -250,21 +256,24 @@ impl CoreMutation {
 
         let project = services
             .project_service
-            .get_project(project_id, auth.user_id)
+            .get_project(&membership, project_id)
             .await
             .map_gql_err()?;
 
         let task = services
             .task_service
-            .create_task(CreateTaskCommand {
-                project_id,
-                reporter_id: auth.user_id,
-                title: input.title,
-                description: input.description,
-                priority,
-                assignee_id,
-                due_date: input.due_date,
-            })
+            .create_task(
+                &membership,
+                CreateTaskCommand {
+                    project_id,
+                    reporter_id: auth.user_id,
+                    title: input.title,
+                    description: input.description,
+                    priority,
+                    assignee_id,
+                    due_date: input.due_date,
+                },
+            )
             .await
             .map_gql_err()?;
 
@@ -282,19 +291,20 @@ impl CoreMutation {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
+        let membership = auth.require_org()?;
         let task_id = parse_id::<TaskId>(&input.task_id)?;
         let project_id = parse_id::<ProjectId>(&input.project_id)?;
         let new_status = devboard_domain::TaskStatus::from(input.status);
 
         let project = services
             .project_service
-            .get_project(project_id, auth.user_id)
+            .get_project(&membership, project_id)
             .await
             .map_gql_err()?;
 
         let task = services
             .task_service
-            .update_status(task_id, auth.user_id, project_id, new_status)
+            .update_status(&membership, task_id, project_id, new_status)
             .await
             .map_gql_err()?;
 
@@ -315,15 +325,16 @@ impl CoreMutation {
         let task_id = parse_id::<TaskId>(&input.task_id)?;
         let project_id = parse_id::<ProjectId>(&input.project_id)?;
 
+        let membership = auth.require_org()?;
         let project = services
             .project_service
-            .get_project(project_id, auth.user_id)
+            .get_project(&membership, project_id)
             .await
             .map_gql_err()?;
 
         let task = services
             .task_service
-            .update_due_date(task_id, auth.user_id, project_id, input.due_date)
+            .update_due_date(&membership, task_id, project_id, input.due_date)
             .await
             .map_gql_err()?;
 
@@ -341,6 +352,7 @@ impl CoreMutation {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
+        let membership = auth.require_org()?;
         let task_id = parse_id::<TaskId>(&input.task_id)?;
         let project_id = parse_id::<ProjectId>(&input.project_id)?;
         let assignee_id = input
@@ -350,13 +362,13 @@ impl CoreMutation {
 
         let project = services
             .project_service
-            .get_project(project_id, auth.user_id)
+            .get_project(&membership, project_id)
             .await
             .map_gql_err()?;
 
         let task = services
             .task_service
-            .assign_task(task_id, auth.user_id, project_id, assignee_id)
+            .assign_task(&membership, task_id, project_id, assignee_id)
             .await
             .map_gql_err()?;
 
@@ -375,12 +387,13 @@ impl CoreMutation {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
 
+        let membership = auth.require_org()?;
         let task_id = parse_id::<TaskId>(&task_id)?;
         let project_id = parse_id::<ProjectId>(&project_id)?;
 
         services
             .task_service
-            .delete_task(task_id, auth.user_id, project_id)
+            .delete_task(&membership, task_id, project_id)
             .await
             .map_gql_err()?;
 

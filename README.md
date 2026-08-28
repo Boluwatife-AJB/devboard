@@ -69,6 +69,79 @@ The frontend in `app/` talks to the API over GraphQL and shares no code with Rus
 - Database migrations via `sea-orm-migration`
 - Graceful shutdown with in-flight request draining
 
+## Role-Based Access Control (RBAC)
+
+DevBoard uses a three-layer permission model. Higher layers take precedence: **Organization → Team → Project**. Policy is enforced in `crates/domain/src/rbac.rs` and applied in the service layer via `authz`.
+
+### Organization roles
+
+| Role | Rank | Description |
+|------|------|-------------|
+| **OrgOwner** | 2 | Full org control. Billing, ownership transfer, can assign OrgAdmin. |
+| **OrgAdmin** | 1 | Org administration. Invite members, create teams/channels, org dashboard. |
+| **OrgMember** | 0 | Default seat. Participates in teams and projects they belong to. |
+
+### Organization permissions
+
+| Action | OrgOwner | OrgAdmin | OrgMember |
+|--------|:--------:|:--------:|:---------:|
+| View org dashboard | ✓ | ✓ | ✗ |
+| Invite user as **OrgMember** | ✓ | ✓ | ✗ |
+| Invite user as **OrgAdmin** | ✓ | ✗ | ✗ |
+| Change member role → OrgAdmin | ✓ | ✗ | ✗ |
+| Change member role → OrgMember | ✓ | ✓ | ✗ |
+| Revoke pending invitation | ✓ | ✓ | ✗ |
+| Create team | ✓ | ✓ | ✗ |
+| Create channel | ✓ | ✓ | ✗ |
+| Manage channel members | ✓ | ✓ | ✗ |
+| Edit channel info | ✓ | ✓ | ✗ |
+| Send org announcement | ✓ | ✓ | ✗ |
+
+### Team roles
+
+| Role | Rank | Maps to project role |
+|------|------|----------------------|
+| **Team Owner** | 2 | Project Owner |
+| **Team Admin** | 1 | Project Admin |
+| **Team Member** | 0 | Project Contributor |
+
+### Team permissions
+
+| Action | OrgAdmin+ | Team Owner | Team Admin | Team Member |
+|--------|:---------:|:----------:|:----------:|:-----------:|
+| Create team | ✓ | — | — | — |
+| Update / delete team | ✓ | ✓ | ✗ | ✗ |
+| Add / remove team members | ✓ | ✓ | ✓ | ✗ |
+| Create project | ✓ | ✓ | ✓ | ✗ |
+
+### Project roles
+
+| Role | Rank | Description |
+|------|------|-------------|
+| **Project Owner** | 3 | Delete project, full admin |
+| **Project Admin** | 2 | Settings, members, delete tasks |
+| **Contributor** | 1 | Create/update/assign tasks |
+| **Viewer** | 0 | Read-only |
+
+### Project & task permissions
+
+| Action | Proj Owner | Proj Admin | Contributor | Viewer |
+|--------|:----------:|:----------:|:-----------:|:------:|
+| View project / tasks | ✓ | ✓ | ✓ | ✓ |
+| Create / assign task | ✓ | ✓ | ✓ | ✗ |
+| Update task status / due date | ✓ | ✓ | ✓ | ✗ |
+| Delete task | ✓ | ✓ | ✗ | ✗ |
+| Manage project settings / members | ✓ | ✓ | ✗ | ✗ |
+| Delete project | ✓ | ✗ | ✗ | ✗ |
+
+OrgAdmin+ bypasses team/project structural checks where noted; day-to-day task access still requires project membership via team or explicit project override.
+
+### Self-promotion rules
+
+- Users cannot change their own role at any layer.
+- Cannot assign a role higher than your own (except OrgAdmin+ org-wide override).
+- Project role overrides cannot exceed the team-derived baseline unless assigner is Team Admin+ or OrgAdmin+.
+
 ## Quick Start
 
 Install [just](https://github.com/casey/just) (task runner) and [Node.js 20+](https://nodejs.org/), then from the repo root:

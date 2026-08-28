@@ -5,14 +5,17 @@ import type { z } from "zod";
 import type {
   addProjectMemberSchema,
   acceptInviteSignupSchema,
+  changePasswordSchema,
   createChannelSchema,
   createCommentSchema,
   createProjectSchema,
   createTaskSchema,
   createTeamSchema,
   inviteMemberSchema,
+  notificationSettingsSchema,
   signinSchema,
   signupSchema,
+  editProfileSchema,
   updateProjectSchema,
 } from "@/lib/schema";
 
@@ -27,6 +30,9 @@ type AddProjectMemberFormData = z.infer<typeof addProjectMemberSchema>;
 type CreateChannelFormData = z.infer<typeof createChannelSchema>;
 type InviteMemberFormData = z.infer<typeof inviteMemberSchema>;
 type AcceptInviteSignupFormData = z.infer<typeof acceptInviteSignupSchema>;
+type EditProfileFormData = z.infer<typeof editProfileSchema>;
+type NotificationSettingsFormData = z.infer<typeof notificationSettingsSchema>;
+type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;
 interface AuthOrganization {
   id: string;
   name: string;
@@ -58,6 +64,7 @@ interface SidebarLink {
   name: string;
   path: string;
   icon: Icon;
+  requiredAction?: import("@/lib/rbac/actions").Action;
 }
 
 type TaskStatus =
@@ -91,6 +98,83 @@ type NotificationKind =
   | "DM_THREAD_MESSAGE"
   | "ANNOUNCEMENT"
   | "INVITE_RECEIVED";
+
+type DashboardCta =
+  | "CREATE_PROJECT"
+  | "INVITE_MEMBER"
+  | "CREATE_TASK"
+  | "EXPLORE";
+
+interface ApiDashboardEmptyState {
+  hasProjects: boolean;
+  hasTasks: boolean;
+  hasAssignedTasks: boolean;
+  primaryCta: DashboardCta;
+}
+
+interface ApiDashboardTaskItem {
+  id: string;
+  projectId: string;
+  key: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate: string | null;
+  isOverdue: boolean;
+}
+
+interface ApiCompletionPoint {
+  day: string;
+  completed: number;
+}
+
+interface ApiMyDashboard {
+  greetingName: string;
+  organizationName: string;
+  emptyState: ApiDashboardEmptyState;
+  stats: {
+    tasksAssignedToMe: number;
+    tasksDueThisWeek: number;
+    overdueTasks: number;
+    tasksInProgress: number;
+  };
+  myTasks: ApiDashboardTaskItem[];
+  myProjects: {
+    id: string;
+    name: string;
+    key: string;
+    openTasks: number;
+    myOpenTasks: number;
+  }[];
+  upcomingEvents: { id: string; title: string; startsAt: string }[];
+  completionTrend: ApiCompletionPoint[];
+}
+
+interface ApiOrgDashboard {
+  greetingName: string;
+  organizationName: string;
+  emptyState: ApiDashboardEmptyState;
+  stats: {
+    overdueTasks: number;
+    unassignedTasks: number;
+    unassignedUrgentTasks: number;
+    pendingInvites: number;
+    openTasks: number;
+    movedThisWeek: number;
+  };
+  riskTasks: ApiDashboardTaskItem[];
+  attention: {
+    id: string;
+    kind: string;
+    title: string;
+    description: string;
+    actionLabel: string;
+    href: string | null;
+    count: number;
+  }[];
+  workloadByTeam: WorkloadPoint[];
+  completionTrend: ApiCompletionPoint[];
+}
 
 interface ApiNotification {
   id: string;
@@ -145,6 +229,7 @@ interface ApiUser {
   email: string;
   displayName: string;
   createdAt: string;
+  avatarUrl?: string | null;
 }
 
 interface ApiTeam {
@@ -507,3 +592,135 @@ interface DisplayMessage {
   reactions?: ApiReactionSummary[];
   channelId?: string;
 }
+
+type StatTone = "default" | "warning" | "accent";
+
+type DashboardStat = {
+  id: string;
+  label: string;
+  value: number;
+  hint: string;
+  icon: Icon;
+  tone?: StatTone;
+};
+
+type RiskTaskStatus = "Blocked" | "In Progress" | "Todo";
+
+type RiskTask = {
+  id: string;
+  key: string;
+  title: string;
+  status: RiskTaskStatus;
+  dueLabel: string;
+  overdue?: boolean;
+};
+
+type AttentionItem = {
+  id: string;
+  title: string;
+  description: string;
+  actionLabel: string;
+};
+
+type QuickAction = {
+  id: string;
+  label: string;
+  href: string;
+  icon: Icon;
+};
+
+type WorkloadPoint = {
+  team: string;
+  todo: number;
+  inProgress: number;
+  done: number;
+};
+
+type MemberTaskStatus = "OVERDUE" | "IN_PROGRESS" | "TODO";
+
+type MemberTask = {
+  id: string;
+  key: string;
+  title: string;
+  status: MemberTaskStatus;
+  dueLabel: string;
+};
+
+type MemberProject = {
+  id: string;
+  name: string;
+  tag: string;
+  openTasks: number;
+  members: { id: string; name: string; initials: string }[];
+};
+
+type UpcomingEvent = {
+  id: string;
+  dateLabel: string;
+  title: string;
+  time: string;
+};
+
+type CompletionPoint = {
+  day: string;
+  completed: number;
+};
+
+type ProfileProjectStatus = "In Progress" | "Review" | "Planned";
+
+type ProfileActiveProject = {
+  id: string;
+  name: string;
+  status: ProfileProjectStatus;
+  progress: number;
+  members: { id: string; name: string; initials: string }[];
+};
+
+type ProfileStatTone = "default" | "warning" | "accent";
+
+type ProfileStat = {
+  id: string;
+  label: string;
+  value: string;
+  icon: Icon;
+  tone?: ProfileStatTone;
+};
+
+type ProfileActivityPoint = {
+  date: string;
+  completed: number;
+};
+
+type ProfileTeam = {
+  id: string;
+  name: string;
+  memberCount: number;
+  role: string;
+  icon: Icon;
+};
+
+type ProfileOverviewData = {
+  firstName: string;
+  lastName: string;
+  handle: string;
+  role: string;
+  team: string;
+  location: string;
+  avatarUrl?: string;
+  stats: ProfileStat[];
+  activeProjects: ProfileActiveProject[];
+  activity: ProfileActivityPoint[];
+  teams: ProfileTeam[];
+};
+
+type ProfilePronouns =
+  | "He / Him"
+  | "She / Her"
+  | "They / Them"
+  | "Prefer not to say";
+
+type ProfileSettingsSection =
+  | "general"
+  | "notifications"
+  | "security"
+  | "api-keys";

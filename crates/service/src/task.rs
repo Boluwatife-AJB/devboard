@@ -2,20 +2,16 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use devboard_domain::{
-    ProjectId, ProjectRole, Task, TaskId, TaskPriority, TaskStatus, UserId, has_project_permission,
+    Action, OrgMembership, ProjectId, ProjectRole, Task, TaskId, TaskPriority, TaskStatus, UserId,
+    effective_project_role,
 };
 use devboard_repository::{
     ProjectRepository, TaskRepository, TeamRepository, task::CreateTaskParams,
 };
 
-use crate::{error::ServiceError, event_bus::EventBus, events::TaskEvent};
-
-pub struct TaskService {
-    task_repo: Arc<dyn TaskRepository>,
-    project_repo: Arc<dyn ProjectRepository>,
-    team_repo: Arc<dyn TeamRepository>,
-    event_bus: EventBus,
-}
+use crate::{
+    authorize, error::ServiceError, event_bus::EventBus, events::TaskEvent, load_project_context,
+};
 
 #[derive(Debug)]
 pub struct CreateTaskCommand {
@@ -26,6 +22,13 @@ pub struct CreateTaskCommand {
     pub priority: TaskPriority,
     pub assignee_id: Option<UserId>,
     pub due_date: Option<DateTime<Utc>>,
+}
+
+pub struct TaskService {
+    task_repo: Arc<dyn TaskRepository>,
+    project_repo: Arc<dyn ProjectRepository>,
+    team_repo: Arc<dyn TeamRepository>,
+    event_bus: EventBus,
 }
 
 impl TaskService {
@@ -43,14 +46,32 @@ impl TaskService {
         }
     }
 
+    async fn require_action(
+        &self,
+        caller_org: &OrgMembership,
+        project_id: ProjectId,
+        caller_id: UserId,
+        action: Action,
+    ) -> Result<(), ServiceError> {
+        let (ctx, _) = load_project_context(
+            caller_org,
+            &self.team_repo,
+            &self.project_repo,
+            project_id,
+            caller_id,
+        )
+        .await?;
+        authorize(&ctx, action)
+    }
+
     #[tracing::instrument(
-      skip(self),
-      fields(task_id = %task_id, caller_id = %caller_id)
+      skip(self, caller_org),
+      fields(task_id = %task_id)
     )]
     pub async fn get_task(
         &self,
+        caller_org: &OrgMembership,
         task_id: TaskId,
-        caller_id: UserId,
         project_id: ProjectId,
     ) -> Result<Task, ServiceError> {
         let task = self.task_repo.find_by_id(task_id).await?.ok_or_else(|| {
@@ -65,24 +86,34 @@ impl TaskService {
             });
         }
 
-        self.require_project_permission(caller_id, project_id, ProjectRole::Viewer)
-            .await?;
+        self.require_action(
+            caller_org,
+            project_id,
+            caller_org.user_id,
+            Action::ViewProject,
+        )
+        .await?;
 
         Ok(task)
     }
 
     #[tracing::instrument(
-      skip(self),
-      fields(project_id = %project_id, caller_id = %caller_id)
+      skip(self, caller_org),
+      fields(project_id = %project_id)
     )]
     pub async fn list_tasks(
         &self,
+        caller_org: &OrgMembership,
         project_id: ProjectId,
-        caller_id: UserId,
         status_filter: Option<TaskStatus>,
     ) -> Result<Vec<Task>, ServiceError> {
-        self.require_project_permission(caller_id, project_id, ProjectRole::Viewer)
-            .await?;
+        self.require_action(
+            caller_org,
+            project_id,
+            caller_org.user_id,
+            Action::ViewProject,
+        )
+        .await?;
 
         self.task_repo
             .find_by_project(project_id, status_filter)
@@ -91,19 +122,24 @@ impl TaskService {
     }
 
     #[tracing::instrument(
-      skip(self),
-      fields(project_id = %project_id, caller_id = %caller_id)
+      skip(self, caller_org),
+      fields(project_id = %project_id)
     )]
     pub async fn list_tasks_paginated(
         &self,
+        caller_org: &OrgMembership,
         project_id: ProjectId,
-        caller_id: UserId,
         status_filter: Option<TaskStatus>,
         after_id: Option<uuid::Uuid>,
         limit: u64,
     ) -> Result<(Vec<Task>, bool), ServiceError> {
-        self.require_project_permission(caller_id, project_id, ProjectRole::Viewer)
-            .await?;
+        self.require_action(
+            caller_org,
+            project_id,
+            caller_org.user_id,
+            Action::ViewProject,
+        )
+        .await?;
 
         self.task_repo
             .find_by_project_paginated(project_id, status_filter, after_id, limit)
@@ -112,20 +148,29 @@ impl TaskService {
     }
 
     #[tracing::instrument(
-      skip(self),
+      skip(self, caller_org, cmd),
       fields(
         project_id = %cmd.project_id,
-        reporter_id = %cmd.reporter_id,
       )
     )]
-    pub async fn create_task(&self, cmd: CreateTaskCommand) -> Result<Task, ServiceError> {
+    pub async fn create_task(
+        &self,
+        caller_org: &OrgMembership,
+        cmd: CreateTaskCommand,
+    ) -> Result<Task, ServiceError> {
         validate_task_title(&cmd.title)?;
 
-        self.require_project_permission(cmd.reporter_id, cmd.project_id, ProjectRole::Contributor)
-            .await?;
+        self.require_action(
+            caller_org,
+            cmd.project_id,
+            cmd.reporter_id,
+            Action::CreateTask,
+        )
+        .await?;
 
         if let Some(aid) = cmd.assignee_id {
-            self.validate_assignee(aid, cmd.project_id).await?;
+            self.validate_assignee(caller_org, aid, cmd.project_id)
+                .await?;
         }
 
         let task_number = self
@@ -168,13 +213,18 @@ impl TaskService {
 
     pub async fn update_due_date(
         &self,
+        caller_org: &OrgMembership,
         task_id: TaskId,
-        caller_id: UserId,
         project_id: ProjectId,
         due_date: Option<DateTime<Utc>>,
     ) -> Result<Task, ServiceError> {
-        self.require_project_permission(caller_id, project_id, ProjectRole::Contributor)
-            .await?;
+        self.require_action(
+            caller_org,
+            project_id,
+            caller_org.user_id,
+            Action::UpdateTask,
+        )
+        .await?;
 
         self.task_repo
             .update_due_date(task_id, due_date)
@@ -188,18 +238,23 @@ impl TaskService {
     }
 
     #[tracing::instrument(
-      skip(self),
-      fields(task_id = %task_id, caller_id = %caller_id)
+      skip(self, caller_org),
+      fields(task_id = %task_id)
     )]
     pub async fn update_status(
         &self,
+        caller_org: &OrgMembership,
         task_id: TaskId,
-        caller_id: UserId,
         project_id: ProjectId,
         new_status: TaskStatus,
     ) -> Result<Task, ServiceError> {
-        self.require_project_permission(caller_id, project_id, ProjectRole::Contributor)
-            .await?;
+        self.require_action(
+            caller_org,
+            project_id,
+            caller_org.user_id,
+            Action::UpdateTask,
+        )
+        .await?;
 
         let task = self
             .task_repo
@@ -221,18 +276,23 @@ impl TaskService {
     }
 
     #[tracing::instrument(
-      skip(self),
-      fields(task_id = %task_id, caller_id = %caller_id)
+      skip(self, caller_org),
+      fields(task_id = %task_id)
     )]
     pub async fn assign_task(
         &self,
+        caller_org: &OrgMembership,
         task_id: TaskId,
-        caller_id: UserId,
         project_id: ProjectId,
         assignee_id: Option<UserId>,
     ) -> Result<Task, ServiceError> {
-        self.require_project_permission(caller_id, project_id, ProjectRole::Contributor)
-            .await?;
+        self.require_action(
+            caller_org,
+            project_id,
+            caller_org.user_id,
+            Action::AssignTask,
+        )
+        .await?;
 
         self.task_repo
             .assign(task_id, assignee_id)
@@ -246,17 +306,22 @@ impl TaskService {
     }
 
     #[tracing::instrument(
-      skip(self),
-      fields(task_id = %task_id, caller_id = %caller_id)
+      skip(self, caller_org),
+      fields(task_id = %task_id)
     )]
     pub async fn delete_task(
         &self,
+        caller_org: &OrgMembership,
         task_id: TaskId,
-        caller_id: UserId,
         project_id: ProjectId,
     ) -> Result<(), ServiceError> {
-        self.require_project_permission(caller_id, project_id, ProjectRole::Admin)
-            .await?;
+        self.require_action(
+            caller_org,
+            project_id,
+            caller_org.user_id,
+            Action::DeleteTask,
+        )
+        .await?;
 
         self.task_repo
             .delete(task_id)
@@ -276,65 +341,24 @@ impl TaskService {
         Ok(())
     }
 
-    async fn require_project_permission(
-        &self,
-        caller_id: UserId,
-        project_id: ProjectId,
-        required: ProjectRole,
-    ) -> Result<(), ServiceError> {
-        let project = self
-            .project_repo
-            .find_by_id(project_id)
-            .await?
-            .ok_or_else(|| ServiceError::ProjectNotFound {
-                id: project_id.to_string(),
-            })?;
-
-        let (team_membership, project_membership) = tokio::try_join!(
-            self.team_repo.get_membership(project.team_id, caller_id),
-            self.project_repo.get_membership(project_id, caller_id)
-        )?;
-
-        let authorized = has_project_permission(
-            team_membership.as_ref(),
-            project_membership.as_ref(),
-            required,
-        );
-
-        if !authorized {
-            return Err(ServiceError::Forbidden {
-                reason: format!("requires {:?} access to project {}", required, project_id),
-            });
-        }
-
-        Ok(())
-    }
-
     async fn validate_assignee(
         &self,
+        caller_org: &OrgMembership,
         assignee_id: UserId,
         project_id: ProjectId,
     ) -> Result<(), ServiceError> {
-        let project = self
-            .project_repo
-            .find_by_id(project_id)
-            .await?
-            .ok_or_else(|| ServiceError::ProjectNotFound {
-                id: project_id.to_string(),
-            })?;
+        let (ctx, _) = load_project_context(
+            caller_org,
+            &self.team_repo,
+            &self.project_repo,
+            project_id,
+            assignee_id,
+        )
+        .await?;
 
-        let (team_m, project_m) = tokio::try_join!(
-            self.team_repo.get_membership(project.team_id, assignee_id),
-            self.project_repo.get_membership(project_id, assignee_id),
-        )?;
+        let role = effective_project_role(ctx.team.as_ref(), ctx.project.as_ref());
 
-        let has_access = devboard_domain::has_project_permission(
-            team_m.as_ref(),
-            project_m.as_ref(),
-            ProjectRole::Viewer,
-        );
-
-        if !has_access {
+        if !role.is_some_and(|r| r.at_least(ProjectRole::Viewer)) {
             return Err(ServiceError::Validation {
                 field: "assignee_id".into(),
                 message: "assignee must be a project member".into(),

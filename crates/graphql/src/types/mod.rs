@@ -1,5 +1,6 @@
 pub mod attachment;
 pub mod comment;
+pub mod dashboard;
 pub mod invitation;
 pub mod messaging;
 pub mod notification;
@@ -13,6 +14,12 @@ pub mod user;
 
 pub use attachment::{GqlAttachment, GqlAttachmentKind};
 pub use comment::GqlComment;
+pub use dashboard::{
+    GqlAttentionItem, GqlAttentionKind, GqlCompletionPoint, GqlDashboardCta,
+    GqlDashboardEmptyState, GqlDashboardEvent, GqlDashboardTaskItem, GqlMyDashboard,
+    GqlMyDashboardProject, GqlMyDashboardStats, GqlOrgDashboard, GqlOrgDashboardStats,
+    GqlWorkloadPoint,
+};
 pub use invitation::{GqlInvitation, GqlInvitationStatus};
 pub use messaging::{
     GqlChannel, GqlChannelKind, GqlChannelMember, GqlDmMessage, GqlDmMessageEvent, GqlDmThread,

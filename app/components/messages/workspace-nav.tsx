@@ -5,7 +5,7 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
 } from "@phosphor-icons/react/dist/ssr";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CreateChannelDialog } from "@/components/messages/create-channel-dialog";
 import { ListError, ListSkeleton } from "@/components/messages/list-states";
 import { NewDmDialog } from "@/components/messages/new-dm-dialog";
@@ -13,7 +13,7 @@ import { SquareAvatar } from "@/components/messages/square-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { canManageInvitations } from "@/hooks/use-invitations";
+import { Action } from "@/lib/rbac/actions";
 import { avatarColorOf, initialsOf } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
 import type {
@@ -23,6 +23,7 @@ import type {
   ApiUser,
   UiPresence,
 } from "@/types";
+import { Can } from "../providers/can";
 import { Badge } from "../ui/badge";
 
 type WorkspaceNavProps = {
@@ -53,12 +54,7 @@ export function WorkspaceNav({
   onSelectConversation,
 }: WorkspaceNavProps) {
   const [search, setSearch] = useState("");
-  const [canCreateChannel, setCanCreateChannel] = useState(false);
   const query = search.trim().toLowerCase();
-
-  useEffect(() => {
-    setCanCreateChannel(canManageInvitations());
-  }, []);
 
   const visibleChannels = query
     ? channels.filter((channel) => channel.name.toLowerCase().includes(query))
@@ -97,7 +93,7 @@ export function WorkspaceNav({
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8A8A8A]">
                 Channels
               </h3>
-              {canCreateChannel && (
+              <Can action={Action.CreateChannel}>
                 <CreateChannelDialog
                   trigger={
                     <Button
@@ -114,7 +110,7 @@ export function WorkspaceNav({
                     onSelectConversation({ type: "channel", id: channel.id })
                   }
                 />
-              )}
+              </Can>
             </div>
 
             {channelsLoading && <ListSkeleton />}

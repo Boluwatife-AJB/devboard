@@ -1,7 +1,9 @@
 import { UserPlusIcon } from "@phosphor-icons/react/dist/ssr";
+import { Can } from "@/components/providers/can";
 import { InviteMemberDialog } from "@/components/settings/invite-member-dialog";
 import { MembersTable } from "@/components/settings/members-table";
 import { Button } from "@/components/ui/button";
+import { Action } from "@/lib/rbac/actions";
 
 export default function Settings() {
   return (
@@ -13,14 +15,16 @@ export default function Settings() {
             Manage who has access to this workspace and their permission levels.
           </p>
         </div>
-        <InviteMemberDialog
-          trigger={
-            <Button className="uppercase">
-              <UserPlusIcon data-icon="inline-start" weight="bold" />
-              Invite Member
-            </Button>
-          }
-        />
+        <Can action={Action.InviteOrgMember}>
+          <InviteMemberDialog
+            trigger={
+              <Button className="uppercase">
+                <UserPlusIcon data-icon="inline-start" weight="bold" />
+                Invite Member
+              </Button>
+            }
+          />
+        </Can>
       </div>
       <MembersTable />
     </div>

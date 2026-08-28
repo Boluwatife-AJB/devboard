@@ -30,21 +30,6 @@ export const invitationKeys = {
   preview: (token: string) => ["invite-preview", token] as const,
 };
 
-/**
- * Whether the current user can manage invitations in the selected org.
- * The backend enforces this regardless; this only gates UI/queries.
- */
-export function canManageInvitations(): boolean {
-  if (typeof window === "undefined") return false;
-  const orgId = getSelectedOrgId();
-  if (!orgId) return false;
-  const org = getOrganizations().find((item) => item.id === orgId);
-  if (!org) return false;
-  // Role may be serialized as "OrgAdmin" (REST) or "ORG_ADMIN" (GraphQL).
-  const role = org.role.replaceAll("_", "").toUpperCase();
-  return role === "ORGOWNER" || role === "ORGADMIN";
-}
-
 export function isLoggedIn() {
   if (typeof window === "undefined") return false;
   return Boolean(getAccessToken());

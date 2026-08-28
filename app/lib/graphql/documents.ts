@@ -229,21 +229,13 @@ export const CREATE_TEAM_MUTATION = `
 
 export const ADD_TEAM_MEMBER_MUTATION = `
   mutation AddTeamMember($input: AddTeamMemberInput!) {
-    addTeamMember(input: $input) {
-      teamId
-      userId
-      role
-      joinedAt
-      user {
-        ${USER_FIELDS}
-      }
-    }
+    addTeamMember(input: $input)
   }
 `;
 
 export const REMOVE_TEAM_MEMBER_MUTATION = `
-  mutation RemoveTeamMember($input: RemoveTeamMemberInput!) {
-    removeTeamMember(input: $input)
+  mutation RemoveTeamMember($teamId: ID!, $userId: ID!) {
+    removeTeamMember(teamId: $teamId, userId: $userId)
   }
 `;
 
@@ -652,6 +644,105 @@ export const ANNOUNCEMENT_RECEIVED_SUBSCRIPTION = `
   subscription AnnouncementReceived {
     announcementReceived {
       ${NOTIFICATION_FIELDS}
+    }
+  }
+`;
+
+export const MY_DASHBOARD_QUERY = `
+  query MyDashboard {
+    myDashboard {
+      greetingName
+      organizationName
+      emptyState {
+        hasProjects
+        hasTasks
+        hasAssignedTasks
+        primaryCta
+      }
+      stats {
+        tasksAssignedToMe
+        tasksDueThisWeek
+        overdueTasks
+        tasksInProgress
+      }
+      myTasks {
+        id
+        projectId
+        key
+        title
+        status
+        priority
+        dueDate
+        isOverdue
+      }
+      myProjects {
+        id
+        name
+        key
+        openTasks
+        myOpenTasks
+      }
+      upcomingEvents {
+        id
+        title
+        startsAt
+      }
+      completionTrend {
+        day
+        completed
+      }
+    }
+  }
+`;
+
+export const ORG_DASHBOARD_QUERY = `
+  query OrgDashboard {
+    orgDashboard {
+      greetingName
+      organizationName
+      emptyState {
+        hasProjects
+        hasTasks
+        hasAssignedTasks
+        primaryCta
+      }
+      stats {
+        overdueTasks
+        unassignedTasks
+        unassignedUrgentTasks
+        pendingInvites
+        openTasks
+        movedThisWeek
+      }
+      riskTasks {
+        id
+        projectId
+        key
+        title
+        status
+        priority
+        dueDate
+        isOverdue
+      }
+      attention {
+        id
+        kind
+        title
+        description
+        actionLabel
+        href
+        count
+      }
+      workloadByTeam {
+        team
+        todo
+        inProgress
+        done
+      }
+      completionTrend {
+        day
+        completed
+      }
     }
   }
 `;

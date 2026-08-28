@@ -71,13 +71,14 @@ export function ManageMembersDialog({
   const handleAdd = async () => {
     if (!selectedUserId) return;
     try {
-      const member = await addMember.mutateAsync({
+      await addMember.mutateAsync({
         userId: selectedUserId,
         role: selectedRole,
       });
-      toast.success(
-        `${member.user?.displayName ?? "Member"} added to ${team.name}`,
-      );
+      const name =
+        availableMembers.find((member) => member.userId === selectedUserId)
+          ?.user?.displayName ?? "Member";
+      toast.success(`${name} added to ${team.name}`);
       setSelectedUserId(null);
       setSelectedRole("MEMBER");
     } catch (mutationError) {

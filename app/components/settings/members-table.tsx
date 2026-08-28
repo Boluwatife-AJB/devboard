@@ -16,7 +16,7 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,13 +34,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  canManageInvitations,
-  usePendingInvitations,
-} from "@/hooks/use-invitations";
+import { usePendingInvitations } from "@/hooks/use-invitations";
+import { useOrgAuthz } from "@/hooks/use-org-authz";
 import { useOrgPresence } from "@/hooks/use-presence";
 import { useOrgMembers } from "@/hooks/use-teams";
 import { toUiPresence } from "@/lib/message-utils";
+import { Action } from "@/lib/rbac/actions";
 import { cn } from "@/lib/utils";
 import type { OrgRole } from "@/types";
 import { type MemberRow, membersColumns, roleLabels } from "./members-columns";
@@ -75,12 +74,8 @@ function exportCsv(rows: MemberRow[]) {
 
 export function MembersTable() {
   const { data: members, isPending, isError } = useOrgMembers();
-  // Resolve after mount, canManageInvitations reads cookies/localStorage,
-  // which aren't available during SSR, so a useState initializer would stick at false.
-  const [canManage, setCanManage] = useState(false);
-  useEffect(() => {
-    setCanManage(canManageInvitations());
-  }, []);
+  const { can, ready } = useOrgAuthz();
+  const canManage = ready && can(Action.InviteOrgMember);
   const { data: invitations } = usePendingInvitations(canManage);
   const { data: orgPresence } = useOrgPresence();
 
@@ -209,7 +204,7 @@ export function MembersTable() {
         </TableHeader>
         <TableBody>
           {isPending ? (
-            Array.from({ length: 4 }).map((_, index) => (
+            Array.from({ length: 6 }).map((_, index) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton list
               <TableRow key={index}>
                 <TableCell className="px-4 py-3">
