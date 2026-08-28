@@ -150,3 +150,15 @@
     @apply max-w-7xl mx-auto;
   }
 }
+
+.profile-field-label {
+  @apply text-[10px] uppercase tracking-wider text-muted-foreground;
+}
+
+.profile-input {
+  @apply h-12 rounded-xs;
+}
+
+.profile-select-trigger {
+  @apply h-12 w-full rounded-xs;
+}

@@ -5,7 +5,7 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
 } from "@phosphor-icons/react/dist/ssr";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CreateChannelDialog } from "@/components/messages/create-channel-dialog";
 import { ListError, ListSkeleton } from "@/components/messages/list-states";
 import { NewDmDialog } from "@/components/messages/new-dm-dialog";
@@ -13,7 +13,6 @@ import { SquareAvatar } from "@/components/messages/square-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useOrgAuthz } from "@/hooks/use-org-authz";
 import { Action } from "@/lib/rbac/actions";
 import { avatarColorOf, initialsOf } from "@/lib/task-ui";
 import { cn } from "@/lib/utils";
@@ -54,14 +53,8 @@ export function WorkspaceNav({
   activeConversation,
   onSelectConversation,
 }: WorkspaceNavProps) {
-  const { can } = useOrgAuthz();
   const [search, setSearch] = useState("");
-  const [canCreateChannel, setCanCreateChannel] = useState(false);
   const query = search.trim().toLowerCase();
-
-  useEffect(() => {
-    setCanCreateChannel(can(Action.CreateChannel));
-  }, [can]);
 
   const visibleChannels = query
     ? channels.filter((channel) => channel.name.toLowerCase().includes(query))
@@ -100,26 +93,24 @@ export function WorkspaceNav({
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8A8A8A]">
                 Channels
               </h3>
-              {canCreateChannel && (
-                <Can action={Action.CreateChannel}>
-                  <CreateChannelDialog
-                    trigger={
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-xs"
-                        className="text-[#C2C6D6] hover:text-white"
-                        aria-label="Create channel"
-                      >
-                        <PlusIcon className="size-4" />
-                      </Button>
-                    }
-                    onCreated={(channel) =>
-                      onSelectConversation({ type: "channel", id: channel.id })
-                    }
-                  />
-                </Can>
-              )}
+              <Can action={Action.CreateChannel}>
+                <CreateChannelDialog
+                  trigger={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="text-[#C2C6D6] hover:text-white"
+                      aria-label="Create channel"
+                    >
+                      <PlusIcon className="size-4" />
+                    </Button>
+                  }
+                  onCreated={(channel) =>
+                    onSelectConversation({ type: "channel", id: channel.id })
+                  }
+                />
+              </Can>
             </div>
 
             {channelsLoading && <ListSkeleton />}

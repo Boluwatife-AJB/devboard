@@ -6,7 +6,7 @@ import {
   TrashIcon,
   UserPlusIcon,
 } from "@phosphor-icons/react/dist/ssr";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,6 @@ import {
   useLeaveChannel,
   useRemoveChannelMember,
 } from "@/hooks/use-messaging";
-import { useOrgAuthz } from "@/hooks/use-org-authz";
 import { useOrgMembers } from "@/hooks/use-teams";
 import { getApiErrorMessage } from "@/lib/api";
 import { Action } from "@/lib/rbac/actions";
@@ -44,14 +43,8 @@ export function DetailsPane({
   onLeftChannel?: () => void;
 }) {
   const { data: me } = useMe();
-  const { can } = useOrgAuthz();
-  const [canManage, setCanManage] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    setCanManage(can(Action.ManageChannelMembers));
-  }, [can]);
 
   const {
     data: members = [],
@@ -144,7 +137,7 @@ export function DetailsPane({
               Members
             </p>
 
-            {canManage && (
+            <Can action={Action.ManageChannelMembers}>
               <div className="flex items-end gap-2">
                 <div className="min-w-0 flex-1">
                   <Select
@@ -201,7 +194,7 @@ export function DetailsPane({
                   Add
                 </Button>
               </div>
-            )}
+            </Can>
 
             {membersPending ? (
               <div className="space-y-2">
@@ -247,7 +240,7 @@ export function DetailsPane({
                         )}
                       </div>
                       <Can action={Action.ManageChannelMembers}>
-                        {canManage && !isMe && (
+                        {!isMe && (
                           <Button
                             type="button"
                             variant="ghost"

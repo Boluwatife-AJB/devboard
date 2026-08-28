@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CopyIcon } from "@phosphor-icons/react/dist/ssr";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { useInviteMember } from "@/hooks/use-invitations";
+import { useOrgAuthz } from "@/hooks/use-org-authz";
 import { getApiErrorMessage } from "@/lib/api";
 import { inviteMemberSchema } from "@/lib/schema";
 import type { InviteMemberFormData } from "@/types";
@@ -47,6 +48,12 @@ export function InviteMemberDialog({ trigger }: { trigger: ReactElement }) {
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [invitedEmail, setInvitedEmail] = useState("");
   const inviteMember = useInviteMember();
+  const { canInviteRole } = useOrgAuthz();
+
+  const roleOptions = useMemo(
+    () => ROLE_OPTIONS.filter((option) => canInviteRole(option.value)),
+    [canInviteRole],
+  );
 
   const { control, handleSubmit, reset } = useForm<InviteMemberFormData>({
     resolver: zodResolver(inviteMemberSchema),
@@ -185,7 +192,7 @@ export function InviteMemberDialog({ trigger }: { trigger: ReactElement }) {
                       <Select
                         value={field.value}
                         onValueChange={(value) => field.onChange(value)}
-                        items={ROLE_OPTIONS}
+                        items={roleOptions}
                       >
                         <SelectTrigger
                           id="invite-role"
@@ -197,7 +204,7 @@ export function InviteMemberDialog({ trigger }: { trigger: ReactElement }) {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
-                            {ROLE_OPTIONS.map((role) => (
+                            {roleOptions.map((role) => (
                               <SelectItem key={role.value} value={role.value}>
                                 {role.label}
                               </SelectItem>

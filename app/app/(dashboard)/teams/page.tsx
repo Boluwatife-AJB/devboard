@@ -6,6 +6,7 @@ import {
   UsersThreeIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react/dist/ssr";
+import { Can } from "@/components/providers/can";
 import { CreateTeamDialog } from "@/components/teams/create-team-dialog";
 import { ManageMembersDialog } from "@/components/teams/manage-members-dialog";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTeams } from "@/hooks/use-teams";
 import { getApiErrorMessage } from "@/lib/api";
+import { Action } from "@/lib/rbac/actions";
 import { formatDate } from "@/lib/task-ui";
 
 function TeamsSkeleton() {
@@ -66,14 +68,16 @@ export default function Teams() {
               : "Loading your organization's teams..."}
           </p>
         </div>
-        <CreateTeamDialog
-          trigger={
-            <Button className="h-11 px-4 rounded-xs">
-              <PlusIcon data-icon="inline-start" />
-              Create Team
-            </Button>
-          }
-        />
+        <Can action={Action.CreateTeam}>
+          <CreateTeamDialog
+            trigger={
+              <Button className="h-11 px-4 rounded-xs">
+                <PlusIcon data-icon="inline-start" />
+                Create Team
+              </Button>
+            }
+          />
+        </Can>
       </div>
 
       {isPending && <TeamsSkeleton />}
@@ -105,14 +109,16 @@ export default function Teams() {
               create a project for it.
             </EmptyDescription>
           </EmptyHeader>
-          <CreateTeamDialog
-            trigger={
-              <Button>
-                <PlusIcon data-icon="inline-start" />
-                Create Team
-              </Button>
-            }
-          />
+          <Can action={Action.CreateTeam}>
+            <CreateTeamDialog
+              trigger={
+                <Button>
+                  <PlusIcon data-icon="inline-start" />
+                  Create Team
+                </Button>
+              }
+            />
+          </Can>
         </Empty>
       )}
 

@@ -85,17 +85,13 @@ export function useAddTeamMember(teamId: string) {
 
   return useMutation({
     mutationFn: async (input: Omit<AddTeamMemberInput, "teamId">) => {
-      const data = await graphqlRequest<{ addTeamMember: ApiTeamMember }>(
+      const data = await graphqlRequest<{ addTeamMember: boolean }>(
         ADD_TEAM_MEMBER_MUTATION,
         { input: { ...input, teamId } },
       );
       return data.addTeamMember;
     },
-    onSuccess: (member) => {
-      queryClient.setQueryData<ApiTeamMember[]>(
-        teamKeys.members(teamId),
-        (members) => (members ? [...members, member] : [member]),
-      );
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: teamKeys.members(teamId) });
     },
   });
@@ -108,7 +104,7 @@ export function useRemoveTeamMember(teamId: string) {
     mutationFn: async (userId: string) => {
       await graphqlRequest<{ removeTeamMember: boolean }>(
         REMOVE_TEAM_MEMBER_MUTATION,
-        { input: { teamId, userId } },
+        { teamId, userId },
       );
       return userId;
     },

@@ -229,21 +229,13 @@ export const CREATE_TEAM_MUTATION = `
 
 export const ADD_TEAM_MEMBER_MUTATION = `
   mutation AddTeamMember($input: AddTeamMemberInput!) {
-    addTeamMember(input: $input) {
-      teamId
-      userId
-      role
-      joinedAt
-      user {
-        ${USER_FIELDS}
-      }
-    }
+    addTeamMember(input: $input)
   }
 `;
 
 export const REMOVE_TEAM_MEMBER_MUTATION = `
-  mutation RemoveTeamMember($input: RemoveTeamMemberInput!) {
-    removeTeamMember(input: $input)
+  mutation RemoveTeamMember($teamId: ID!, $userId: ID!) {
+    removeTeamMember(teamId: $teamId, userId: $userId)
   }
 `;
 

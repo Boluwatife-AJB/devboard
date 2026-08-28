@@ -5,14 +5,17 @@ import type { z } from "zod";
 import type {
   addProjectMemberSchema,
   acceptInviteSignupSchema,
+  changePasswordSchema,
   createChannelSchema,
   createCommentSchema,
   createProjectSchema,
   createTaskSchema,
   createTeamSchema,
   inviteMemberSchema,
+  notificationSettingsSchema,
   signinSchema,
   signupSchema,
+  editProfileSchema,
   updateProjectSchema,
 } from "@/lib/schema";
 
@@ -27,6 +30,9 @@ type AddProjectMemberFormData = z.infer<typeof addProjectMemberSchema>;
 type CreateChannelFormData = z.infer<typeof createChannelSchema>;
 type InviteMemberFormData = z.infer<typeof inviteMemberSchema>;
 type AcceptInviteSignupFormData = z.infer<typeof acceptInviteSignupSchema>;
+type EditProfileFormData = z.infer<typeof editProfileSchema>;
+type NotificationSettingsFormData = z.infer<typeof notificationSettingsSchema>;
+type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;
 interface AuthOrganization {
   id: string;
   name: string;
@@ -223,6 +229,7 @@ interface ApiUser {
   email: string;
   displayName: string;
   createdAt: string;
+  avatarUrl?: string | null;
 }
 
 interface ApiTeam {
@@ -658,3 +665,62 @@ type CompletionPoint = {
   day: string;
   completed: number;
 };
+
+type ProfileProjectStatus = "In Progress" | "Review" | "Planned";
+
+type ProfileActiveProject = {
+  id: string;
+  name: string;
+  status: ProfileProjectStatus;
+  progress: number;
+  members: { id: string; name: string; initials: string }[];
+};
+
+type ProfileStatTone = "default" | "warning" | "accent";
+
+type ProfileStat = {
+  id: string;
+  label: string;
+  value: string;
+  icon: Icon;
+  tone?: ProfileStatTone;
+};
+
+type ProfileActivityPoint = {
+  date: string;
+  completed: number;
+};
+
+type ProfileTeam = {
+  id: string;
+  name: string;
+  memberCount: number;
+  role: string;
+  icon: Icon;
+};
+
+type ProfileOverviewData = {
+  firstName: string;
+  lastName: string;
+  handle: string;
+  role: string;
+  team: string;
+  location: string;
+  avatarUrl?: string;
+  stats: ProfileStat[];
+  activeProjects: ProfileActiveProject[];
+  activity: ProfileActivityPoint[];
+  teams: ProfileTeam[];
+};
+
+type ProfilePronouns =
+  | "He / Him"
+  | "She / Her"
+  | "They / Them"
+  | "Prefer not to say";
+
+type ProfileSettingsSection =
+  | "general"
+  | "notifications"
+  | "security"
+  | "api-keys";

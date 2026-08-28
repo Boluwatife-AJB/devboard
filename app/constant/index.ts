@@ -1,15 +1,24 @@
 import {
+  BriefcaseIcon,
+  BuildingsIcon,
   CalendarBlankIcon,
+  ChartBarIcon,
+  ChatsCircleIcon,
   ChatTextIcon,
   ClipboardTextIcon,
   FolderIcon,
   GearIcon,
+  GitMergeIcon,
+  LightningIcon,
+  MapPinIcon,
   PlusSquareIcon,
   SquaresFourIcon,
+  TerminalWindowIcon,
   UserCirclePlusIcon,
   UserIcon,
   UsersThreeIcon,
   WarningCircleIcon,
+  WrenchIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { Action } from "@/lib/rbac/actions";
 import type {
@@ -19,9 +28,14 @@ import type {
   CompletionPoint,
   DashboardStat,
   DirectMessage,
+  EditProfileFormData,
   MemberProject,
   MemberTask,
   MessageChannel,
+  NotificationSettingsFormData,
+  ProfileActivityPoint,
+  ProfileOverviewData,
+  ProfileSettingsSection,
   QuickAction,
   RiskTask,
   SharedFile,
@@ -525,3 +539,146 @@ export const completionTrend: CompletionPoint[] = [
   { day: "Sat", completed: 3 },
   { day: "Today", completed: 5 },
 ];
+
+export const profileOverviewData: ProfileOverviewData = {
+  firstName: "Alex",
+  lastName: "Mercer",
+  handle: "amercer",
+  role: "Senior Product Designer",
+  team: "Design Systems",
+  location: "San Francisco, CA",
+  stats: [
+    {
+      id: "tasks-completed",
+      label: "Tasks Completed",
+      value: "1,204",
+      icon: LightningIcon,
+      tone: "accent",
+    },
+    {
+      id: "prs-merged",
+      label: "PRs Merged",
+      value: "342",
+      icon: GitMergeIcon,
+      tone: "warning",
+    },
+    {
+      id: "comments-made",
+      label: "Comments Made",
+      value: "8.4k",
+      icon: ChatsCircleIcon,
+    },
+  ],
+  activeProjects: [
+    {
+      id: "1",
+      name: "Component Library V2",
+      status: "In Progress",
+      progress: 75,
+      members: [
+        { id: "a", name: "Alex Mercer", initials: "AM" },
+        { id: "b", name: "Sarah Kang", initials: "SK" },
+        { id: "c", name: "Marcus Reed", initials: "MR" },
+      ],
+    },
+    {
+      id: "2",
+      name: "Mobile Onboarding Flow",
+      status: "Review",
+      progress: 40,
+      members: [
+        { id: "d", name: "Jordan Lee", initials: "JL" },
+        { id: "e", name: "Priya Sharma", initials: "PS" },
+      ],
+    },
+    {
+      id: "3",
+      name: "Design Token Audit",
+      status: "Planned",
+      progress: 0,
+      members: [{ id: "f", name: "Alex Mercer", initials: "AM" }],
+    },
+  ],
+  activity: [
+    { date: "Oct 1", completed: 12 },
+    { date: "Oct 8", completed: 18 },
+    { date: "Oct 15", completed: 24 },
+    { date: "Oct 22", completed: 32 },
+    { date: "Oct 30", completed: 28 },
+  ] satisfies ProfileActivityPoint[],
+  teams: [
+    {
+      id: "1",
+      name: "Core Design Systems",
+      memberCount: 12,
+      role: "Lead",
+      icon: WrenchIcon,
+    },
+    {
+      id: "2",
+      name: "Platform Engineering",
+      memberCount: 8,
+      role: "Contributor",
+      icon: TerminalWindowIcon,
+    },
+  ],
+};
+
+export const editProfileDefaults: EditProfileFormData = {
+  firstName: "Alex",
+  lastName: "Chen",
+  displayName: "achen_dev",
+  pronouns: "He / Him",
+  role: "Senior Product Designer",
+  bio: "Building design systems and developer experience tools.",
+  location: "San Francisco, CA",
+  phone: "+1 (415) 555-0192",
+  website: "https://alexmercer.dev",
+  twitter: "@amercer",
+  github: "amercer",
+  linkedin: "alex-mercer",
+};
+
+export const notificationSettingsDefaults: NotificationSettingsFormData = {
+  taskAssigned: true,
+  taskDueSoon: true,
+  mentions: true,
+  taskComments: false,
+  channelMessages: true,
+  announcements: true,
+  emailDigest: false,
+};
+
+export const profileSettingsNav: {
+  id: ProfileSettingsSection;
+  label: string;
+}[] = [
+  {
+    id: "general",
+    label: "General",
+  },
+  {
+    id: "notifications",
+    label: "Notifications",
+  },
+  {
+    id: "security",
+    label: "Security",
+  },
+];
+
+export const profileDetailIcons = {
+  role: BriefcaseIcon,
+  team: BuildingsIcon,
+  location: MapPinIcon,
+  activeProjects: LightningIcon,
+  activity: ChartBarIcon,
+  teams: UsersThreeIcon,
+};
+
+export const profilePronounOptions = [
+  "He / Him",
+  "She / Her",
+  "They / Them",
+  "Prefer not to say",
+] as const;

@@ -10,14 +10,27 @@ import { usePathname, useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
 import { sidebarBottomMenu, sidebarMenu } from "@/constant";
+import { useCanCreateProject } from "@/hooks/use-can-create-project";
 import { useOrgAuthz } from "@/hooks/use-org-authz";
 import { clearAuth } from "@/lib/auth/cookies";
+import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
+
+function sidebarNavLinkClass(isActive: boolean) {
+  return cn(
+    "flex w-full items-center gap-3 rounded-xs px-4 py-2.5 text-sm transition-colors",
+    isActive
+      ? "bg-muted text-primary"
+      : "text-muted-foreground hover:bg-muted/50 hover:text-sidebar-foreground",
+  );
+}
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { can, ready } = useOrgAuthz();
+  const { canCreate: canCreateProject, ready: projectAuthReady } =
+    useCanCreateProject();
 
   const visibleMenu = useMemo(
     () =>
@@ -33,7 +46,7 @@ export default function DashboardSidebar() {
   };
 
   return (
-    <div className="w-60 shrink-0 flex flex-col border-r border-outline bg-[#131313]">
+    <div className="flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       {/* Logo Section */}
       <div className="px-6 py-4 h-20 border-b border-outline">
         <div className="flex items-center gap-2 mb-2">
@@ -53,48 +66,45 @@ export default function DashboardSidebar() {
           <Link
             key={item.path}
             href={item.path}
-            className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-sm ${
-              pathname === item.path
-                ? "bg-surface-container-high text-primary"
-                : "text-on-surface-variant hover:bg-surface-container"
-            }`}
+            className={sidebarNavLinkClass(pathname === item.path)}
           >
-            <item.icon className="w-5 h-5" />
+            <item.icon className="size-5" />
             <span>{item.name}</span>
           </Link>
         ))}
       </nav>
 
       {/* Bottom Section */}
-      <div className="p-4 border-t border-outline space-y-3">
-        <CreateProjectDialog
-          trigger={
-            <Button variant="outline" className="w-full">
-              <PlusIcon data-icon="inline-start" /> New Project
-            </Button>
-          }
-        />
+      <div className="space-y-3 border-t border-sidebar-border p-4">
+        {projectAuthReady && canCreateProject && (
+          <CreateProjectDialog
+            trigger={
+              <Button
+                variant="outline"
+                className="w-full border-border bg-sidebar text-sidebar-foreground hover:border-devboard-primary/40 hover:bg-muted/40"
+              >
+                <PlusIcon data-icon="inline-start" /> New Project
+              </Button>
+            }
+          />
+        )}
         <nav className="space-y-4">
           {sidebarBottomMenu.map((item) => (
             <Link
               key={item.path}
               href={item.path}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded transition-colors text-sm ${
-                pathname === item.path
-                  ? "bg-surface-container-high text-primary"
-                  : "text-on-surface-variant hover:bg-surface-container"
-              }`}
+              className={sidebarNavLinkClass(pathname === item.path)}
             >
-              <item.icon className="w-5 h-5" />
+              <item.icon className="size-5" />
               <span>{item.name}</span>
             </Link>
           ))}
           <button
             type="button"
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-2.5 rounded transition-colors text-sm text-on-surface-variant hover:bg-surface-container"
+            className={sidebarNavLinkClass(false)}
           >
-            <SignOutIcon className="w-5 h-5" />
+            <SignOutIcon className="size-5" />
             <span>Logout</span>
           </button>
         </nav>

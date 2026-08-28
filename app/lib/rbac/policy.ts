@@ -13,7 +13,6 @@ export function canOrg(role: OrgRole, action: Action): boolean {
     case Action.InviteOrgMember:
     case Action.ViewOrgDashboard:
     case Action.CreateTeam:
-    case Action.CreateProject:
     case Action.CreateChannel:
     case Action.ManageChannelMembers:
     case Action.EditChannelInfo:
@@ -25,6 +24,16 @@ export function canOrg(role: OrgRole, action: Action): boolean {
     default:
       return false;
   }
+}
+
+export function canCreateProject(
+  orgRole: OrgRole | null,
+  teamRoles: TeamRole[],
+): boolean {
+  if (orgRole && orgAtLeast(orgRole, "ORG_ADMIN")) {
+    return true;
+  }
+  return teamRoles.some((role) => canTeam(role, Action.CreateProject));
 }
 
 export function canInviteWithRole(caller: OrgRole, invited: OrgRole): boolean {
