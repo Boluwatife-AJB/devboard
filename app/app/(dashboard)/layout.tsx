@@ -1,3 +1,4 @@
+import { AuthCookieSync } from "@/components/auth/auth-cookie-sync";
 import { DashboardMain } from "@/components/layout/dashboard-main";
 import DashboardHeader from "@/components/layout/header";
 import DashboardSidebar from "@/components/layout/sidebar";
@@ -11,6 +12,7 @@ export default function DashboardLayout({
 }>) {
   return (
     <div className="flex h-screen bg-background">
+      <AuthCookieSync />
       <PresenceSync />
       <NotificationSync />
       <DashboardSidebar />

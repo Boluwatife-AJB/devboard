@@ -5,7 +5,7 @@ export type ProjectRole = "OWNER" | "ADMIN" | "CONTRIBUTOR" | "VIEWER";
 const ORG_RANK: Record<OrgRole, number> = {
   ORG_OWNER: 2,
   ORG_ADMIN: 1,
-  ORG_MEMBER: 10,
+  ORG_MEMBER: 0,
 };
 
 const TEAM_RANK: Record<TeamRole, number> = {

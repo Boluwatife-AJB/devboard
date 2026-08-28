@@ -24,6 +24,7 @@ import type {
   ApiUser,
   UiPresence,
 } from "@/types";
+import { Can } from "../providers/can";
 import { Badge } from "../ui/badge";
 
 type WorkspaceNavProps = {
@@ -100,22 +101,24 @@ export function WorkspaceNav({
                 Channels
               </h3>
               {canCreateChannel && (
-                <CreateChannelDialog
-                  trigger={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      className="text-[#C2C6D6] hover:text-white"
-                      aria-label="Create channel"
-                    >
-                      <PlusIcon className="size-4" />
-                    </Button>
-                  }
-                  onCreated={(channel) =>
-                    onSelectConversation({ type: "channel", id: channel.id })
-                  }
-                />
+                <Can action={Action.CreateChannel}>
+                  <CreateChannelDialog
+                    trigger={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="text-[#C2C6D6] hover:text-white"
+                        aria-label="Create channel"
+                      >
+                        <PlusIcon className="size-4" />
+                      </Button>
+                    }
+                    onCreated={(channel) =>
+                      onSelectConversation({ type: "channel", id: channel.id })
+                    }
+                  />
+                </Can>
               )}
             </div>
 

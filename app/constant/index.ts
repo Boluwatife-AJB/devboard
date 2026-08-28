@@ -11,6 +11,7 @@ import {
   UsersThreeIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react/dist/ssr";
+import { Action } from "@/lib/rbac/actions";
 import type {
   AttentionItem,
   ChannelMember,
@@ -59,6 +60,7 @@ export const sidebarMenu: SidebarLink[] = [
     path: "/settings",
     name: "Settings",
     icon: GearIcon,
+    requiredAction: Action.InviteOrgMember,
   },
 ];
 

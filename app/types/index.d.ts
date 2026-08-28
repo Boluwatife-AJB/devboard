@@ -58,6 +58,7 @@ interface SidebarLink {
   name: string;
   path: string;
   icon: Icon;
+  requiredAction?: import("@/lib/rbac/actions").Action;
 }
 
 type TaskStatus =

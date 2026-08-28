@@ -7,14 +7,25 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useMemo } from "react";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
 import { sidebarBottomMenu, sidebarMenu } from "@/constant";
+import { useOrgAuthz } from "@/hooks/use-org-authz";
 import { clearAuth } from "@/lib/auth/cookies";
 import { Button } from "../ui/button";
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { can, ready } = useOrgAuthz();
+
+  const visibleMenu = useMemo(
+    () =>
+      sidebarMenu.filter(
+        (item) => !item.requiredAction || (ready && can(item.requiredAction)),
+      ),
+    [can, ready],
+  );
 
   const handleLogout = () => {
     clearAuth();
@@ -38,7 +49,7 @@ export default function DashboardSidebar() {
 
       {/* Main Navigation */}
       <nav className="flex-1 space-y-4 px-4 pt-8">
-        {sidebarMenu.map((item) => (
+        {visibleMenu.map((item) => (
           <Link
             key={item.path}
             href={item.path}

@@ -16,7 +16,7 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -74,14 +74,10 @@ function exportCsv(rows: MemberRow[]) {
 
 export function MembersTable() {
   const { data: members, isPending, isError } = useOrgMembers();
-  const { can } = useOrgAuthz();
-  const [canManage, setCanManage] = useState(false);
+  const { can, ready } = useOrgAuthz();
+  const canManage = ready && can(Action.InviteOrgMember);
   const { data: invitations } = usePendingInvitations(canManage);
   const { data: orgPresence } = useOrgPresence();
-
-  useEffect(() => {
-    setCanManage(can(Action.ChangeOrgMemberRole));
-  }, [can]);
 
   const rows = useMemo<MemberRow[]>(() => {
     const memberRows: MemberRow[] = (members ?? []).map((member) => ({

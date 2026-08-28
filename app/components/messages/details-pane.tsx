@@ -34,6 +34,7 @@ import { getApiErrorMessage } from "@/lib/api";
 import { Action } from "@/lib/rbac/actions";
 import { avatarColorOf, initialsOf } from "@/lib/task-ui";
 import type { ApiChannel } from "@/types";
+import { Can } from "../providers/can";
 
 export function DetailsPane({
   channel,
@@ -245,23 +246,25 @@ export function DetailsPane({
                           </p>
                         )}
                       </div>
-                      {canManage && !isMe && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-[#8A8A8A] hover:bg-[#FF6B6B1A] hover:text-[#FF6B6B]"
-                          disabled={removingUserId === member.userId}
-                          onClick={() => handleRemove(member.userId, name)}
-                          aria-label={`Remove ${name}`}
-                        >
-                          {removingUserId === member.userId ? (
-                            <Spinner className="size-4" />
-                          ) : (
-                            <TrashIcon className="size-4" />
-                          )}
-                        </Button>
-                      )}
+                      <Can action={Action.ManageChannelMembers}>
+                        {canManage && !isMe && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-[#8A8A8A] hover:bg-[#FF6B6B1A] hover:text-[#FF6B6B]"
+                            disabled={removingUserId === member.userId}
+                            onClick={() => handleRemove(member.userId, name)}
+                            aria-label={`Remove ${name}`}
+                          >
+                            {removingUserId === member.userId ? (
+                              <Spinner className="size-4" />
+                            ) : (
+                              <TrashIcon className="size-4" />
+                            )}
+                          </Button>
+                        )}
+                      </Can>
                     </li>
                   );
                 })}
