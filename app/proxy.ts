@@ -18,7 +18,11 @@ function isPublicRoute(pathname: string) {
   );
 }
 
-function withCacheHeaders(request: NextRequest, response: NextResponse) {
+function withCacheHeaders(
+  request: NextRequest,
+  response: NextResponse,
+  isProtected = false,
+) {
   const rscHeader = request.headers.get("rsc");
   const nextRouterStateTree = request.headers.get("next-router-state-tree");
 
@@ -27,7 +31,7 @@ function withCacheHeaders(request: NextRequest, response: NextResponse) {
     "RSC, Next-Router-State-Tree, Next-Router-Prefetch, Accept",
   );
 
-  if (rscHeader || nextRouterStateTree) {
+  if (rscHeader || nextRouterStateTree || isProtected) {
     response.headers.set(
       "Cache-Control",
       "private, no-cache, no-store, must-revalidate",
@@ -68,10 +72,14 @@ export function proxy(request: NextRequest) {
 
   const orgRole = getRequestOrgRole(request);
   if (!canAccessRoute(orgRole, pathname)) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return withCacheHeaders(
+      request,
+      NextResponse.redirect(new URL("/", request.url)),
+      true,
+    );
   }
 
-  return withCacheHeaders(request, NextResponse.next());
+  return withCacheHeaders(request, NextResponse.next(), true);
 }
 
 export const config = {

@@ -6,13 +6,13 @@ import {
   SignOutIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useMemo } from "react";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
 import { sidebarBottomMenu, sidebarMenu } from "@/constant";
 import { useCanCreateProject } from "@/hooks/use-can-create-project";
 import { useOrgAuthz } from "@/hooks/use-org-authz";
-import { clearAuth } from "@/lib/auth/cookies";
+import { logout } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 
@@ -27,7 +27,6 @@ function sidebarNavLinkClass(isActive: boolean) {
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { can, ready } = useOrgAuthz();
   const { canCreate: canCreateProject, ready: projectAuthReady } =
     useCanCreateProject();
@@ -41,8 +40,7 @@ export default function DashboardSidebar() {
   );
 
   const handleLogout = () => {
-    clearAuth();
-    router.push("/sign-in");
+    logout();
   };
 
   return (
