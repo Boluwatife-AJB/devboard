@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { canManageInvitations } from "@/hooks/use-invitations";
 import { useMe } from "@/hooks/use-me";
 import {
   useAddChannelMember,
@@ -29,8 +28,10 @@ import {
   useLeaveChannel,
   useRemoveChannelMember,
 } from "@/hooks/use-messaging";
+import { useOrgAuthz } from "@/hooks/use-org-authz";
 import { useOrgMembers } from "@/hooks/use-teams";
 import { getApiErrorMessage } from "@/lib/api";
+import { Action } from "@/lib/rbac/actions";
 import { avatarColorOf, initialsOf } from "@/lib/task-ui";
 import type { ApiChannel } from "@/types";
 
@@ -42,13 +43,14 @@ export function DetailsPane({
   onLeftChannel?: () => void;
 }) {
   const { data: me } = useMe();
+  const { can } = useOrgAuthz();
   const [canManage, setCanManage] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    setCanManage(canManageInvitations());
-  }, []);
+    setCanManage(can(Action.ManageChannelMembers));
+  }, [can]);
 
   const {
     data: members = [],
