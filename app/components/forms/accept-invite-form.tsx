@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
+import { LockedInviteEmailField } from "@/components/auth/locked-invite-email-field";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -211,6 +212,11 @@ export function AcceptInviteForm({ token }: { token: string }) {
         className="flex min-h-0 flex-1 flex-col"
       >
         <FieldGroup className="flex flex-col gap-5">
+          <LockedInviteEmailField
+            email={invitePreview.data.email}
+            id="signup-email"
+          />
+
           <Controller
             control={control}
             name="fullName"

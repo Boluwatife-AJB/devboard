@@ -10,15 +10,18 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { LockedInviteEmailField } from "@/components/auth/locked-invite-email-field";
+import { useInvitePreview } from "@/hooks/use-invitations";
 import { getApiErrorMessage, publicApi } from "@/lib/api";
 import {
   setAccessToken,
   setOrganizations,
   setSelectedOrgId,
 } from "@/lib/auth/cookies";
+import { parseInviteTokenFromRedirect } from "@/lib/auth/invite-utils";
 import { signinSchema } from "@/lib/schema";
 import type { AuthResponse, SigninFormData } from "@/types";
 import { Button } from "../ui/button";
@@ -41,12 +44,17 @@ function SignInFormInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = safeRedirectPath(searchParams.get("redirect"));
+  const inviteToken = parseInviteTokenFromRedirect(redirectTo);
+  const isInviteFlow = Boolean(inviteToken);
+  const invitePreview = useInvitePreview(inviteToken ?? "", isInviteFlow);
+  const lockedEmail = invitePreview.data?.email;
   const [showPassword, setShowPassword] = useState(false);
 
   const {
     formState: { isValid },
     control,
     handleSubmit,
+    setValue,
   } = useForm<SigninFormData>({
     resolver: zodResolver(signinSchema),
     mode: "onBlur",
@@ -55,6 +63,12 @@ function SignInFormInner() {
       password: "",
     },
   });
+
+  useEffect(() => {
+    if (lockedEmail) {
+      setValue("email", lockedEmail, { shouldValidate: true });
+    }
+  }, [lockedEmail, setValue]);
 
   const { mutate: loginMutation, isPending: isLoginPending } = useMutation({
     mutationFn: login,
@@ -85,6 +99,10 @@ function SignInFormInner() {
     ? redirectTo
     : "/sign-up";
 
+  const emailFieldLocked = isInviteFlow && Boolean(lockedEmail);
+  const emailFieldLoading =
+    isInviteFlow && invitePreview.isLoading && !lockedEmail;
+
   return (
     <div className="mx-auto w-96 max-w-md">
       <div className="mb-8">
@@ -100,34 +118,57 @@ function SignInFormInner() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <FieldGroup>
-          <Controller
-            control={control}
-            name="email"
-            render={({ field, fieldState }) => (
-              <Field>
-                <FieldLabel
-                  htmlFor="email"
-                  className="pl-1 font-mono text-xs font-medium tracking-wide text-gray-400 uppercase"
-                >
-                  Work Email
-                </FieldLabel>
-                <div className="relative">
-                  <EnvelopeSimpleIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    className="border border-devboard-neutral py-6 pl-11 text-base transition-all duration-150 placeholder:font-semibold focus:border-devboard-primary focus:ring-1 focus:ring-devboard-primary/20 focus:outline-none"
-                    placeholder="your@email.com"
-                    type="text"
-                    autoComplete="off"
-                    {...field}
-                  />
-                </div>
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
-              </Field>
-            )}
-          />
+          {isInviteFlow ? (
+            <LockedInviteEmailField
+              email={lockedEmail ?? ""}
+              isLoading={emailFieldLoading}
+            />
+          ) : (
+            <Controller
+              control={control}
+              name="email"
+              render={({ field, fieldState }) => (
+                <Field>
+                  <FieldLabel
+                    htmlFor="email"
+                    className="pl-1 font-mono text-xs font-medium tracking-wide text-gray-400 uppercase"
+                  >
+                    Work Email
+                  </FieldLabel>
+                  <div className="relative">
+                    <EnvelopeSimpleIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      className="border border-devboard-neutral py-6 pl-11 text-base transition-all duration-150 placeholder:font-semibold focus:border-devboard-primary focus:ring-1 focus:ring-devboard-primary/20 focus:outline-none"
+                      placeholder="your@email.com"
+                      type="text"
+                      autoComplete="off"
+                      {...field}
+                    />
+                  </div>
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+          )}
+
+          {isInviteFlow && invitePreview.isError ? (
+            <p className="text-sm text-destructive">
+              {getApiErrorMessage(invitePreview.error) ||
+                "Could not load invitation details."}
+            </p>
+          ) : null}
+
+          {/* Keep email in form state when the visible field is locked. */}
+          {emailFieldLocked ? (
+            <Controller
+              control={control}
+              name="email"
+              render={({ field }) => <input type="hidden" {...field} />}
+            />
+          ) : null}
 
           <Controller
             control={control}
@@ -172,7 +213,12 @@ function SignInFormInner() {
 
           <Button
             type="submit"
-            disabled={isLoginPending || !isValid}
+            disabled={
+              isLoginPending ||
+              !isValid ||
+              emailFieldLoading ||
+              (isInviteFlow && !lockedEmail)
+            }
             className="mt-5 w-full rounded-xs bg-devboard-primary py-6 font-semibold text-white transition-colors hover:bg-devboard-primary/90"
           >
             {isLoginPending ? "Signing in..." : "Sign in"}
