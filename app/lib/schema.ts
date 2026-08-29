@@ -149,7 +149,7 @@ export const editProfileSchema = z.object({
     "Prefer not to say",
     "",
   ]),
-  role: z.string().optional(),
+  title: z.string().optional(),
   bio: z.string().max(500, "Bio must be 500 characters or fewer").optional(),
   location: z.string().optional(),
   phone: z.string().optional(),

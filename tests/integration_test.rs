@@ -122,6 +122,8 @@ fn membership_from_payload(payload: &AuthPayload) -> OrgMembership {
         user_id: payload.user.id,
         role: org.role,
         joined_at: Utc::now(),
+        display_name: payload.user.display_name.clone(),
+        avatar_url: None,
     }
 }
 
@@ -131,6 +133,8 @@ fn membership_for(org_id: OrganizationId, user_id: UserId, role: OrgRole) -> Org
         user_id,
         role,
         joined_at: Utc::now(),
+        display_name: "".to_string(),
+        avatar_url: None,
     }
 }
 
@@ -631,6 +635,8 @@ async fn test_task_status_transitions() {
         user_id,
         role: OrgRole::OrgOwner,
         joined_at: Utc::now(),
+        display_name: payload.user.display_name,
+        avatar_url: None,
     };
 
     app.team_repo
@@ -801,3 +807,5 @@ async fn test_stranger_has_no_access_to_project() {
         (don't confirm the project exists to unauthorized callers)"
     );
 }
+
+// TODO: Add tests for profile service myOrganizations, myOrgProfile, updateMyOrgProfile

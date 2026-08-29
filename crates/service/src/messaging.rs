@@ -410,7 +410,9 @@ impl MessagingService {
         }
 
         if !mentioned.is_empty() {
-            let sender_name = self.display_name_for(author_id).await;
+            let sender_name = self
+                .display_name_for(author_id, channel.organization_id)
+                .await;
             // let preview: String = body.chars().take(100).collect();
             let preview: String = format_notification_preview(&body);
 
@@ -746,7 +748,7 @@ impl MessagingService {
             .await;
 
         if let Some(recipient_id) = thread.other_participant(author_id) {
-            let sender_name = self.display_name_for(author_id).await;
+            let sender_name = self.display_name_for(author_id, org_id).await;
             if let Err(err) = self
                 .notification_service
                 .notify_dm_message(recipient_id, org_id, &sender_name, &body, thread_id)
@@ -1033,7 +1035,13 @@ impl MessagingService {
         Ok(())
     }
 
-    async fn display_name_for(&self, user_id: UserId) -> String {
+    async fn display_name_for(&self, user_id: UserId, org_id: OrganizationId) -> String {
+        if let Ok(Some(m)) = self.org_member_repo.find(user_id, org_id).await
+            && !m.display_name.is_empty()
+        {
+            return m.display_name;
+        }
+
         self.user_repo
             .find_by_id(user_id)
             .await
@@ -1052,7 +1060,9 @@ impl MessagingService {
         members: &[ChannelMember],
         skip: &[UserId],
     ) {
-        let sender_name = self.display_name_for(author_id).await;
+        let sender_name = self
+            .display_name_for(author_id, channel.organization_id)
+            .await;
         let skip: HashSet<_> = skip.iter().copied().collect();
 
         for member in members {

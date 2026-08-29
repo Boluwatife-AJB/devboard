@@ -175,15 +175,15 @@ export function PersonalInformationCard({
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Controller
-                name="role"
+                name="title"
                 control={control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="role" className="profile-field-label">
-                      Role
+                    <FieldLabel htmlFor="title" className="profile-field-label">
+                      Title
                     </FieldLabel>
                     <Input
-                      id="role"
+                      id="title"
                       {...field}
                       aria-invalid={fieldState.invalid}
                       className="profile-input"

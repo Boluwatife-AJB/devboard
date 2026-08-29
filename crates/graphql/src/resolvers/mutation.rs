@@ -18,14 +18,15 @@ use crate::{
         SendAnnouncementInput, SendDmInput, SendMessageInput, UnregisterPushSubscriptionInput,
         UpdateNotificationPreferencesInput, UpdateTaskStatusInput,
         comment::{CreateCommentInput, EditCommentInput},
+        profile::UpdateOrgProfileInput,
         project::UpdateProjectInput,
         task::UpdateTaskDueDateInput,
     },
     resolvers::query::parse_id,
     types::{
         GqlAttachment, GqlChannel, GqlComment, GqlDmMessage, GqlDmThread, GqlMessage,
-        GqlNotificationKind, GqlNotificationPreference, GqlProject, GqlReactionSummary, GqlTask,
-        GqlTeam,
+        GqlNotificationKind, GqlNotificationPreference, GqlOrgMemberProfile, GqlProject,
+        GqlReactionSummary, GqlTask, GqlTeam,
     },
 };
 
@@ -509,6 +510,29 @@ impl CoreMutation {
             .map_gql_err()?;
 
         Ok(true)
+    }
+
+    async fn update_org_profile(
+        &self,
+        ctx: &Context<'_>,
+        input: UpdateOrgProfileInput,
+    ) -> async_graphql::Result<GqlOrgMemberProfile> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+        let membership = auth.require_org()?;
+
+        let profile = services
+            .profile_service
+            .update_my_org_profile(
+                auth.user_id,
+                membership.organization_id,
+                input.display_name,
+                input.avatar_url,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlOrgMemberProfile::from(profile))
     }
 }
 

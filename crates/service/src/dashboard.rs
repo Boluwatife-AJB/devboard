@@ -34,7 +34,6 @@ pub struct DashboardServiceDeps {
 }
 
 pub struct DashboardService {
-    user_repo: Arc<dyn UserRepository>,
     org_repo: Arc<dyn OrganizationRepository>,
     org_membership_repo: Arc<dyn OrgMembershipRepository>,
     team_repo: Arc<dyn TeamRepository>,
@@ -49,7 +48,6 @@ pub struct DashboardService {
 impl DashboardService {
     pub fn new(deps: DashboardServiceDeps) -> Self {
         Self {
-            user_repo: deps.user_repo,
             org_repo: deps.org_repo,
             org_membership_repo: deps.org_membership_repo,
             team_repo: deps.team_repo,
@@ -100,11 +98,7 @@ impl DashboardService {
         let org_id = membership.organization_id;
         let can_manage = membership.role.at_least(OrgRole::OrgAdmin);
 
-        let (user, org) = tokio::try_join!(
-            self.user_repo.find_by_id(caller_id),
-            self.org_repo.find_by_id(org_id),
-        )?;
-        let user = user.ok_or(ServiceError::Unauthenticated)?;
+        let org = self.org_repo.find_by_id(org_id).await?;
         let org = org.ok_or(ServiceError::Internal("Organization not found".into()))?;
 
         let projects = self.project_service.list_projects(&membership).await?;
@@ -211,7 +205,7 @@ impl DashboardService {
             .await?;
 
         Ok(MyDashboard {
-            greeting_name: user.display_name,
+            greeting_name: membership.display_name,
             organization_name: org.name,
             empty_state,
             setup_progress,
@@ -235,11 +229,7 @@ impl DashboardService {
         }
 
         let org_id = membership.organization_id;
-        let (user, org) = tokio::try_join!(
-            self.user_repo.find_by_id(caller_id),
-            self.org_repo.find_by_id(org_id),
-        )?;
-        let user = user.ok_or(ServiceError::Unauthenticated)?;
+        let org = self.org_repo.find_by_id(org_id).await?;
         let org = org.ok_or(ServiceError::Internal("Organization not found".into()))?;
 
         let projects = self.project_repo.find_by_organization(org_id).await?;
@@ -384,7 +374,7 @@ impl DashboardService {
             .await?;
 
         Ok(OrgDashboard {
-            greeting_name: user.display_name,
+            greeting_name: membership.display_name,
             organization_name: org.name,
             empty_state,
             setup_progress,

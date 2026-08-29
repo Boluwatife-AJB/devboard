@@ -4,6 +4,7 @@ pub mod dashboard;
 pub mod invitation;
 pub mod messaging;
 pub mod notification;
+pub mod organization;
 pub mod pagination;
 pub mod project;
 pub mod scalars;
@@ -27,6 +28,7 @@ pub use messaging::{
     GqlReactionSummary, GqlUserPresence,
 };
 pub use notification::{GqlNotification, GqlNotificationKind, GqlNotificationPreference};
+pub use organization::{GqlOrgMemberProfile, GqlOrgSummary};
 pub use project::GqlProject;
 pub use subscription::{TaskEventKind, TaskUpdatedEvent};
 pub use task::{GqlTask, GqlTaskPriority, GqlTaskStatus};

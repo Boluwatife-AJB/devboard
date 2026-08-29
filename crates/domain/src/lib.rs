@@ -24,7 +24,7 @@ pub use messaging::{
     PresenceStatus, ReactionSummary, UserPresence,
 };
 pub use notification::{Notification, NotificationKind, NotificationPreference, PushSubscription};
-pub use organization::{OrgMembership, OrgRole, OrgSummary, Organization};
+pub use organization::{OrgMemberProfile, OrgMembership, OrgRole, OrgSummary, Organization};
 pub use project::*;
 pub use rbac::*;
 pub use task::*;

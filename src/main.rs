@@ -36,8 +36,8 @@ use devboard_repository::{
 };
 use devboard_service::{
     AttachmentService, AuthService, CommentService, DashboardService, DashboardServiceDeps,
-    MessagingService, MessagingServiceDeps, NotificationService, ProjectService, TaskService,
-    TeamService, retention, spawn_due_soon_checker, spawn_email_digest_job, unfurl,
+    MessagingService, MessagingServiceDeps, NotificationService, ProfileService, ProjectService,
+    TaskService, TeamService, retention, spawn_due_soon_checker, spawn_email_digest_job, unfurl,
 };
 
 mod auth_routes;
@@ -194,6 +194,12 @@ async fn main() -> anyhow::Result<()> {
         project_service: project_service.clone(),
     }));
 
+    let profile_service = Arc::new(ProfileService::new(
+        user_repo.clone(),
+        org_membership_repo.clone(),
+        Arc::new(membership_cache.clone()),
+    ));
+
     let services = Services {
         auth_service: auth_service.clone(),
         task_service,
@@ -204,6 +210,7 @@ async fn main() -> anyhow::Result<()> {
         messaging_service: messaging_service.clone(),
         notification_service: notification_service.clone(),
         dashboard_service,
+        profile_service,
     };
 
     let schema = build_schema(

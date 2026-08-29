@@ -40,6 +40,8 @@ impl OrgMembershipRepository for PgOrgMembershipRepository {
                     organization_id: OrganizationId::from(m.organization_id),
                     user_id: UserId::from(m.user_id),
                     role: str_to_org_role(&m.role)?,
+                    display_name: m.display_name,
+                    avatar_url: m.avatar_url,
                     joined_at: m.joined_at.into(),
                 })
             })
@@ -117,6 +119,8 @@ impl OrgMembershipRepository for PgOrgMembershipRepository {
                     organization_id: OrganizationId::from(m.organization_id),
                     user_id: UserId::from(m.user_id),
                     role: str_to_org_role(&m.role)?,
+                    display_name: m.display_name,
+                    avatar_url: m.avatar_url,
                     joined_at: m.joined_at.into(),
                 })
             })
@@ -129,12 +133,15 @@ impl OrgMembershipRepository for PgOrgMembershipRepository {
         user_id: UserId,
         org_id: OrganizationId,
         role: OrgRole,
+        display_name: String,
     ) -> Result<OrgMembership, RepositoryError> {
         let now = Utc::now();
         let active = org_membership::ActiveModel {
             organization_id: ActiveValue::Set(Uuid::from(org_id)),
             user_id: ActiveValue::Set(Uuid::from(user_id)),
             role: ActiveValue::Set(org_role_to_str(&role).to_string()),
+            display_name: ActiveValue::Set(display_name.clone()),
+            avatar_url: ActiveValue::Set(None),
             joined_at: ActiveValue::Set(now.into()),
         };
 
@@ -147,7 +154,41 @@ impl OrgMembershipRepository for PgOrgMembershipRepository {
             organization_id: org_id,
             user_id,
             role,
+            display_name,
+            avatar_url: None,
             joined_at: now,
+        })
+    }
+
+    async fn update_profile(
+        &self,
+        user_id: UserId,
+        org_id: OrganizationId,
+        display_name: String,
+        avatar_url: Option<String>,
+    ) -> Result<OrgMembership, RepositoryError> {
+        let model = OrgMembershipEntity::find_by_id((Uuid::from(org_id), Uuid::from(user_id)))
+            .one(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?
+            .ok_or(RepositoryError::NotFound)?;
+
+        let mut active: org_membership::ActiveModel = model.into();
+        active.display_name = ActiveValue::Set(display_name);
+        active.avatar_url = ActiveValue::Set(avatar_url.clone());
+
+        let updated = active
+            .update(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+
+        Ok(OrgMembership {
+            organization_id: org_id,
+            user_id,
+            role: str_to_org_role(&updated.role)?,
+            display_name: updated.display_name,
+            avatar_url: updated.avatar_url,
+            joined_at: updated.joined_at.into(),
         })
     }
 
@@ -176,6 +217,8 @@ impl OrgMembershipRepository for PgOrgMembershipRepository {
             organization_id: org_id,
             user_id,
             role,
+            display_name: updated.display_name,
+            avatar_url: updated.avatar_url,
             joined_at: updated.joined_at.into(),
         })
     }

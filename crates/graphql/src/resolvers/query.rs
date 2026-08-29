@@ -12,8 +12,8 @@ use crate::{
     types::{
         GqlAttachment, GqlChannel, GqlChannelMember, GqlComment, GqlDmMessage, GqlDmThread,
         GqlInvitation, GqlMessage, GqlMyDashboard, GqlNotification, GqlNotificationKind,
-        GqlNotificationPreference, GqlOrgDashboard, GqlOrgMember, GqlProject, GqlTask,
-        GqlTaskStatus, GqlTeam, GqlTeamMember, GqlUserPresence,
+        GqlNotificationPreference, GqlOrgDashboard, GqlOrgMember, GqlOrgMemberProfile,
+        GqlOrgSummary, GqlProject, GqlTask, GqlTaskStatus, GqlTeam, GqlTeamMember, GqlUserPresence,
         pagination::{
             ConnectionArgs, PageInfo, TaskConnection, TaskEdge, decode_cursor, encode_cursor,
         },
@@ -341,6 +341,39 @@ impl CoreQuery {
             .await
             .map_gql_err()?;
         Ok(GqlOrgDashboard::from(summary))
+    }
+
+    async fn my_organizations(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Vec<GqlOrgSummary>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let orgs = services
+            .profile_service
+            .list_my_organizations(auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(orgs.into_iter().map(GqlOrgSummary::from).collect())
+    }
+
+    async fn my_org_profile(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<GqlOrgMemberProfile> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+        let membership = auth.require_org()?;
+
+        let profile = services
+            .profile_service
+            .get_my_org_profile(auth.user_id, membership.organization_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlOrgMemberProfile::from(profile))
     }
 }
 

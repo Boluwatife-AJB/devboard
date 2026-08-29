@@ -3,6 +3,7 @@ pub mod auth;
 pub mod comment;
 pub mod messaging;
 pub mod notification;
+pub mod profile;
 pub mod project;
 pub mod task;
 pub mod team;

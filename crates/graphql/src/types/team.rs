@@ -122,6 +122,14 @@ impl GqlOrgMember {
         GqlOrgRole::from(self.inner.role)
     }
 
+    async fn display_name(&self) -> &str {
+        &self.inner.display_name
+    }
+
+    async fn avatar_url(&self) -> Option<&str> {
+        self.inner.avatar_url.as_deref()
+    }
+
     async fn joined_at(&self) -> DateTime<Utc> {
         self.inner.joined_at
     }

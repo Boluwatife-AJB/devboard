@@ -457,6 +457,8 @@ fn test_org_membership(org_id: OrganizationId, user_id: UserId) -> OrgMembership
         user_id,
         role: OrgRole::OrgMember,
         joined_at: Utc::now(),
+        display_name: "".to_string(),
+        avatar_url: None,
     }
 }
 
