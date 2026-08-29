@@ -2,8 +2,9 @@ use async_graphql::{Enum, ID, Object};
 use chrono::{DateTime, Utc};
 use devboard_domain::{
     AttentionItem, AttentionKind, CompletionPoint, DashboardCta, DashboardEmptyState,
-    DashboardEvent, DashboardTaskItem, MyDashboard, MyDashboardProject, MyDashboardStats,
-    OrgDashboard, OrgDashboardStats, WorkloadPoint,
+    DashboardEvent, DashboardSetupProgress, DashboardTaskItem, MyDashboard, MyDashboardProject,
+    MyDashboardStats, OrgDashboard, OrgDashboardStats, SetupPersona, SetupStep, SetupStepId,
+    WorkloadPoint,
 };
 
 use crate::types::{GqlTaskPriority, GqlTaskStatus};
@@ -41,6 +42,98 @@ impl From<AttentionKind> for GqlAttentionKind {
             AttentionKind::StaleInReview => Self::StaleInReview,
             AttentionKind::PendingInvites => Self::PendingInvites,
         }
+    }
+}
+
+#[derive(Enum, Copy, Clone, Eq, PartialEq)]
+pub enum GqlSetupPersona {
+    OrgAdmin,
+    OrgMember,
+}
+
+impl From<SetupPersona> for GqlSetupPersona {
+    fn from(p: SetupPersona) -> Self {
+        match p {
+            SetupPersona::OrgAdmin => Self::OrgAdmin,
+            SetupPersona::OrgMember => Self::OrgMember,
+        }
+    }
+}
+
+#[derive(Enum, Copy, Clone, Eq, PartialEq)]
+pub enum GqlSetupStepId {
+    CreateTeam,
+    CreateProject,
+    InviteMembers,
+    CreateChannel,
+    CreateTask,
+    JoinConversation,
+    ExploreProjects,
+    ReviewTasks,
+}
+
+impl From<SetupStepId> for GqlSetupStepId {
+    fn from(id: SetupStepId) -> Self {
+        match id {
+            SetupStepId::CreateTeam => Self::CreateTeam,
+            SetupStepId::CreateProject => Self::CreateProject,
+            SetupStepId::InviteMembers => Self::InviteMembers,
+            SetupStepId::CreateChannel => Self::CreateChannel,
+            SetupStepId::CreateTask => Self::CreateTask,
+            SetupStepId::JoinConversation => Self::JoinConversation,
+            SetupStepId::ExploreProjects => Self::ExploreProjects,
+            SetupStepId::ReviewTasks => Self::ReviewTasks,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct GqlSetupStep {
+    pub inner: SetupStep,
+}
+
+#[Object]
+impl GqlSetupStep {
+    async fn id(&self) -> GqlSetupStepId {
+        GqlSetupStepId::from(self.inner.id)
+    }
+    async fn label(&self) -> &str {
+        &self.inner.label
+    }
+    async fn description(&self) -> &str {
+        &self.inner.description
+    }
+    async fn completed(&self) -> bool {
+        self.inner.completed
+    }
+    async fn href(&self) -> Option<&str> {
+        self.inner.href.as_deref()
+    }
+}
+
+#[derive(Clone)]
+pub struct GqlDashboardSetupProgress {
+    pub inner: DashboardSetupProgress,
+}
+
+#[Object]
+impl GqlDashboardSetupProgress {
+    async fn persona(&self) -> GqlSetupPersona {
+        GqlSetupPersona::from(self.inner.persona)
+    }
+    async fn completed_count(&self) -> i32 {
+        self.inner.completed_count as i32
+    }
+    async fn total_count(&self) -> i32 {
+        self.inner.total_count as i32
+    }
+    async fn steps(&self) -> Vec<GqlSetupStep> {
+        self.inner
+            .steps
+            .iter()
+            .cloned()
+            .map(|step| GqlSetupStep { inner: step })
+            .collect()
     }
 }
 
@@ -278,6 +371,11 @@ impl GqlMyDashboard {
             inner: self.inner.empty_state.clone(),
         }
     }
+    async fn setup_progress(&self) -> GqlDashboardSetupProgress {
+        GqlDashboardSetupProgress {
+            inner: self.inner.setup_progress.clone(),
+        }
+    }
     async fn stats(&self) -> GqlMyDashboardStats {
         GqlMyDashboardStats {
             inner: self.inner.stats.clone(),
@@ -339,6 +437,11 @@ impl GqlOrgDashboard {
     async fn empty_state(&self) -> GqlDashboardEmptyState {
         GqlDashboardEmptyState {
             inner: self.inner.empty_state.clone(),
+        }
+    }
+    async fn setup_progress(&self) -> GqlDashboardSetupProgress {
+        GqlDashboardSetupProgress {
+            inner: self.inner.setup_progress.clone(),
         }
     }
     async fn stats(&self) -> GqlOrgDashboardStats {

@@ -35,9 +35,9 @@ use devboard_repository::{
     messaging::pg::{PgChannelRepository, PgDmRepository, PgMessageRepository},
 };
 use devboard_service::{
-    AttachmentService, AuthService, CommentService, DashboardService, MessagingService,
-    MessagingServiceDeps, NotificationService, ProjectService, TaskService, TeamService, retention,
-    spawn_due_soon_checker, spawn_email_digest_job, unfurl,
+    AttachmentService, AuthService, CommentService, DashboardService, DashboardServiceDeps,
+    MessagingService, MessagingServiceDeps, NotificationService, ProjectService, TaskService,
+    TeamService, retention, spawn_due_soon_checker, spawn_email_digest_job, unfurl,
 };
 
 mod auth_routes;
@@ -181,14 +181,18 @@ async fn main() -> anyhow::Result<()> {
 
     retention::spawn_retention_job(channel_repo.clone());
 
-    let dashboard_service = Arc::new(DashboardService::new(
-        user_repo.clone(),
-        org_repo.clone(),
-        project_repo.clone(),
-        task_repo.clone(),
-        invitation_repo.clone(),
-        project_service.clone(),
-    ));
+    let dashboard_service = Arc::new(DashboardService::new(DashboardServiceDeps {
+        user_repo: user_repo.clone(),
+        org_repo: org_repo.clone(),
+        org_membership_repo: org_membership_repo.clone(),
+        team_repo: team_repo.clone(),
+        channel_repo: channel_repo.clone(),
+        dm_repo: dm_repo.clone(),
+        project_repo: project_repo.clone(),
+        task_repo: task_repo.clone(),
+        invitation_repo: invitation_repo.clone(),
+        project_service: project_service.clone(),
+    }));
 
     let services = Services {
         auth_service: auth_service.clone(),

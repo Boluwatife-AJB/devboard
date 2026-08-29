@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { CompletionTrendChart } from "@/components/dashboard/member/completion-trend-chart";
 import { MemberQuickActionsCard } from "@/components/dashboard/member/member-quick-actions-card";
 import { MyProjectsCard } from "@/components/dashboard/member/my-projects-card";
@@ -7,11 +8,11 @@ import { MyTasksCard } from "@/components/dashboard/member/my-tasks-card";
 import { UpcomingEventsCard } from "@/components/dashboard/member/upcoming-events-card";
 import { DashboardGreeting } from "@/components/dashboard/shared/dashboard-greeting";
 import {
-  DashboardEmptyState,
   DashboardErrorState,
   DashboardSkeleton,
   shouldShowDashboardEmpty,
 } from "@/components/dashboard/shared/dashboard-states";
+import { GettingStartedHub } from "@/components/dashboard/shared/getting-started-hub";
 import { StatsGrid } from "@/components/dashboard/shared/stats-grid";
 import { memberQuickActions } from "@/constant";
 import { useMyDashboard } from "@/hooks/use-dashboard";
@@ -63,10 +64,15 @@ export function MemberDashboard({
 
   if (shouldShowDashboardEmpty(data.emptyState)) {
     return (
-      <div className="flex flex-col gap-8">
-        {greeting}
-        <DashboardEmptyState emptyState={data.emptyState} />
-      </div>
+      <Suspense fallback={<DashboardSkeleton />}>
+        <GettingStartedHub
+          persona="member"
+          displayName={data.greetingName || displayName}
+          organizationName={data.organizationName || organizationName}
+          emptyState={data.emptyState}
+          setupProgress={data.setupProgress}
+        />
+      </Suspense>
     );
   }
 

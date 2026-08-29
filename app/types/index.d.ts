@@ -112,6 +112,33 @@ interface ApiDashboardEmptyState {
   primaryCta: DashboardCta;
 }
 
+type ApiSetupPersona = "ORG_ADMIN" | "ORG_MEMBER";
+
+type ApiSetupStepId =
+  | "CREATE_TEAM"
+  | "CREATE_PROJECT"
+  | "INVITE_MEMBERS"
+  | "CREATE_CHANNEL"
+  | "CREATE_TASK"
+  | "JOIN_CONVERSATION"
+  | "EXPLORE_PROJECTS"
+  | "REVIEW_TASKS";
+
+interface ApiSetupStep {
+  id: ApiSetupStepId;
+  label: string;
+  description: string;
+  completed: boolean;
+  href: string | null;
+}
+
+interface ApiDashboardSetupProgress {
+  persona: ApiSetupPersona;
+  completedCount: number;
+  totalCount: number;
+  steps: ApiSetupStep[];
+}
+
 interface ApiDashboardTaskItem {
   id: string;
   projectId: string;
@@ -132,6 +159,7 @@ interface ApiMyDashboard {
   greetingName: string;
   organizationName: string;
   emptyState: ApiDashboardEmptyState;
+  setupProgress: ApiDashboardSetupProgress;
   stats: {
     tasksAssignedToMe: number;
     tasksDueThisWeek: number;
@@ -154,6 +182,7 @@ interface ApiOrgDashboard {
   greetingName: string;
   organizationName: string;
   emptyState: ApiDashboardEmptyState;
+  setupProgress: ApiDashboardSetupProgress;
   stats: {
     overdueTasks: number;
     unassignedTasks: number;

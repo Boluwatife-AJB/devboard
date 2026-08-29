@@ -22,7 +22,7 @@ pub use auth::{
 };
 pub use authz::{authorize, load_project_context, load_team_context, require_team_in_org};
 pub use comment::CommentService;
-pub use dashboard::DashboardService;
+pub use dashboard::{DashboardService, DashboardServiceDeps};
 pub use error::ServiceError;
 pub use event_bus::EventBus;
 pub use events::TaskEvent;

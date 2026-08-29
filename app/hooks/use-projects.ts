@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { invalidateDashboardQueries } from "@/hooks/use-dashboard";
 import { graphqlRequest } from "@/lib/graphql/client";
 import {
   ADD_PROJECT_MEMBER_MUTATION,
@@ -70,6 +71,7 @@ export function useCreateProject() {
         previous ? [...previous, project] : [project],
       );
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      invalidateDashboardQueries(queryClient);
     },
   });
 }

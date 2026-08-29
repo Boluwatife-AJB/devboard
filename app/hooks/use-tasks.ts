@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { invalidateDashboardQueries } from "@/hooks/use-dashboard";
 import { graphqlRequest } from "@/lib/graphql/client";
 import {
   ASSIGN_TASK_MUTATION,
@@ -72,6 +73,7 @@ export function useCreateTask(projectId: string) {
         tasks ? [...tasks, task] : [task],
       );
       queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) });
+      invalidateDashboardQueries(queryClient);
     },
   });
 }

@@ -3,12 +3,14 @@ use std::sync::Arc;
 use chrono::{DateTime, Duration, NaiveDate, Utc};
 use devboard_domain::{
     AttentionItem, AttentionKind, CompletionPoint, DashboardCta, DashboardEmptyState,
-    DashboardTaskItem, MyDashboard, MyDashboardProject, MyDashboardStats, OrgDashboard,
-    OrgDashboardStats, OrgMembership, OrgRole, TaskPriority, TaskStatus, UserId, WorkloadPoint,
+    DashboardSetupProgress, DashboardTaskItem, MyDashboard, MyDashboardProject, MyDashboardStats,
+    OrgDashboard, OrgDashboardStats, OrgMembership, OrgRole, SetupPersona, SetupProgressInput,
+    TaskPriority, TaskStatus, UserId, WorkloadPoint, build_setup_progress,
 };
 use devboard_repository::{
-    InvitationRepository, OrganizationRepository, ProjectRepository, TaskRepository,
-    UserRepository,
+    InvitationRepository, OrgMembershipRepository, OrganizationRepository, ProjectRepository,
+    TaskRepository, TeamRepository, UserRepository,
+    messaging::{ChannelRepository, DmRepository},
     task::{CompletionDayRow, DashboardTaskRow},
 };
 
@@ -18,9 +20,26 @@ const TREND_DAYS: i64 = 14;
 const MY_TASKS_LIMIT: usize = 10;
 const RISK_TASKS_LIMIT: usize = 8;
 
+pub struct DashboardServiceDeps {
+    pub user_repo: Arc<dyn UserRepository>,
+    pub org_repo: Arc<dyn OrganizationRepository>,
+    pub org_membership_repo: Arc<dyn OrgMembershipRepository>,
+    pub team_repo: Arc<dyn TeamRepository>,
+    pub channel_repo: Arc<dyn ChannelRepository>,
+    pub dm_repo: Arc<dyn DmRepository>,
+    pub project_repo: Arc<dyn ProjectRepository>,
+    pub task_repo: Arc<dyn TaskRepository>,
+    pub invitation_repo: Arc<dyn InvitationRepository>,
+    pub project_service: Arc<ProjectService>,
+}
+
 pub struct DashboardService {
     user_repo: Arc<dyn UserRepository>,
     org_repo: Arc<dyn OrganizationRepository>,
+    org_membership_repo: Arc<dyn OrgMembershipRepository>,
+    team_repo: Arc<dyn TeamRepository>,
+    channel_repo: Arc<dyn ChannelRepository>,
+    dm_repo: Arc<dyn DmRepository>,
     project_repo: Arc<dyn ProjectRepository>,
     task_repo: Arc<dyn TaskRepository>,
     invitation_repo: Arc<dyn InvitationRepository>,
@@ -28,22 +47,49 @@ pub struct DashboardService {
 }
 
 impl DashboardService {
-    pub fn new(
-        user_repo: Arc<dyn UserRepository>,
-        org_repo: Arc<dyn OrganizationRepository>,
-        project_repo: Arc<dyn ProjectRepository>,
-        task_repo: Arc<dyn TaskRepository>,
-        invitation_repo: Arc<dyn InvitationRepository>,
-        project_service: Arc<ProjectService>,
-    ) -> Self {
+    pub fn new(deps: DashboardServiceDeps) -> Self {
         Self {
-            user_repo,
-            org_repo,
-            project_repo,
-            task_repo,
-            invitation_repo,
-            project_service,
+            user_repo: deps.user_repo,
+            org_repo: deps.org_repo,
+            org_membership_repo: deps.org_membership_repo,
+            team_repo: deps.team_repo,
+            channel_repo: deps.channel_repo,
+            dm_repo: deps.dm_repo,
+            project_repo: deps.project_repo,
+            task_repo: deps.task_repo,
+            invitation_repo: deps.invitation_repo,
+            project_service: deps.project_service,
         }
+    }
+
+    async fn setup_progress_for(
+        &self,
+        org_id: devboard_domain::OrganizationId,
+        caller_id: UserId,
+        persona: SetupPersona,
+        project_count: usize,
+        pending_invite_count: i64,
+        empty_state: &DashboardEmptyState,
+    ) -> Result<DashboardSetupProgress, ServiceError> {
+        let (teams, channels, members, member_channels, dm_threads) = tokio::try_join!(
+            self.team_repo.find_by_organization(org_id),
+            self.channel_repo.find_by_organization(org_id),
+            self.org_membership_repo.list_by_org(org_id),
+            self.channel_repo.find_member_channels(caller_id, org_id),
+            self.dm_repo.find_user_threads(caller_id),
+        )?;
+
+        Ok(build_setup_progress(SetupProgressInput {
+            persona,
+            team_count: teams.len(),
+            project_count,
+            member_count: members.len(),
+            pending_invite_count,
+            channel_count: channels.len(),
+            has_joined_channel: !member_channels.is_empty(),
+            dm_thread_count: dm_threads.len(),
+            empty_state: empty_state.clone(),
+        }))
     }
 
     pub async fn my_dashboard(
@@ -149,10 +195,26 @@ impl DashboardService {
             },
         };
 
+        let setup_progress = self
+            .setup_progress_for(
+                org_id,
+                caller_id,
+                if can_manage {
+                    SetupPersona::OrgAdmin
+                } else {
+                    SetupPersona::OrgMember
+                },
+                projects.len(),
+                0,
+                &empty_state,
+            )
+            .await?;
+
         Ok(MyDashboard {
             greeting_name: user.display_name,
             organization_name: org.name,
             empty_state,
+            setup_progress,
             stats,
             my_tasks,
             my_projects,
@@ -310,10 +372,22 @@ impl DashboardService {
             },
         };
 
+        let setup_progress = self
+            .setup_progress_for(
+                org_id,
+                caller_id,
+                SetupPersona::OrgAdmin,
+                projects.len(),
+                pending_invites,
+                &empty_state,
+            )
+            .await?;
+
         Ok(OrgDashboard {
             greeting_name: user.display_name,
             organization_name: org.name,
             empty_state,
+            setup_progress,
             stats: OrgDashboardStats {
                 overdue,
                 unassigned,

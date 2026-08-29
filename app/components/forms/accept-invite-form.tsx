@@ -74,7 +74,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
     try {
       const result = await acceptInvite.mutateAsync(token);
       toast.success(`Joined ${result.organization.name}`);
-      router.push("/");
+      router.push("/?welcome=1");
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     }
@@ -92,7 +92,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
         email: invitePreview.data.email,
       });
       toast.success("Account created! Welcome to the workspace");
-      router.push("/");
+      router.push("/?welcome=1");
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     }

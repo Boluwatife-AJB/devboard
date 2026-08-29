@@ -659,6 +659,18 @@ export const MY_DASHBOARD_QUERY = `
         hasAssignedTasks
         primaryCta
       }
+      setupProgress {
+        persona
+        completedCount
+        totalCount
+        steps {
+          id
+          label
+          description
+          completed
+          href
+        }
+      }
       stats {
         tasksAssignedToMe
         tasksDueThisWeek
@@ -705,6 +717,18 @@ export const ORG_DASHBOARD_QUERY = `
         hasTasks
         hasAssignedTasks
         primaryCta
+      }
+      setupProgress {
+        persona
+        completedCount
+        totalCount
+        steps {
+          id
+          label
+          description
+          completed
+          href
+        }
       }
       stats {
         overdueTasks

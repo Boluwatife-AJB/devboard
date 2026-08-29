@@ -37,7 +37,7 @@ import {
 import { usePendingInvitations } from "@/hooks/use-invitations";
 import { useOrgAuthz } from "@/hooks/use-org-authz";
 import { useOrgPresence } from "@/hooks/use-presence";
-import { useOrgMembers } from "@/hooks/use-teams";
+import { MEMBERS_TABLE_REFETCH_MS, useOrgMembers } from "@/hooks/use-teams";
 import { toUiPresence } from "@/lib/message-utils";
 import { Action } from "@/lib/rbac/actions";
 import { cn } from "@/lib/utils";
@@ -73,10 +73,18 @@ function exportCsv(rows: MemberRow[]) {
 }
 
 export function MembersTable() {
-  const { data: members, isPending, isError } = useOrgMembers();
+  const {
+    data: members,
+    isPending,
+    isError,
+  } = useOrgMembers({
+    refetchInterval: MEMBERS_TABLE_REFETCH_MS,
+  });
   const { can, ready } = useOrgAuthz();
   const canManage = ready && can(Action.InviteOrgMember);
-  const { data: invitations } = usePendingInvitations(canManage);
+  const { data: invitations } = usePendingInvitations(canManage, {
+    refetchInterval: MEMBERS_TABLE_REFETCH_MS,
+  });
   const { data: orgPresence } = useOrgPresence();
 
   const rows = useMemo<MemberRow[]>(() => {
