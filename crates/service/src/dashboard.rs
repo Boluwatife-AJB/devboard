@@ -74,7 +74,7 @@ impl DashboardService {
             self.channel_repo.find_by_organization(org_id),
             self.org_membership_repo.list_by_org(org_id),
             self.channel_repo.find_member_channels(caller_id, org_id),
-            self.dm_repo.find_user_threads(caller_id),
+            self.dm_repo.find_user_threads(caller_id, org_id),
         )?;
 
         Ok(build_setup_progress(SetupProgressInput {

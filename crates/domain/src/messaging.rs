@@ -102,6 +102,7 @@ pub fn is_allowed_reaction(emoji: &str) -> bool {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DmThread {
     pub id: DmThreadId,
+    pub organization_id: OrganizationId,
     pub participant_a: UserId,
     pub participant_b: UserId,
     pub created_at: DateTime<Utc>,

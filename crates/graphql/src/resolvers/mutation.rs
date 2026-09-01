@@ -827,11 +827,16 @@ impl MessagingMutationFields {
         thread_id: ID,
     ) -> async_graphql::Result<bool> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         services
             .messaging_service
-            .mark_dm_read(parse_id::<DmThreadId>(&thread_id)?, auth.user_id)
+            .mark_dm_read(
+                parse_id::<DmThreadId>(&thread_id)?,
+                auth.user_id,
+                org.organization_id,
+            )
             .await
             .map_gql_err()?;
 
@@ -844,6 +849,7 @@ impl MessagingMutationFields {
         input: EditDmInput,
     ) -> async_graphql::Result<GqlDmMessage> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         let message = services
@@ -852,6 +858,7 @@ impl MessagingMutationFields {
                 parse_id::<DmMessageId>(&input.message_id)?,
                 auth.user_id,
                 input.body,
+                org.organization_id,
             )
             .await
             .map_gql_err()?;
@@ -865,11 +872,16 @@ impl MessagingMutationFields {
         input: DeleteDmInput,
     ) -> async_graphql::Result<bool> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         services
             .messaging_service
-            .delete_dm(parse_id::<DmMessageId>(&input.message_id)?, auth.user_id)
+            .delete_dm(
+                parse_id::<DmMessageId>(&input.message_id)?,
+                auth.user_id,
+                org.organization_id,
+            )
             .await
             .map_gql_err()?;
 
@@ -899,11 +911,16 @@ impl MessagingMutationFields {
         thread_id: ID,
     ) -> async_graphql::Result<bool> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         services
             .messaging_service
-            .clear_dm_for_user(parse_id::<DmThreadId>(&thread_id)?, auth.user_id)
+            .clear_dm_for_user(
+                parse_id::<DmThreadId>(&thread_id)?,
+                auth.user_id,
+                org.organization_id,
+            )
             .await
             .map_gql_err()?;
 

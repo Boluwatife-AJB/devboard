@@ -452,11 +452,12 @@ impl MessagingQueryFields {
 
     async fn dm_threads(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<GqlDmThread>> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         let threads = services
             .messaging_service
-            .list_dm_threads(auth.user_id)
+            .list_dm_threads(auth.user_id, org.organization_id)
             .await
             .map_gql_err()?;
 
@@ -471,6 +472,7 @@ impl MessagingQueryFields {
         limit: Option<i32>,
     ) -> async_graphql::Result<Vec<GqlDmMessage>> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         let thread_id = parse_id::<DmThreadId>(&thread_id)?;
@@ -483,6 +485,7 @@ impl MessagingQueryFields {
             .list_dm_messages(
                 thread_id,
                 auth.user_id,
+                org.organization_id,
                 before_id,
                 limit.unwrap_or(50) as u64,
             )

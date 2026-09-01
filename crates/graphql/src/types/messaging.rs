@@ -309,6 +309,7 @@ impl From<Message> for GqlMessage {
 #[derive(Clone)]
 pub struct GqlDmThread {
     pub id: ID,
+    pub organization_id: ID,
     pub participant_a: ID,
     pub participant_b: ID,
     pub created_at: DateTime<Utc>,
@@ -330,11 +331,12 @@ impl GqlDmThread {
     }
     async fn unread_count(&self, ctx: &Context<'_>) -> async_graphql::Result<u64> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
         let thread_id = crate::resolvers::query::parse_id::<DmThreadId>(&self.id)?;
         let unread_count = services
             .messaging_service
-            .get_unread_dm_count(thread_id, auth.user_id)
+            .get_unread_dm_count(thread_id, auth.user_id, org.organization_id)
             .await
             .map_gql_err()?;
         Ok(unread_count)
@@ -345,6 +347,7 @@ impl From<DmThread> for GqlDmThread {
     fn from(t: DmThread) -> Self {
         Self {
             id: ID(t.id.to_string()),
+            organization_id: ID(t.organization_id.to_string()),
             participant_a: ID(t.participant_a.to_string()),
             participant_b: ID(t.participant_b.to_string()),
             created_at: t.created_at,

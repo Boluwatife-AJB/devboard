@@ -24,6 +24,7 @@ mod m20260729_170514_create_notification_preferences;
 mod m20260729_171138_create_push_subscriptions;
 mod m20260825_162508_add_completed_at_to_tasks;
 mod m20260829_120140_add_org_membership_profile;
+mod m20260901_133835_add_org_id_to_dm_threads;
 
 pub struct Migrator;
 
@@ -55,6 +56,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260729_171138_create_push_subscriptions::Migration),
             Box::new(m20260825_162508_add_completed_at_to_tasks::Migration),
             Box::new(m20260829_120140_add_org_membership_profile::Migration),
+            Box::new(m20260901_133835_add_org_id_to_dm_threads::Migration),
         ]
     }
 }

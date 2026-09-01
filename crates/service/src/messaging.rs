@@ -349,9 +349,14 @@ impl MessagingService {
             .map_err(ServiceError::from)
     }
 
-    pub async fn list_dm_threads(&self, caller_id: UserId) -> Result<Vec<DmThread>, ServiceError> {
+    pub async fn list_dm_threads(
+        &self,
+        caller_id: UserId,
+        org_id: OrganizationId,
+    ) -> Result<Vec<DmThread>, ServiceError> {
+        self.require_org_member(caller_id, org_id).await?;
         self.dm_repo
-            .find_user_threads(caller_id)
+            .find_user_threads(caller_id, org_id)
             .await
             .map_err(ServiceError::from)
     }
@@ -660,46 +665,51 @@ impl MessagingService {
         self.require_org_member(caller_id, org_id).await?;
         self.require_org_member(other_id, org_id).await?;
 
+        if caller_id == other_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you cannot DM yourself".into(),
+            });
+        }
+
         if let Some(thread) = self
             .dm_repo
-            .find_thread(caller_id, other_id)
+            .find_thread(caller_id, other_id, org_id)
             .await
             .map_err(ServiceError::from)?
         {
             return Ok(thread);
         }
 
-        self.dm_repo
-            .create_thread(DmThreadId::new(), caller_id, other_id)
+        match self
+            .dm_repo
+            .create_thread(DmThreadId::new(), org_id, caller_id, other_id)
             .await
-            .map_err(|err| match err {
-                RepositoryError::UniqueViolation { .. } => {
-                    ServiceError::Internal("thread creation race condition".into())
-                }
-                other => ServiceError::from(other),
-            })
+        {
+            Ok(thread) => Ok(thread),
+            Err(RepositoryError::UniqueViolation { .. }) => self
+                .dm_repo
+                .find_thread(caller_id, other_id, org_id)
+                .await
+                .map_err(ServiceError::from)?
+                .ok_or_else(|| ServiceError::Internal("thread creation race".into())),
+            Err(other) => Err(ServiceError::from(other)),
+        }
     }
 
     pub async fn list_dm_messages(
         &self,
         thread_id: DmThreadId,
         caller_id: UserId,
+        org_id: OrganizationId,
         before_id: Option<DmMessageId>,
         limit: u64,
     ) -> Result<Vec<DmMessage>, ServiceError> {
-        let thread = self
-            .dm_repo
-            .find_thread_by_id(thread_id)
-            .await?
-            .ok_or(ServiceError::Internal("thread not found".into()))?;
-
-        if thread.participant_a != caller_id && thread.participant_b != caller_id {
-            return Err(ServiceError::Forbidden {
-                reason: "you are not a participant of this DM thread".into(),
-            });
-        }
+        let _thread = self
+            .require_dm_thread_in_org(thread_id, caller_id, org_id)
+            .await?;
 
         let limit = limit.clamp(1, 100);
+
         let cleared_at = self
             .dm_repo
             .get_cleared_at(thread_id, caller_id)
@@ -722,16 +732,8 @@ impl MessagingService {
         validate_message_body(&body)?;
 
         let thread = self
-            .dm_repo
-            .find_thread_by_id(thread_id)
-            .await?
-            .ok_or(ServiceError::Internal("thread not found".into()))?;
-
-        if thread.participant_a != author_id && thread.participant_b != author_id {
-            return Err(ServiceError::Forbidden {
-                reason: "you are not a participant of this DM thread".into(),
-            });
-        }
+            .require_dm_thread_in_org(thread_id, author_id, org_id)
+            .await?;
 
         let message = self
             .dm_repo
@@ -770,7 +772,12 @@ impl MessagingService {
         &self,
         thread_id: DmThreadId,
         reader_id: UserId,
+        org_id: OrganizationId,
     ) -> Result<(), ServiceError> {
+        let _thread = self
+            .require_dm_thread_in_org(thread_id, reader_id, org_id)
+            .await?;
+
         self.dm_repo
             .mark_read(thread_id, reader_id)
             .await
@@ -781,18 +788,11 @@ impl MessagingService {
         &self,
         thread_id: DmThreadId,
         reader_id: UserId,
+        org_id: OrganizationId,
     ) -> Result<u64, ServiceError> {
-        let thread = self
-            .dm_repo
-            .find_thread_by_id(thread_id)
-            .await?
-            .ok_or(ServiceError::Internal("thread not found".into()))?;
-
-        if thread.participant_a != reader_id && thread.participant_b != reader_id {
-            return Err(ServiceError::Forbidden {
-                reason: "you are not a participant of this DM thread".into(),
-            });
-        }
+        let _thread = self
+            .require_dm_thread_in_org(thread_id, reader_id, org_id)
+            .await?;
 
         self.dm_repo
             .unread_count(thread_id, reader_id)
@@ -805,6 +805,7 @@ impl MessagingService {
         message_id: DmMessageId,
         caller_id: UserId,
         new_body: String,
+        org_id: OrganizationId,
     ) -> Result<DmMessage, ServiceError> {
         validate_message_body(&new_body)?;
 
@@ -826,17 +827,9 @@ impl MessagingService {
             });
         }
 
-        let thread = self
-            .dm_repo
-            .find_thread_by_id(message.thread_id)
-            .await?
-            .ok_or(ServiceError::Internal("thread not found".into()))?;
-
-        if thread.participant_a != caller_id && thread.participant_b != caller_id {
-            return Err(ServiceError::Forbidden {
-                reason: "you are not a participant of this DM thread".into(),
-            });
-        }
+        let _thread = self
+            .require_dm_thread_in_org(message.thread_id, caller_id, org_id)
+            .await?;
 
         let updated = self
             .dm_repo
@@ -859,6 +852,7 @@ impl MessagingService {
         &self,
         message_id: DmMessageId,
         caller_id: UserId,
+        org_id: OrganizationId,
     ) -> Result<(), ServiceError> {
         let message = self
             .dm_repo
@@ -872,17 +866,9 @@ impl MessagingService {
             });
         }
 
-        let thread = self
-            .dm_repo
-            .find_thread_by_id(message.thread_id)
-            .await?
-            .ok_or(ServiceError::Internal("thread not found".into()))?;
-
-        if thread.participant_a != caller_id && thread.participant_b != caller_id {
-            return Err(ServiceError::Forbidden {
-                reason: "you are not a participant of this DM thread".into(),
-            });
-        }
+        let _thread = self
+            .require_dm_thread_in_org(message.thread_id, caller_id, org_id)
+            .await?;
 
         self.dm_repo
             .delete_message(message_id)
@@ -916,18 +902,11 @@ impl MessagingService {
         &self,
         thread_id: DmThreadId,
         user_id: UserId,
+        org_id: OrganizationId,
     ) -> Result<(), ServiceError> {
-        let thread = self
-            .dm_repo
-            .find_thread_by_id(thread_id)
-            .await?
-            .ok_or(ServiceError::Internal("thread not found".into()))?;
-
-        if thread.participant_a != user_id && thread.participant_b != user_id {
-            return Err(ServiceError::Forbidden {
-                reason: "you are not a participant of this DM thread".into(),
-            });
-        }
+        let _thread = self
+            .require_dm_thread_in_org(thread_id, user_id, org_id)
+            .await?;
 
         self.dm_repo
             .set_cleared_at(thread_id, user_id, Utc::now())
@@ -995,6 +974,33 @@ impl MessagingService {
                 reason: "not a member of this organization".into(),
             })?;
         Ok(())
+    }
+
+    async fn require_dm_thread_in_org(
+        &self,
+        thread_id: DmThreadId,
+        caller_id: UserId,
+        org_id: OrganizationId,
+    ) -> Result<DmThread, ServiceError> {
+        let thread = self
+            .dm_repo
+            .find_thread_by_id(thread_id)
+            .await?
+            .ok_or(ServiceError::Internal("thread not found".into()))?;
+
+        if thread.participant_a != caller_id && thread.participant_b != caller_id {
+            return Err(ServiceError::Forbidden {
+                reason: "you are not a participant of this DM thread".into(),
+            });
+        }
+
+        if thread.organization_id != org_id {
+            return Err(ServiceError::Forbidden {
+                reason: "this DM thread is not in this organization".into(),
+            });
+        }
+
+        Ok(thread)
     }
 
     async fn require_org_admin(

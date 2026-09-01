@@ -66,11 +66,12 @@ impl MessagingQuery {
 
     async fn dm_threads(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<GqlDmThread>> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         let threads = services
             .messaging_service
-            .list_dm_threads(auth.user_id)
+            .list_dm_threads(auth.user_id, org.organization_id)
             .await
             .map_gql_err()?;
 
@@ -85,6 +86,7 @@ impl MessagingQuery {
         limit: Option<u64>,
     ) -> async_graphql::Result<Vec<GqlDmMessage>> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         let thread_id = parse_id::<DmThreadId>(&thread_id)?;
@@ -94,7 +96,13 @@ impl MessagingQuery {
 
         let messages = services
             .messaging_service
-            .list_dm_messages(thread_id, auth.user_id, before_id, limit.unwrap_or(50))
+            .list_dm_messages(
+                thread_id,
+                auth.user_id,
+                org.organization_id,
+                before_id,
+                limit.unwrap_or(50),
+            )
             .await
             .map_gql_err()?;
 
@@ -321,12 +329,13 @@ impl MessagingMutation {
     async fn mark_dm_read(&self, ctx: &Context<'_>, thread_id: ID) -> async_graphql::Result<bool> {
         let auth = ctx.authenticated_user()?;
         let services = ctx.services()?;
+        let org = auth.require_org()?;
 
         let thread_id = parse_id::<DmThreadId>(&thread_id)?;
 
         services
             .messaging_service
-            .mark_dm_read(thread_id, auth.user_id)
+            .mark_dm_read(thread_id, auth.user_id, org.organization_id)
             .await
             .map_gql_err()?;
 
