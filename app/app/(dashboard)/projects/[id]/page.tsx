@@ -31,6 +31,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { memberDisplayName, useOrgMemberMap } from "@/hooks/use-org-member-map";
 import { useProject } from "@/hooks/use-projects";
 import { useTaskEvents } from "@/hooks/use-task-events";
 import { useTasks, useUpdateTaskStatus } from "@/hooks/use-tasks";
@@ -92,6 +93,7 @@ export default function ProjectDetails() {
   } = useTasks(projectId);
   const updateTaskStatus = useUpdateTaskStatus(projectId);
   useTaskEvents(projectId);
+  const memberNames = useOrgMemberMap();
 
   const [boardItems, setBoardItems] = useState<BoardItem[]>([]);
 
@@ -282,7 +284,12 @@ export default function ProjectDetails() {
                         {item.task.assignee && (
                           <Avatar className="size-6 shrink-0 ring-2 ring-[#131313]">
                             <AvatarFallback className="text-[10px]">
-                              {initialsOf(item.task.assignee.displayName)}
+                              {initialsOf(
+                                memberDisplayName(
+                                  memberNames,
+                                  item.task.assignee.id,
+                                ),
+                              )}
                             </AvatarFallback>
                           </Avatar>
                         )}

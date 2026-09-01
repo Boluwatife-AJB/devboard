@@ -1,8 +1,6 @@
 "use client";
 
 import { BuildingsIcon, CaretDownIcon } from "@phosphor-icons/react/dist/ssr";
-import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,38 +11,14 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  getOrganizations,
-  getSelectedOrgId,
-  setSelectedOrgId,
-} from "@/lib/auth/cookies";
-import type { AuthOrganization } from "@/types";
+import { useOrg } from "@/context/org-context";
 
 export function OrgSwitcher() {
-  const queryClient = useQueryClient();
-  const [organizations, setOrganizations] = useState<AuthOrganization[]>([]);
-  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const { organizations, organization, switchOrganization } = useOrg();
 
-  // Auth state lives in cookies/localStorage, so read it after mount
-  useEffect(() => {
-    setOrganizations(getOrganizations());
-    setSelectedId(getSelectedOrgId());
-  }, []);
-
-  if (organizations.length === 0) {
+  if (organizations.length === 0 || !organization) {
     return null;
   }
-
-  const selected =
-    organizations.find((org) => org.id === selectedId) ?? organizations[0];
-
-  const handleSelect = (orgId: string) => {
-    if (orgId === selectedId) return;
-    setSelectedOrgId(orgId);
-    setSelectedId(orgId);
-    // All fetched data is scoped to the org header, so drop the cache
-    queryClient.clear();
-  };
 
   return (
     <DropdownMenu>
@@ -57,15 +31,15 @@ export function OrgSwitcher() {
         }
       >
         <BuildingsIcon className="size-4" />
-        <span className="max-w-40 truncate text-xs">{selected.name}</span>
+        <span className="max-w-40 truncate text-xs">{organization.name}</span>
         <CaretDownIcon className="size-3 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-52">
         <DropdownMenuGroup>
           <DropdownMenuLabel>Organizations</DropdownMenuLabel>
           <DropdownMenuRadioGroup
-            value={selected.id}
-            onValueChange={(value) => handleSelect(value as string)}
+            value={organization.id}
+            onValueChange={(value) => switchOrganization(value as string)}
           >
             {organizations.map((org) => (
               <DropdownMenuRadioItem key={org.id} value={org.id}>

@@ -51,6 +51,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { memberDisplayName, useOrgMemberMap } from "@/hooks/use-org-member-map";
 import { useProject } from "@/hooks/use-projects";
 import { useDeleteTask, useTask, useUpdateTaskStatus } from "@/hooks/use-tasks";
 import { getApiErrorMessage } from "@/lib/api";
@@ -108,6 +109,10 @@ export default function TaskDetailsPage() {
   } = useTask(projectId, taskId);
   const updateTaskStatus = useUpdateTaskStatus(projectId);
   const deleteTask = useDeleteTask(projectId);
+  const memberNames = useOrgMemberMap();
+  const assigneeName = task?.assignee
+    ? memberDisplayName(memberNames, task.assignee.id)
+    : null;
 
   const column = task ? getStatusColumn(task.status) : undefined;
 
@@ -320,11 +325,11 @@ export default function TaskDetailsPage() {
                       <div className="flex items-center gap-2">
                         <Avatar className="size-7">
                           <AvatarFallback className="bg-[#4D8EFF] text-[10px] text-white">
-                            {initialsOf(task.assignee.displayName)}
+                            {initialsOf(assigneeName ?? "?")}
                           </AvatarFallback>
                         </Avatar>
                         <span className="text-sm text-white">
-                          {task.assignee.displayName}
+                          {assigneeName}
                         </span>
                       </div>
                     ) : (

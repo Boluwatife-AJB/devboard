@@ -7,6 +7,7 @@ export const ORG_ID_COOKIE = "devboard_org_id";
 export const ORG_ROLE_COOKIE = "devboard_org_role";
 export const ORGS_COOKIE = "devboard_organizations_cookie";
 export const ORGS_STORAGE_KEY = "devboard_organizations";
+export const LAST_ORG_STORAGE_KEY = "devboard_last_org_id";
 
 type OrgCookieEntry = Pick<AuthOrganization, "id" | "role">;
 
@@ -30,9 +31,36 @@ export function getAccessToken() {
   return Cookies.get(ACCESS_TOKEN_COOKIE);
 }
 
+export function setLastOrgId(orgId: string) {
+  localStorage.setItem(LAST_ORG_STORAGE_KEY, orgId);
+}
+
+export function getLastOrgId() {
+  return localStorage.getItem(LAST_ORG_STORAGE_KEY);
+}
+
 export function setSelectedOrgId(orgId: string) {
   Cookies.set(ORG_ID_COOKIE, orgId, { sameSite: "lax" });
+  setLastOrgId(orgId);
   syncOrgRoleCookie();
+}
+
+export function resolveInitialOrgId(
+  organizations: AuthOrganization[],
+): string | null {
+  if (organizations.length === 0) return null;
+
+  const lastOrgId = getLastOrgId();
+  if (lastOrgId && organizations.some((org) => org.id === lastOrgId)) {
+    return lastOrgId;
+  }
+
+  const selectedOrgId = getSelectedOrgId();
+  if (selectedOrgId && organizations.some((org) => org.id === selectedOrgId)) {
+    return selectedOrgId;
+  }
+
+  return organizations[0].id;
 }
 
 export function getSelectedOrgId() {

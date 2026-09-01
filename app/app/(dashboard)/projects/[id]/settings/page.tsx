@@ -60,6 +60,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { memberDisplayName, useOrgMemberMap } from "@/hooks/use-org-member-map";
 import {
   useAddProjectMember,
   useDeleteProject,
@@ -68,6 +69,7 @@ import {
 } from "@/hooks/use-projects";
 import { useOrgMembers, useTeamMembers } from "@/hooks/use-teams";
 import { getApiErrorMessage } from "@/lib/api";
+import { orgMemberDisplayName } from "@/lib/org-members";
 import { addProjectMemberSchema, updateProjectSchema } from "@/lib/schema";
 import { initialsOf } from "@/lib/task-ui";
 import type {
@@ -124,6 +126,7 @@ export default function ProjectSettingsPage() {
     project?.teamId ?? "",
   );
   const { data: orgMembers, isPending: isOrgMembersPending } = useOrgMembers();
+  const memberNames = useOrgMemberMap();
 
   const {
     control: detailsControl,
@@ -371,12 +374,14 @@ export default function ProjectSettingsPage() {
                       <div className="flex min-w-0 items-center gap-3">
                         <Avatar className="size-8 shrink-0">
                           <AvatarFallback className="bg-[#353534] text-[10px] text-white">
-                            {initialsOf(member.user?.displayName ?? "?")}
+                            {initialsOf(
+                              memberDisplayName(memberNames, member.userId),
+                            )}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium text-white">
-                            {member.user?.displayName ?? "Unknown user"}
+                            {memberDisplayName(memberNames, member.userId)}
                           </p>
                           <p className="truncate text-xs text-[#8A8A8A]">
                             {member.user?.email ?? member.userId}
@@ -438,9 +443,14 @@ export default function ProjectSettingsPage() {
                           >
                             <SelectValue>
                               {field.value
-                                ? (availableOrgMembers.find(
-                                    (member) => member.userId === field.value,
-                                  )?.user?.displayName ?? "Select a member")
+                                ? orgMemberDisplayName(
+                                    availableOrgMembers.find(
+                                      (member) => member.userId === field.value,
+                                    ) ?? {
+                                      displayName: "",
+                                      userId: field.value,
+                                    },
+                                  ) || "Select a member"
                                 : isOrgMembersPending
                                   ? "Loading members..."
                                   : availableOrgMembers.length === 0
@@ -455,7 +465,7 @@ export default function ProjectSettingsPage() {
                                   key={member.userId}
                                   value={member.userId}
                                 >
-                                  {member.user?.displayName ?? member.userId}
+                                  {orgMemberDisplayName(member)}
                                   {member.user?.email
                                     ? ` (${member.user.email})`
                                     : ""}

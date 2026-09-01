@@ -256,9 +256,26 @@ type UiPresence = "online" | "away" | "offline";
 interface ApiUser {
   id: string;
   email: string;
-  displayName: string;
   createdAt: string;
+  displayName?: string;
   avatarUrl?: string | null;
+}
+
+interface ApiOrgSummary {
+  id: string;
+  name: string;
+  slug: string;
+  role: OrgRole;
+}
+
+interface ApiOrgMemberProfile {
+  organizationId: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+  role: OrgRole;
+  joinedAt: string;
 }
 
 interface ApiTeam {
@@ -280,6 +297,8 @@ interface ApiTeamMember {
 interface ApiOrgMember {
   userId: string;
   role: OrgRole;
+  displayName: string;
+  avatarUrl: string | null;
   joinedAt: string;
   user: ApiUser | null;
 }

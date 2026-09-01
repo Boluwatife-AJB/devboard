@@ -22,7 +22,6 @@ const TASK_FIELDS = `
   assignee {
     id
     email
-    displayName
     createdAt
   }
   reporterId
@@ -53,7 +52,6 @@ const TEAM_FIELDS = `
 const USER_FIELDS = `
   id
   email
-  displayName
   createdAt
 `;
 
@@ -176,10 +174,51 @@ export const ORG_MEMBERS_QUERY = `
     orgMembers {
       userId
       role
+      displayName
+      avatarUrl
       joinedAt
       user {
         ${USER_FIELDS}
       }
+    }
+  }
+`;
+
+export const MY_ORGANIZATIONS_QUERY = `
+  query MyOrganizations {
+    myOrganizations {
+      id
+      name
+      slug
+      role
+    }
+  }
+`;
+
+export const MY_ORG_PROFILE_QUERY = `
+  query MyOrgProfile {
+    myOrgProfile {
+      organizationId
+      userId
+      email
+      displayName
+      avatarUrl
+      role
+      joinedAt
+    }
+  }
+`;
+
+export const UPDATE_ORG_PROFILE_MUTATION = `
+  mutation UpdateOrgProfile($input: UpdateOrgProfileInput!) {
+    updateOrgProfile(input: $input) {
+      organizationId
+      userId
+      email
+      displayName
+      avatarUrl
+      role
+      joinedAt
     }
   }
 `;

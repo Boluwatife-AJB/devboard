@@ -7,15 +7,15 @@ import { NotificationsSettingsCard } from "@/components/profile/edit/notificatio
 import { PersonalInformationCard } from "@/components/profile/edit/personal-information-card";
 import { SecuritySettingsCard } from "@/components/profile/edit/security-settings-card";
 import { editProfileDefaults } from "@/constant";
-import { useMe } from "@/hooks/use-me";
+import { useMyOrgProfile } from "@/hooks/use-my-org-profile";
 import { getFirstName } from "@/lib/dashboard-utils";
 import type { ProfileSettingsSection } from "@/types";
 
 export function EditProfileView() {
   const [section, setSection] = useState<ProfileSettingsSection>("general");
-  const { data: me } = useMe();
+  const { data: profile } = useMyOrgProfile();
 
-  const displayName = me?.displayName ?? "Alex Chen";
+  const displayName = profile?.displayName ?? editProfileDefaults.displayName;
   const nameParts = displayName.trim().split(/\s+/);
   const firstName = getFirstName(displayName);
   const lastName =
@@ -27,8 +27,8 @@ export function EditProfileView() {
     ...editProfileDefaults,
     firstName,
     lastName,
-    displayName: me?.displayName
-      ? me.displayName.toLowerCase().replace(/\s+/g, "_")
+    displayName: profile?.displayName
+      ? profile.displayName.toLowerCase().replace(/\s+/g, "_")
       : editProfileDefaults.displayName,
   };
 
@@ -37,7 +37,10 @@ export function EditProfileView() {
       {section === "general" ? (
         <>
           <PersonalInformationCard defaultValues={formDefaults} />
-          <AvatarCard displayName={displayName} />
+          <AvatarCard
+            displayName={displayName}
+            avatarUrl={profile?.avatarUrl ?? undefined}
+          />
         </>
       ) : null}
 

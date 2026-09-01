@@ -65,7 +65,7 @@ export function ChannelChatPane({
         .filter((member) => member.userId !== me?.id)
         .map((member) => ({
           id: member.userId,
-          displayName: member.user?.displayName ?? displayNameOf(member.userId),
+          displayName: displayNameOf(member.userId),
         })),
     [channelMembers, displayNameOf, me?.id],
   );

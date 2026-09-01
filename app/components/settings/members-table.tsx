@@ -39,6 +39,7 @@ import { useOrgAuthz } from "@/hooks/use-org-authz";
 import { useOrgPresence } from "@/hooks/use-presence";
 import { MEMBERS_TABLE_REFETCH_MS, useOrgMembers } from "@/hooks/use-teams";
 import { toUiPresence } from "@/lib/message-utils";
+import { orgMemberDisplayName } from "@/lib/org-members";
 import { Action } from "@/lib/rbac/actions";
 import { cn } from "@/lib/utils";
 import type { OrgRole } from "@/types";
@@ -91,7 +92,7 @@ export function MembersTable() {
     const memberRows: MemberRow[] = (members ?? []).map((member) => ({
       kind: "member",
       userId: member.userId,
-      name: member.user?.displayName ?? "Unknown user",
+      name: orgMemberDisplayName(member),
       email: member.user?.email ?? "—",
       role: member.role,
       status: toUiPresence(orgPresence?.[member.userId]),

@@ -17,6 +17,7 @@ import {
   useDeleteComment,
 } from "@/hooks/use-comments";
 import { useMe } from "@/hooks/use-me";
+import { memberDisplayName, useOrgMemberMap } from "@/hooks/use-org-member-map";
 import { getApiErrorMessage } from "@/lib/api";
 import { createCommentSchema } from "@/lib/schema";
 import { avatarColorOf, formatRelativeTime, initialsOf } from "@/lib/task-ui";
@@ -27,13 +28,15 @@ function CommentItem({
   canDelete,
   onDelete,
   isDeleting,
+  authorName,
 }: {
   comment: ApiComment;
   canDelete: boolean;
   onDelete: (id: string) => void;
   isDeleting: boolean;
+  authorName: string;
 }) {
-  const name = comment.author?.displayName ?? "Unknown user";
+  const name = authorName;
 
   return (
     <div className="flex gap-3">
@@ -85,6 +88,7 @@ export function TaskComments({
 }) {
   const { data: comments, isPending } = useComments(projectId, taskId);
   const { data: me } = useMe();
+  const memberNames = useOrgMemberMap();
   const createComment = useCreateComment(projectId, taskId);
   const deleteComment = useDeleteComment(projectId, taskId);
 
@@ -140,6 +144,7 @@ export function TaskComments({
             <CommentItem
               key={comment.id}
               comment={comment}
+              authorName={memberDisplayName(memberNames, comment.authorId)}
               canDelete={me?.id === comment.authorId}
               onDelete={handleDelete}
               isDeleting={deleteComment.isPending}

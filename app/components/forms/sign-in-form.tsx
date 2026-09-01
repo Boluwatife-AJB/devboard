@@ -17,6 +17,7 @@ import { LockedInviteEmailField } from "@/components/auth/locked-invite-email-fi
 import { useInvitePreview } from "@/hooks/use-invitations";
 import { getApiErrorMessage, publicApi } from "@/lib/api";
 import {
+  resolveInitialOrgId,
   setAccessToken,
   setOrganizations,
   setSelectedOrgId,
@@ -77,7 +78,8 @@ function SignInFormInner() {
       setOrganizations(data.organizations);
       // Users registered via invite may not belong to any organization yet
       if (data.organizations.length > 0) {
-        setSelectedOrgId(data.organizations[0].id);
+        const orgId = resolveInitialOrgId(data.organizations);
+        if (orgId) setSelectedOrgId(orgId);
       }
       router.push(redirectTo);
       toast.success("Login successful");

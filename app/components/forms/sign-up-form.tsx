@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getApiErrorMessage, publicApi } from "@/lib/api";
 import {
+  resolveInitialOrgId,
   setAccessToken,
   setOrganizations,
   setSelectedOrgId,
@@ -107,7 +108,8 @@ export default function SignUpForm() {
         setAccessToken(data.access_token);
         setOrganizations(data.organizations);
         if (data.organizations.length > 0) {
-          setSelectedOrgId(data.organizations[0].id);
+          const orgId = resolveInitialOrgId(data.organizations);
+          if (orgId) setSelectedOrgId(orgId);
         }
         router.push("/");
         toast.success("Account created");

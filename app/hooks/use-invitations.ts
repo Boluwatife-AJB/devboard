@@ -8,6 +8,7 @@ import {
   getAccessToken,
   getOrganizations,
   getSelectedOrgId,
+  resolveInitialOrgId,
   setAccessToken,
   setOrganizations,
   setSelectedOrgId,
@@ -168,7 +169,8 @@ export function useRegisterWithInvite(token: string) {
       setAccessToken(data.access_token);
       setOrganizations(data.organizations);
       if (data.organizations.length > 0) {
-        setSelectedOrgId(data.organizations[0].id);
+        const orgId = resolveInitialOrgId(data.organizations);
+        if (orgId) setSelectedOrgId(orgId);
       }
     },
   });

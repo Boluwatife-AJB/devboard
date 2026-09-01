@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ChannelChatPane } from "@/components/messages/channel-chat-pane";
 import { DetailsPane } from "@/components/messages/details-pane";
@@ -23,12 +23,12 @@ import {
   useDmThreads,
   useJoinChannel,
 } from "@/hooks/use-messaging";
+import { memberDisplayName, useOrgMemberMap } from "@/hooks/use-org-member-map";
 import { useOrgPresence } from "@/hooks/use-presence";
-import { useOrgMembers } from "@/hooks/use-teams";
 import { getApiErrorMessage } from "@/lib/api";
 import { toUiPresence } from "@/lib/message-utils";
 import { cn } from "@/lib/utils";
-import type { ActiveConversation, ApiChannel, ApiUser } from "@/types";
+import type { ActiveConversation, ApiChannel } from "@/types";
 
 export function MessagesView() {
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -38,7 +38,7 @@ export function MessagesView() {
     useState<ApiChannel | null>(null);
 
   const { data: me } = useMe();
-  const { data: members = [] } = useOrgMembers();
+  const memberMap = useOrgMemberMap();
   const { data: presence = {} } = useOrgPresence();
   const {
     data: channels = [],
@@ -52,18 +52,9 @@ export function MessagesView() {
   } = useDmThreads();
   const joinChannel = useJoinChannel();
 
-  const memberById = useMemo(() => {
-    const map = new Map<string, ApiUser>();
-    for (const member of members) {
-      if (member.user) map.set(member.userId, member.user);
-    }
-    if (me) map.set(me.id, me);
-    return map;
-  }, [members, me]);
-
   const displayNameOf = useCallback(
-    (userId: string) => memberById.get(userId)?.displayName ?? "Unknown user",
-    [memberById],
+    (userId: string) => memberDisplayName(memberMap, userId),
+    [memberMap],
   );
 
   const presenceOf = useCallback(

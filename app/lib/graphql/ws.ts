@@ -28,3 +28,8 @@ export function getWsClient(): Client {
   }
   return wsClient;
 }
+
+export function resetWsClient() {
+  wsClient?.dispose();
+  wsClient = null;
+}
