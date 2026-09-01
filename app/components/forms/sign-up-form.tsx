@@ -80,7 +80,7 @@ export default function SignUpForm() {
     trigger,
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
-    mode: "onBlur",
+    mode: "onChange",
     defaultValues: {
       fullName: "",
       email: "",

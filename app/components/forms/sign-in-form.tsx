@@ -58,7 +58,7 @@ function SignInFormInner() {
     setValue,
   } = useForm<SigninFormData>({
     resolver: zodResolver(signinSchema),
-    mode: "onBlur",
+    mode: "onChange",
     defaultValues: {
       email: "",
       password: "",
