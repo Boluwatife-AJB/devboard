@@ -16,6 +16,7 @@ import { GettingStartedHub } from "@/components/dashboard/shared/getting-started
 import { StatsGrid } from "@/components/dashboard/shared/stats-grid";
 import { memberQuickActions } from "@/constant";
 import { useMyDashboard } from "@/hooks/use-dashboard";
+import { useChannels, useDmThreads } from "@/hooks/use-messaging";
 import {
   mapCompletionTrend,
   mapMemberProjects,
@@ -33,6 +34,14 @@ export function MemberDashboard({
   organizationName,
 }: MemberDashboardProps) {
   const { data, isPending, isError, error, refetch } = useMyDashboard();
+  const { data: channels = [] } = useChannels();
+  const { data: dmThreads = [] } = useDmThreads();
+
+  const unreadMessages =
+    channels
+      .filter((c) => c.isMember)
+      .reduce((sum, c) => sum + c.unreadCount, 0) +
+    dmThreads.reduce((sum, t) => sum + t.unreadCount, 0);
 
   if (isPending) {
     return <DashboardSkeleton />;
@@ -92,7 +101,10 @@ export function MemberDashboard({
           <MyTasksCard tasks={tasks} />
         </div>
         <div className="flex flex-col gap-6">
-          <MemberQuickActionsCard actions={memberQuickActions} />
+          <MemberQuickActionsCard
+            actions={memberQuickActions}
+            unreadMessages={unreadMessages}
+          />
           <UpcomingEventsCard events={[]} />
         </div>
       </div>
