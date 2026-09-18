@@ -699,19 +699,25 @@ impl DmRepository for PgDmRepository {
         &self,
         user_a: UserId,
         user_b: UserId,
+        org_id: OrganizationId,
     ) -> Result<Option<DmThread>, RepositoryError> {
         let (a, b) = canonical_order(user_a, user_b);
         let sql = r#"
             SELECT * FROM dm_thread
-            WHERE participant_a = $1 
-              AND participant_b = $2
+            WHERE organization_id = $1
+                AND participant_a = $2 
+                AND participant_b = $3
           "#;
         let row = self
             .db
             .query_one_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 sql,
-                [Uuid::from(a).into(), Uuid::from(b).into()],
+                [
+                    Uuid::from(org_id).into(),
+                    Uuid::from(a).into(),
+                    Uuid::from(b).into(),
+                ],
             ))
             .await
             .map_err(RepositoryError::from_db_err)?;
@@ -727,17 +733,22 @@ impl DmRepository for PgDmRepository {
 
         Ok(model.map(|m| DmThread {
             id: DmThreadId::from(m.id),
+            organization_id: OrganizationId::from(m.organization_id),
             participant_a: UserId::from(m.participant_a),
             participant_b: UserId::from(m.participant_b),
             created_at: m.created_at.into(),
         }))
     }
 
-    async fn find_user_threads(&self, user_id: UserId) -> Result<Vec<DmThread>, RepositoryError> {
+    async fn find_user_threads(
+        &self,
+        user_id: UserId,
+        org_id: OrganizationId,
+    ) -> Result<Vec<DmThread>, RepositoryError> {
         let sql = r#"
             SELECT * FROM dm_thread
-            WHERE participant_a = $1 
-              OR participant_b = $1
+            WHERE organization_id = $1
+                AND (participant_a = $2 OR participant_b = $2)
             ORDER BY created_at DESC
           "#;
 
@@ -746,7 +757,7 @@ impl DmRepository for PgDmRepository {
             .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
                 sql,
-                [Uuid::from(user_id).into()],
+                [Uuid::from(org_id).into(), Uuid::from(user_id).into()],
             ))
             .await
             .map_err(RepositoryError::from_db_err)?;
@@ -757,6 +768,7 @@ impl DmRepository for PgDmRepository {
     async fn create_thread(
         &self,
         id: DmThreadId,
+        org_id: OrganizationId,
         user_a: UserId,
         user_b: UserId,
     ) -> Result<DmThread, RepositoryError> {
@@ -765,6 +777,7 @@ impl DmRepository for PgDmRepository {
 
         let active = dm_thread::ActiveModel {
             id: ActiveValue::Set(Uuid::from(id)),
+            organization_id: ActiveValue::Set(Uuid::from(org_id)),
             participant_a: ActiveValue::Set(Uuid::from(a)),
             participant_b: ActiveValue::Set(Uuid::from(b)),
             created_at: ActiveValue::Set(now.into()),
@@ -777,6 +790,7 @@ impl DmRepository for PgDmRepository {
 
         Ok(DmThread {
             id,
+            organization_id: org_id,
             participant_a: a,
             participant_b: b,
             created_at: now,
@@ -1007,6 +1021,10 @@ fn dm_thread_from_row(row: &sea_orm::QueryResult) -> Result<DmThread, Repository
     Ok(DmThread {
         id: DmThreadId::from(
             row.try_get::<Uuid>("", "id")
+                .map_err(RepositoryError::from_db_err)?,
+        ),
+        organization_id: OrganizationId::from(
+            row.try_get::<Uuid>("", "organization_id")
                 .map_err(RepositoryError::from_db_err)?,
         ),
         participant_a: UserId::from(

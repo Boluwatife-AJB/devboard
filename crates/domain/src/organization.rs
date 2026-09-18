@@ -32,9 +32,21 @@ pub struct OrgMembership {
     pub organization_id: OrganizationId,
     pub user_id: UserId,
     pub role: OrgRole,
+    pub display_name: String,
+    pub avatar_url: Option<String>,
     pub joined_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrgMemberProfile {
+    pub organization_id: OrganizationId,
+    pub user_id: UserId,
+    pub email: String,
+    pub display_name: String,
+    pub avatar_url: Option<String>,
+    pub role: OrgRole,
+    pub joined_at: DateTime<Utc>,
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrgSummary {
     pub id: OrganizationId,

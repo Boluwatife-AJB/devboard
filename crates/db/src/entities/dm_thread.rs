@@ -8,11 +8,13 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    #[sea_orm(unique_key = "idx_dm_thread_participants_unique")]
+    #[sea_orm(unique_key = "idx_dm_thread_org_participants_unique")]
     pub participant_a: Uuid,
-    #[sea_orm(unique_key = "idx_dm_thread_participants_unique")]
+    #[sea_orm(unique_key = "idx_dm_thread_org_participants_unique")]
     pub participant_b: Uuid,
     pub created_at: DateTimeWithTimeZone,
+    #[sea_orm(unique_key = "idx_dm_thread_org_participants_unique")]
+    pub organization_id: Uuid,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -21,6 +23,14 @@ pub enum Relation {
     DmMessage,
     #[sea_orm(has_many = "super::dm_message_clear::Entity")]
     DmMessageClear,
+    #[sea_orm(
+        belongs_to = "super::organization::Entity",
+        from = "Column::OrganizationId",
+        to = "super::organization::Column::Id",
+        on_update = "NoAction",
+        on_delete = "Cascade"
+    )]
+    Organization,
     #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::ParticipantA",
@@ -48,6 +58,12 @@ impl Related<super::dm_message::Entity> for Entity {
 impl Related<super::dm_message_clear::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::DmMessageClear.def()
+    }
+}
+
+impl Related<super::organization::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Organization.def()
     }
 }
 

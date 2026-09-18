@@ -12,8 +12,8 @@ use crate::{
     types::{
         GqlAttachment, GqlChannel, GqlChannelMember, GqlComment, GqlDmMessage, GqlDmThread,
         GqlInvitation, GqlMessage, GqlMyDashboard, GqlNotification, GqlNotificationKind,
-        GqlNotificationPreference, GqlOrgDashboard, GqlOrgMember, GqlProject, GqlTask,
-        GqlTaskStatus, GqlTeam, GqlTeamMember, GqlUserPresence,
+        GqlNotificationPreference, GqlOrgDashboard, GqlOrgMember, GqlOrgMemberProfile,
+        GqlOrgSummary, GqlProject, GqlTask, GqlTaskStatus, GqlTeam, GqlTeamMember, GqlUserPresence,
         pagination::{
             ConnectionArgs, PageInfo, TaskConnection, TaskEdge, decode_cursor, encode_cursor,
         },
@@ -342,6 +342,39 @@ impl CoreQuery {
             .map_gql_err()?;
         Ok(GqlOrgDashboard::from(summary))
     }
+
+    async fn my_organizations(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Vec<GqlOrgSummary>> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+
+        let orgs = services
+            .profile_service
+            .list_my_organizations(auth.user_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(orgs.into_iter().map(GqlOrgSummary::from).collect())
+    }
+
+    async fn my_org_profile(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<GqlOrgMemberProfile> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+        let membership = auth.require_org()?;
+
+        let profile = services
+            .profile_service
+            .get_my_org_profile(auth.user_id, membership.organization_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlOrgMemberProfile::from(profile))
+    }
 }
 
 pub fn parse_id<T: From<uuid::Uuid>>(id: &ID) -> async_graphql::Result<T> {
@@ -419,11 +452,12 @@ impl MessagingQueryFields {
 
     async fn dm_threads(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<GqlDmThread>> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         let threads = services
             .messaging_service
-            .list_dm_threads(auth.user_id)
+            .list_dm_threads(auth.user_id, org.organization_id)
             .await
             .map_gql_err()?;
 
@@ -438,6 +472,7 @@ impl MessagingQueryFields {
         limit: Option<i32>,
     ) -> async_graphql::Result<Vec<GqlDmMessage>> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         let thread_id = parse_id::<DmThreadId>(&thread_id)?;
@@ -450,6 +485,7 @@ impl MessagingQueryFields {
             .list_dm_messages(
                 thread_id,
                 auth.user_id,
+                org.organization_id,
                 before_id,
                 limit.unwrap_or(50) as u64,
             )

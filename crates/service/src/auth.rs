@@ -102,7 +102,7 @@ impl AuthService {
 
         let user = self
             .user_repo
-            .create(user_id, email.clone(), display_name, password_hash)
+            .create(user_id, email.clone(), display_name.clone(), password_hash)
             .await
             .map_err(|err| match err {
                 devboard_repository::RepositoryError::UniqueViolation { .. } => {
@@ -115,7 +115,8 @@ impl AuthService {
 
         match intent {
             RegistrationIntent::CreateOrganization { name, slug } => {
-                self.handle_create_org(user.id, name, slug).await?;
+                self.handle_create_org(user.id, display_name.clone(), name, slug)
+                    .await?;
             }
             RegistrationIntent::AcceptInvite { token } => {
                 self.handle_accept_invite_for_new_user(user.id, &email, &token)
@@ -181,7 +182,12 @@ impl AuthService {
 
         let membership = self
             .org_membership_repo
-            .create(user_id, invitation.organization_id, invitation.role)
+            .create(
+                user_id,
+                invitation.organization_id,
+                invitation.role,
+                user.display_name.clone(),
+            )
             .await
             .map_err(|err| match err {
                 devboard_repository::RepositoryError::UniqueViolation { .. } => {
@@ -271,12 +277,6 @@ impl AuthService {
             .await?
             .ok_or_else(|| ServiceError::Internal("org not found".into()))?;
 
-        let inviter = self
-            .user_repo
-            .find_by_id(caller_id)
-            .await?
-            .ok_or_else(|| ServiceError::Internal("user not found".into()))?;
-
         let invite_url = self.build_invite_url(&token);
 
         // Email is best-effort: Resend sandbox (and other provider failures)
@@ -286,7 +286,7 @@ impl AuthService {
             .send_invite(InviteEmailData {
                 invitee_email: email,
                 org_name: org.name,
-                inviter_name: inviter.display_name,
+                inviter_name: caller_membership.display_name,
                 invite_url: invite_url.clone(),
                 expires_hours: 48,
             })
@@ -437,6 +437,7 @@ impl AuthService {
     async fn handle_create_org(
         &self,
         user_id: UserId,
+        display_name: String,
         name: String,
         slug: String,
     ) -> Result<(), ServiceError> {
@@ -457,7 +458,7 @@ impl AuthService {
             })?;
 
         self.org_membership_repo
-            .create(user_id, org_id, OrgRole::OrgOwner)
+            .create(user_id, org_id, OrgRole::OrgOwner, display_name)
             .await?;
 
         Ok(())
@@ -487,8 +488,18 @@ impl AuthService {
             });
         }
 
+        let user = self
+            .user_repo
+            .find_by_id(user_id)
+            .await?
+            .ok_or(ServiceError::Unauthenticated)?;
         self.org_membership_repo
-            .create(user_id, invitation.organization_id, invitation.role)
+            .create(
+                user_id,
+                invitation.organization_id,
+                invitation.role,
+                user.display_name,
+            )
             .await?;
 
         self.invitation_repo.mark_accepted(invitation.id).await?;

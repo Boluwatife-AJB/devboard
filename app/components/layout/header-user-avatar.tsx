@@ -2,25 +2,27 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMe } from "@/hooks/use-me";
+import { useMyOrgProfile } from "@/hooks/use-my-org-profile";
 import { avatarColorOf, initialsOf } from "@/lib/task-ui";
 
 export function HeaderUserAvatar() {
-  const { data: me, isPending } = useMe();
+  const { data: profile, isPending } = useMyOrgProfile();
 
   if (isPending) {
     return <Skeleton className="size-9 rounded-full" />;
   }
 
-  const displayName = me?.displayName?.trim() || "User";
-  const avatarUrl = me?.avatarUrl?.trim();
+  const displayName = profile?.displayName?.trim() || "User";
+  const avatarUrl = profile?.avatarUrl?.trim();
 
   return (
     <Avatar>
       {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
       <AvatarFallback
         className="text-xs font-medium text-white"
-        style={{ backgroundColor: avatarColorOf(me?.id ?? displayName) }}
+        style={{
+          backgroundColor: avatarColorOf(profile?.userId ?? displayName),
+        }}
       >
         {initialsOf(displayName)}
       </AvatarFallback>

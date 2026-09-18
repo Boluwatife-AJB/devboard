@@ -3,19 +3,19 @@
 import { AdminDashboard } from "@/components/dashboard/admin/admin-dashboard";
 import { MemberDashboard } from "@/components/dashboard/member/member-dashboard";
 import { DashboardSkeleton } from "@/components/dashboard/shared/dashboard-states";
-import { useMe } from "@/hooks/use-me";
+import { useMyOrgProfile } from "@/hooks/use-my-org-profile";
 import { useSelectedOrganization } from "@/hooks/use-selected-organization";
 
 export default function DashboardPage() {
-  const { data: me, isPending: mePending } = useMe();
+  const { data: profile, isPending: profilePending } = useMyOrgProfile();
   const { organization, ready, isAdmin } = useSelectedOrganization();
 
-  if (!ready || mePending) {
+  if (!ready || profilePending) {
     return <DashboardSkeleton />;
   }
 
   const shared = {
-    displayName: me?.displayName,
+    displayName: profile?.displayName,
     organizationName: organization?.name,
   };
 

@@ -18,14 +18,15 @@ use crate::{
         SendAnnouncementInput, SendDmInput, SendMessageInput, UnregisterPushSubscriptionInput,
         UpdateNotificationPreferencesInput, UpdateTaskStatusInput,
         comment::{CreateCommentInput, EditCommentInput},
+        profile::UpdateOrgProfileInput,
         project::UpdateProjectInput,
         task::UpdateTaskDueDateInput,
     },
     resolvers::query::parse_id,
     types::{
         GqlAttachment, GqlChannel, GqlComment, GqlDmMessage, GqlDmThread, GqlMessage,
-        GqlNotificationKind, GqlNotificationPreference, GqlProject, GqlReactionSummary, GqlTask,
-        GqlTeam,
+        GqlNotificationKind, GqlNotificationPreference, GqlOrgMemberProfile, GqlProject,
+        GqlReactionSummary, GqlTask, GqlTeam,
     },
 };
 
@@ -510,6 +511,29 @@ impl CoreMutation {
 
         Ok(true)
     }
+
+    async fn update_org_profile(
+        &self,
+        ctx: &Context<'_>,
+        input: UpdateOrgProfileInput,
+    ) -> async_graphql::Result<GqlOrgMemberProfile> {
+        let auth = ctx.authenticated_user()?;
+        let services = ctx.services()?;
+        let membership = auth.require_org()?;
+
+        let profile = services
+            .profile_service
+            .update_my_org_profile(
+                auth.user_id,
+                membership.organization_id,
+                input.display_name,
+                input.avatar_url,
+            )
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlOrgMemberProfile::from(profile))
+    }
 }
 
 #[derive(Default)]
@@ -803,11 +827,16 @@ impl MessagingMutationFields {
         thread_id: ID,
     ) -> async_graphql::Result<bool> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         services
             .messaging_service
-            .mark_dm_read(parse_id::<DmThreadId>(&thread_id)?, auth.user_id)
+            .mark_dm_read(
+                parse_id::<DmThreadId>(&thread_id)?,
+                auth.user_id,
+                org.organization_id,
+            )
             .await
             .map_gql_err()?;
 
@@ -820,6 +849,7 @@ impl MessagingMutationFields {
         input: EditDmInput,
     ) -> async_graphql::Result<GqlDmMessage> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         let message = services
@@ -828,6 +858,7 @@ impl MessagingMutationFields {
                 parse_id::<DmMessageId>(&input.message_id)?,
                 auth.user_id,
                 input.body,
+                org.organization_id,
             )
             .await
             .map_gql_err()?;
@@ -841,11 +872,16 @@ impl MessagingMutationFields {
         input: DeleteDmInput,
     ) -> async_graphql::Result<bool> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         services
             .messaging_service
-            .delete_dm(parse_id::<DmMessageId>(&input.message_id)?, auth.user_id)
+            .delete_dm(
+                parse_id::<DmMessageId>(&input.message_id)?,
+                auth.user_id,
+                org.organization_id,
+            )
             .await
             .map_gql_err()?;
 
@@ -875,11 +911,16 @@ impl MessagingMutationFields {
         thread_id: ID,
     ) -> async_graphql::Result<bool> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         services
             .messaging_service
-            .clear_dm_for_user(parse_id::<DmThreadId>(&thread_id)?, auth.user_id)
+            .clear_dm_for_user(
+                parse_id::<DmThreadId>(&thread_id)?,
+                auth.user_id,
+                org.organization_id,
+            )
             .await
             .map_gql_err()?;
 

@@ -7,29 +7,31 @@ import { ProfileOverviewHeader } from "@/components/profile/overview/profile-ove
 import { ProfileStatsGrid } from "@/components/profile/overview/profile-stats-grid";
 import { ProfileTeamsCard } from "@/components/profile/overview/profile-teams-card";
 import { profileOverviewData } from "@/constant";
-import { useMe } from "@/hooks/use-me";
+import { useMyOrgProfile } from "@/hooks/use-my-org-profile";
 import { getFirstName } from "@/lib/dashboard-utils";
 import { ProfileOverviewSkeleton } from "./profile-overview-skeleton";
 
 export function ProfileOverview() {
-  const { data: me, isPending } = useMe();
+  const { data: orgProfile, isPending } = useMyOrgProfile();
 
   if (isPending) {
     return <ProfileOverviewSkeleton />;
   }
 
+  const displayName = orgProfile?.displayName;
   const profile = {
     ...profileOverviewData,
-    firstName: me?.displayName
-      ? getFirstName(me.displayName)
+    firstName: displayName
+      ? getFirstName(displayName)
       : profileOverviewData.firstName,
-    lastName: me?.displayName
-      ? me.displayName.trim().split(/\s+/).slice(1).join(" ") ||
+    lastName: displayName
+      ? displayName.trim().split(/\s+/).slice(1).join(" ") ||
         profileOverviewData.lastName
       : profileOverviewData.lastName,
-    handle: me?.displayName
-      ? me.displayName.toLowerCase().replace(/\s+/g, "_")
+    handle: displayName
+      ? displayName.toLowerCase().replace(/\s+/g, "_")
       : profileOverviewData.handle,
+    avatarUrl: orgProfile?.avatarUrl ?? profileOverviewData.avatarUrl,
   };
 
   return (

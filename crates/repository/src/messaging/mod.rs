@@ -155,15 +155,21 @@ pub trait DmRepository: Send + Sync {
         &self,
         user_a: UserId,
         user_b: UserId,
+        org_id: OrganizationId,
     ) -> Result<Option<DmThread>, RepositoryError>;
 
     async fn find_thread_by_id(&self, id: DmThreadId) -> Result<Option<DmThread>, RepositoryError>;
 
-    async fn find_user_threads(&self, user_id: UserId) -> Result<Vec<DmThread>, RepositoryError>;
+    async fn find_user_threads(
+        &self,
+        user_id: UserId,
+        org_id: OrganizationId,
+    ) -> Result<Vec<DmThread>, RepositoryError>;
 
     async fn create_thread(
         &self,
         id: DmThreadId,
+        org_id: OrganizationId,
         user_a: UserId,
         user_b: UserId,
     ) -> Result<DmThread, RepositoryError>;

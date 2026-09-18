@@ -215,6 +215,8 @@ mod tests {
             organization_id: OrganizationId::new(),
             user_id: user_id(),
             role,
+            display_name: "".to_string(),
+            avatar_url: None,
             joined_at: Utc::now(),
         }
     }

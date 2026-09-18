@@ -28,8 +28,10 @@ import {
   useLeaveChannel,
   useRemoveChannelMember,
 } from "@/hooks/use-messaging";
+import { memberDisplayName, useOrgMemberMap } from "@/hooks/use-org-member-map";
 import { useOrgMembers } from "@/hooks/use-teams";
 import { getApiErrorMessage } from "@/lib/api";
+import { orgMemberDisplayName } from "@/lib/org-members";
 import { Action } from "@/lib/rbac/actions";
 import { avatarColorOf, initialsOf } from "@/lib/task-ui";
 import type { ApiChannel } from "@/types";
@@ -52,6 +54,7 @@ export function DetailsPane({
     isError: membersError,
   } = useChannelMembers(channel.id);
   const { data: orgMembers = [] } = useOrgMembers();
+  const memberNames = useOrgMemberMap();
   const addMember = useAddChannelMember(channel.id);
   const removeMember = useRemoveChannelMember(channel.id);
   const leaveChannel = useLeaveChannel();
@@ -67,8 +70,14 @@ export function DetailsPane({
     try {
       await addMember.mutateAsync(selectedUserId);
       const name =
-        availableMembers.find((member) => member.userId === selectedUserId)
-          ?.user?.displayName ?? "Member";
+        orgMemberDisplayName(
+          availableMembers.find(
+            (member) => member.userId === selectedUserId,
+          ) ?? {
+            displayName: "",
+            userId: selectedUserId,
+          },
+        ) || "Member";
       toast.success(`${name} added to #${channel.slug}`);
       setSelectedUserId(null);
     } catch (error) {
@@ -152,9 +161,14 @@ export function DetailsPane({
                     >
                       <SelectValue>
                         {selectedUserId
-                          ? (availableMembers.find(
-                              (member) => member.userId === selectedUserId,
-                            )?.user?.displayName ?? "Select a person")
+                          ? orgMemberDisplayName(
+                              availableMembers.find(
+                                (member) => member.userId === selectedUserId,
+                              ) ?? {
+                                displayName: "",
+                                userId: selectedUserId ?? "",
+                              },
+                            ) || "Select a person"
                           : "Select a person"}
                       </SelectValue>
                     </SelectTrigger>
@@ -170,7 +184,7 @@ export function DetailsPane({
                               key={orgMember.userId}
                               value={orgMember.userId}
                             >
-                              {orgMember.user?.displayName} (
+                              {orgMemberDisplayName(orgMember)} (
                               {orgMember.user?.email})
                             </SelectItem>
                           ))
@@ -210,8 +224,7 @@ export function DetailsPane({
             ) : (
               <ul className="space-y-2">
                 {members.map((member) => {
-                  const name =
-                    member.user?.displayName ?? member.userId.slice(0, 8);
+                  const name = memberDisplayName(memberNames, member.userId);
                   const isMe = member.userId === me?.id;
                   return (
                     <li

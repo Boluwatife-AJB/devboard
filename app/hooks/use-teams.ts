@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { invalidateDashboardQueries } from "@/hooks/use-dashboard";
 import { graphqlRequest } from "@/lib/graphql/client";
 import {
   ADD_TEAM_MEMBER_MUTATION,
@@ -16,6 +17,8 @@ import type {
   ApiTeam,
   ApiTeamMember,
 } from "@/types";
+
+const MEMBERS_TABLE_REFETCH_MS = 3 * 60 * 1000;
 
 export const teamKeys = {
   all: ["teams"] as const,
@@ -47,8 +50,11 @@ export function useTeamMembers(teamId: string) {
   });
 }
 
-/** Organization member directory, used to pick users to add to a team. */
-export function useOrgMembers() {
+type OrgMembersQueryOptions = {
+  refetchInterval?: number;
+};
+
+export function useOrgMembers(options?: OrgMembersQueryOptions) {
   return useQuery({
     queryKey: teamKeys.orgMembers,
     queryFn: async () => {
@@ -57,8 +63,11 @@ export function useOrgMembers() {
       );
       return data.orgMembers;
     },
+    refetchInterval: options?.refetchInterval,
   });
 }
+
+export { MEMBERS_TABLE_REFETCH_MS };
 
 export function useCreateTeam() {
   const queryClient = useQueryClient();
@@ -76,6 +85,7 @@ export function useCreateTeam() {
         teams ? [...teams, team] : [team],
       );
       queryClient.invalidateQueries({ queryKey: teamKeys.all });
+      invalidateDashboardQueries(queryClient);
     },
   });
 }

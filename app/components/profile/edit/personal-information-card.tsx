@@ -32,6 +32,11 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { profilePronounOptions } from "@/constant";
+import {
+  useMyOrgProfile,
+  useUpdateOrgProfile,
+} from "@/hooks/use-my-org-profile";
+import { getApiErrorMessage } from "@/lib/api";
 import { editProfileSchema } from "@/lib/schema";
 import type { EditProfileFormData } from "@/types";
 
@@ -42,6 +47,8 @@ type PersonalInformationCardProps = {
 export function PersonalInformationCard({
   defaultValues,
 }: PersonalInformationCardProps) {
+  const { data: profile } = useMyOrgProfile();
+  const updateProfile = useUpdateOrgProfile();
   const {
     control,
     handleSubmit,
@@ -52,10 +59,17 @@ export function PersonalInformationCard({
   });
 
   const onSubmit = handleSubmit(async (values) => {
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    toast.success("Profile updated", {
-      description: `Saved changes for ${values.displayName}.`,
-    });
+    try {
+      await updateProfile.mutateAsync({
+        displayName: values.displayName.replace(/_/g, " "),
+        avatarUrl: profile?.avatarUrl ?? null,
+      });
+      toast.success("Profile updated", {
+        description: `Saved changes for ${values.displayName}.`,
+      });
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
   });
 
   return (
@@ -175,15 +189,15 @@ export function PersonalInformationCard({
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Controller
-                name="role"
+                name="title"
                 control={control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="role" className="profile-field-label">
-                      Role
+                    <FieldLabel htmlFor="title" className="profile-field-label">
+                      Title
                     </FieldLabel>
                     <Input
-                      id="role"
+                      id="title"
                       {...field}
                       aria-invalid={fieldState.invalid}
                       className="profile-input"
@@ -366,9 +380,9 @@ export function PersonalInformationCard({
           type="submit"
           form="general-profile-form"
           className="rounded-xs"
-          disabled={isSubmitting}
+          disabled={isSubmitting || updateProfile.isPending}
         >
-          {isSubmitting ? (
+          {isSubmitting || updateProfile.isPending ? (
             <>
               <Spinner data-icon="inline-start" />
               Saving...

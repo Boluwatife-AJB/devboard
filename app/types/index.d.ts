@@ -112,6 +112,33 @@ interface ApiDashboardEmptyState {
   primaryCta: DashboardCta;
 }
 
+type ApiSetupPersona = "ORG_ADMIN" | "ORG_MEMBER";
+
+type ApiSetupStepId =
+  | "CREATE_TEAM"
+  | "CREATE_PROJECT"
+  | "INVITE_MEMBERS"
+  | "CREATE_CHANNEL"
+  | "CREATE_TASK"
+  | "JOIN_CONVERSATION"
+  | "EXPLORE_PROJECTS"
+  | "REVIEW_TASKS";
+
+interface ApiSetupStep {
+  id: ApiSetupStepId;
+  label: string;
+  description: string;
+  completed: boolean;
+  href: string | null;
+}
+
+interface ApiDashboardSetupProgress {
+  persona: ApiSetupPersona;
+  completedCount: number;
+  totalCount: number;
+  steps: ApiSetupStep[];
+}
+
 interface ApiDashboardTaskItem {
   id: string;
   projectId: string;
@@ -132,6 +159,7 @@ interface ApiMyDashboard {
   greetingName: string;
   organizationName: string;
   emptyState: ApiDashboardEmptyState;
+  setupProgress: ApiDashboardSetupProgress;
   stats: {
     tasksAssignedToMe: number;
     tasksDueThisWeek: number;
@@ -154,6 +182,7 @@ interface ApiOrgDashboard {
   greetingName: string;
   organizationName: string;
   emptyState: ApiDashboardEmptyState;
+  setupProgress: ApiDashboardSetupProgress;
   stats: {
     overdueTasks: number;
     unassignedTasks: number;
@@ -227,9 +256,26 @@ type UiPresence = "online" | "away" | "offline";
 interface ApiUser {
   id: string;
   email: string;
-  displayName: string;
   createdAt: string;
+  displayName?: string;
   avatarUrl?: string | null;
+}
+
+interface ApiOrgSummary {
+  id: string;
+  name: string;
+  slug: string;
+  role: OrgRole;
+}
+
+interface ApiOrgMemberProfile {
+  organizationId: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+  role: OrgRole;
+  joinedAt: string;
 }
 
 interface ApiTeam {
@@ -251,6 +297,8 @@ interface ApiTeamMember {
 interface ApiOrgMember {
   userId: string;
   role: OrgRole;
+  displayName: string;
+  avatarUrl: string | null;
   joinedAt: string;
   user: ApiUser | null;
 }

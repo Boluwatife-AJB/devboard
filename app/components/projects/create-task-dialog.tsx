@@ -39,6 +39,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAddAttachment } from "@/hooks/use-attachments";
+import { memberDisplayName, useOrgMemberMap } from "@/hooks/use-org-member-map";
 import { useCreateTask } from "@/hooks/use-tasks";
 import { useTeamMembers } from "@/hooks/use-teams";
 import { getApiErrorMessage } from "@/lib/api";
@@ -69,8 +70,12 @@ function toIsoDueDate(localValue: string | undefined): string | null {
   return date.toISOString();
 }
 
-function memberLabel(member: ApiTeamMember): string {
-  if (member.user?.displayName) return member.user.displayName;
+function memberLabel(
+  member: ApiTeamMember,
+  names: ReturnType<typeof useOrgMemberMap>,
+): string {
+  const name = memberDisplayName(names, member.userId);
+  if (name !== "Unknown user") return name;
   if (member.user?.email) return member.user.email;
   return member.userId;
 }
@@ -89,6 +94,7 @@ export function CreateTaskDialog({
 
   const createTask = useCreateTask(projectId);
   const addAttachment = useAddAttachment(projectId);
+  const memberNames = useOrgMemberMap();
   const { data: members, isPending: isMembersPending } = useTeamMembers(
     open ? teamId : "",
   );
@@ -215,7 +221,7 @@ export function CreateTaskDialog({
                         )
                       }
                       items={members?.map((member) => ({
-                        label: memberLabel(member),
+                        label: memberLabel(member, memberNames),
                         value: member.userId,
                       }))}
                     >
@@ -228,7 +234,7 @@ export function CreateTaskDialog({
                       >
                         <SelectValue>
                           {selected
-                            ? memberLabel(selected)
+                            ? memberLabel(selected, memberNames)
                             : isMembersPending
                               ? "Loading members..."
                               : "Unassigned"}
@@ -242,7 +248,7 @@ export function CreateTaskDialog({
                               key={member.userId}
                               value={member.userId}
                             >
-                              {memberLabel(member)}
+                              {memberLabel(member, memberNames)}
                             </SelectItem>
                           ))}
                         </SelectGroup>

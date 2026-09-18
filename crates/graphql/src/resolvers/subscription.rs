@@ -200,13 +200,14 @@ impl MessagingSubscriptionFields {
         thread_id: ID,
     ) -> async_graphql::Result<impl Stream<Item = GqlDmMessageEvent> + use<>> {
         let auth = ctx.authenticated_user()?;
+        let org = auth.require_org()?;
         let services = ctx.services()?;
 
         let thread_id_parsed = parse_id::<DmThreadId>(&thread_id)?;
 
         services
             .messaging_service
-            .list_dm_messages(thread_id_parsed, auth.user_id, None, 1)
+            .list_dm_messages(thread_id_parsed, auth.user_id, org.organization_id, None, 1)
             .await
             .map_gql_err()?;
 

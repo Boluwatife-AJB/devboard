@@ -1,11 +1,14 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { invalidateDashboardQueries } from "@/hooks/use-dashboard";
+import { teamKeys } from "@/hooks/use-teams";
 import { privateApi, publicApi } from "@/lib/api";
 import {
   getAccessToken,
   getOrganizations,
   getSelectedOrgId,
+  resolveInitialOrgId,
   setAccessToken,
   setOrganizations,
   setSelectedOrgId,
@@ -61,11 +64,20 @@ export function useInviteMember() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: invitationKeys.pending });
+      queryClient.invalidateQueries({ queryKey: teamKeys.orgMembers });
+      invalidateDashboardQueries(queryClient);
     },
   });
 }
 
-export function usePendingInvitations(enabled = true) {
+type PendingInvitationsQueryOptions = {
+  refetchInterval?: number;
+};
+
+export function usePendingInvitations(
+  enabled = true,
+  options?: PendingInvitationsQueryOptions,
+) {
   return useQuery({
     queryKey: invitationKeys.pending,
     queryFn: async () => {
@@ -75,6 +87,7 @@ export function usePendingInvitations(enabled = true) {
       return data.pendingInvitations;
     },
     enabled,
+    refetchInterval: options?.refetchInterval,
   });
 }
 
@@ -95,6 +108,7 @@ export function useRevokeInvitation() {
         (invitations) =>
           invitations?.filter((invitation) => invitation.id !== invitationId),
       );
+      invalidateDashboardQueries(queryClient);
     },
   });
 }
@@ -155,7 +169,8 @@ export function useRegisterWithInvite(token: string) {
       setAccessToken(data.access_token);
       setOrganizations(data.organizations);
       if (data.organizations.length > 0) {
-        setSelectedOrgId(data.organizations[0].id);
+        const orgId = resolveInitialOrgId(data.organizations);
+        if (orgId) setSelectedOrgId(orgId);
       }
     },
   });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { invalidateDashboardQueries } from "@/hooks/use-dashboard";
 import { graphqlRequest } from "@/lib/graphql/client";
 import {
   ADD_CHANNEL_MEMBER_MUTATION,
@@ -83,6 +84,7 @@ export function useCreateChannel() {
         (channels) => (channels ? [...channels, channel] : [channel]),
       );
       queryClient.invalidateQueries({ queryKey: messagingKeys.channels });
+      invalidateDashboardQueries(queryClient);
     },
   });
 }
@@ -109,6 +111,7 @@ export function useJoinChannel() {
       queryClient.invalidateQueries({
         queryKey: messagingKeys.channelMessages(channelId),
       });
+      invalidateDashboardQueries(queryClient);
     },
   });
 }
@@ -374,6 +377,7 @@ export function useOpenDm() {
         },
       );
       queryClient.invalidateQueries({ queryKey: messagingKeys.dmThreads });
+      invalidateDashboardQueries(queryClient);
     },
   });
 }

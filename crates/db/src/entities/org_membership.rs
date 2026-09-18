@@ -12,6 +12,8 @@ pub struct Model {
     pub user_id: Uuid,
     pub role: String,
     pub joined_at: DateTimeWithTimeZone,
+    pub display_name: String,
+    pub avatar_url: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

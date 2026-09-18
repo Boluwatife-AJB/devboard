@@ -25,6 +25,15 @@ pub trait OrgMembershipRepository: Send + Sync {
         user_id: UserId,
         org_id: OrganizationId,
         role: OrgRole,
+        display_name: String,
+    ) -> Result<OrgMembership, RepositoryError>;
+
+    async fn update_profile(
+        &self,
+        user_id: UserId,
+        org_id: OrganizationId,
+        display_name: String,
+        avatar_url: Option<String>,
     ) -> Result<OrgMembership, RepositoryError>;
 
     async fn update_role(

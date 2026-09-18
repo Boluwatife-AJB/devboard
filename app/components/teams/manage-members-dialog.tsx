@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { memberDisplayName, useOrgMemberMap } from "@/hooks/use-org-member-map";
 import {
   useAddTeamMember,
   useOrgMembers,
@@ -31,6 +32,7 @@ import {
   useTeamMembers,
 } from "@/hooks/use-teams";
 import { getApiErrorMessage } from "@/lib/api";
+import { orgMemberDisplayName } from "@/lib/org-members";
 import { avatarColorOf, initialsOf } from "@/lib/task-ui";
 import type { ApiTeam, TeamRole } from "@/types";
 
@@ -59,6 +61,7 @@ export function ManageMembersDialog({
     error,
   } = useTeamMembers(open ? team.id : "");
   const { data: orgMembers } = useOrgMembers();
+  const memberNames = useOrgMemberMap();
   const addMember = useAddTeamMember(team.id);
   const removeMember = useRemoveTeamMember(team.id);
 
@@ -75,9 +78,12 @@ export function ManageMembersDialog({
         userId: selectedUserId,
         role: selectedRole,
       });
-      const name =
-        availableMembers.find((member) => member.userId === selectedUserId)
-          ?.user?.displayName ?? "Member";
+      const name = orgMemberDisplayName(
+        availableMembers.find((member) => member.userId === selectedUserId) ?? {
+          displayName: "",
+          userId: selectedUserId,
+        },
+      );
       toast.success(`${name} added to ${team.name}`);
       setSelectedUserId(null);
       setSelectedRole("MEMBER");
@@ -125,9 +131,14 @@ export function ManageMembersDialog({
                 >
                   <SelectValue>
                     {selectedUserId
-                      ? (availableMembers.find(
-                          (member) => member.userId === selectedUserId,
-                        )?.user?.displayName ?? "Select a person")
+                      ? orgMemberDisplayName(
+                          availableMembers.find(
+                            (member) => member.userId === selectedUserId,
+                          ) ?? {
+                            displayName: "",
+                            userId: selectedUserId ?? "",
+                          },
+                        ) || "Select a person"
                       : "Select a person"}
                   </SelectValue>
                 </SelectTrigger>
@@ -143,7 +154,8 @@ export function ManageMembersDialog({
                         key={orgMember.userId}
                         value={orgMember.userId}
                       >
-                        {orgMember.user?.displayName} ({orgMember.user?.email})
+                        {orgMemberDisplayName(orgMember)} (
+                        {orgMember.user?.email})
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -201,7 +213,7 @@ export function ManageMembersDialog({
             )}
 
             {members?.map((member) => {
-              const name = member.user?.displayName ?? "Unknown user";
+              const name = memberDisplayName(memberNames, member.userId);
               return (
                 <div
                   key={member.userId}

@@ -1,16 +1,17 @@
 "use client";
 
+import { Suspense } from "react";
 import { AdminQuickActionsCard } from "@/components/dashboard/admin/admin-quick-actions-card";
 import { AttentionRequiredCard } from "@/components/dashboard/admin/attention-required-card";
 import { RiskDeadlinesCard } from "@/components/dashboard/admin/risk-deadlines-card";
 import { WorkloadAreaChart } from "@/components/dashboard/admin/workload-area-chart";
 import { DashboardGreeting } from "@/components/dashboard/shared/dashboard-greeting";
 import {
-  DashboardEmptyState,
   DashboardErrorState,
   DashboardSkeleton,
   shouldShowDashboardEmpty,
 } from "@/components/dashboard/shared/dashboard-states";
+import { GettingStartedHub } from "@/components/dashboard/shared/getting-started-hub";
 import { StatsGrid } from "@/components/dashboard/shared/stats-grid";
 import { adminQuickActions } from "@/constant";
 import { useOrgDashboard } from "@/hooks/use-dashboard";
@@ -61,10 +62,16 @@ export function AdminDashboard({
 
   if (shouldShowDashboardEmpty(data.emptyState)) {
     return (
-      <div className="flex flex-col gap-8">
-        {greeting}
-        <DashboardEmptyState emptyState={data.emptyState} canCreateProject />
-      </div>
+      <Suspense fallback={<DashboardSkeleton />}>
+        <GettingStartedHub
+          persona="admin"
+          displayName={data.greetingName || displayName}
+          organizationName={data.organizationName || organizationName}
+          emptyState={data.emptyState}
+          setupProgress={data.setupProgress}
+          pendingInviteCount={data.stats.pendingInvites}
+        />
+      </Suspense>
     );
   }
 

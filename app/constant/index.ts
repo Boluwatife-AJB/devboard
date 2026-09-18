@@ -629,7 +629,7 @@ export const editProfileDefaults: EditProfileFormData = {
   lastName: "Chen",
   displayName: "achen_dev",
   pronouns: "He / Him",
-  role: "Senior Product Designer",
+  title: "Senior Product Designer",
   bio: "Building design systems and developer experience tools.",
   location: "San Francisco, CA",
   phone: "+1 (415) 555-0192",

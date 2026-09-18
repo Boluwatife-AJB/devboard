@@ -4,7 +4,7 @@ use async_graphql::ErrorExtensions;
 use devboard_domain::{OrgMembership, UserId};
 use devboard_service::{
     AttachmentService, AuthService, CommentService, DashboardService, MessagingService,
-    NotificationService, ProjectService, TaskService, TeamService,
+    NotificationService, ProfileService, ProjectService, TaskService, TeamService,
 };
 
 #[derive(Clone)]
@@ -18,6 +18,7 @@ pub struct Services {
     pub messaging_service: Arc<MessagingService>,
     pub notification_service: Arc<NotificationService>,
     pub dashboard_service: Arc<DashboardService>,
+    pub profile_service: Arc<ProfileService>,
 }
 
 #[derive(Debug, Clone)]

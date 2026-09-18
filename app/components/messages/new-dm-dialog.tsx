@@ -26,6 +26,7 @@ import { useMe } from "@/hooks/use-me";
 import { useOpenDm } from "@/hooks/use-messaging";
 import { useOrgMembers } from "@/hooks/use-teams";
 import { getApiErrorMessage } from "@/lib/api";
+import { orgMemberDisplayName } from "@/lib/org-members";
 import type { ApiDmThread } from "@/types";
 
 export function NewDmDialog({
@@ -76,7 +77,7 @@ export function NewDmDialog({
             value={userId}
             onValueChange={(value) => setUserId(value ?? "")}
             items={otherMembers.map((member) => ({
-              label: member.user?.displayName ?? member.userId,
+              label: orgMemberDisplayName(member),
               value: member.userId,
             }))}
           >
@@ -87,7 +88,7 @@ export function NewDmDialog({
             >
               <SelectValue>
                 {selected
-                  ? (selected.user?.displayName ?? selected.userId)
+                  ? orgMemberDisplayName(selected)
                   : isMembersPending
                     ? "Loading members..."
                     : "Select a member"}
@@ -97,7 +98,7 @@ export function NewDmDialog({
               <SelectGroup>
                 {otherMembers.map((member) => (
                   <SelectItem key={member.userId} value={member.userId}>
-                    {member.user?.displayName ?? member.userId}
+                    {orgMemberDisplayName(member)}
                   </SelectItem>
                 ))}
               </SelectGroup>
