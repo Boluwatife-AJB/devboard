@@ -3,13 +3,13 @@ use std::sync::Arc;
 use chrono::{DateTime, Duration, NaiveDate, Utc};
 use devboard_domain::{
     AttentionItem, AttentionKind, CompletionPoint, DashboardCta, DashboardEmptyState,
-    DashboardSetupProgress, DashboardTaskItem, MyDashboard, MyDashboardProject, MyDashboardStats,
-    OrgDashboard, OrgDashboardStats, OrgMembership, OrgRole, SetupPersona, SetupProgressInput,
-    TaskPriority, TaskStatus, UserId, WorkloadPoint, build_setup_progress,
+    DashboardEvent, DashboardSetupProgress, DashboardTaskItem, MyDashboard, MyDashboardProject,
+    MyDashboardStats, OrgDashboard, OrgDashboardStats, OrgMembership, OrgRole, SetupPersona,
+    SetupProgressInput, TaskPriority, TaskStatus, UserId, WorkloadPoint, build_setup_progress,
 };
 use devboard_repository::{
-    InvitationRepository, OrgMembershipRepository, OrganizationRepository, ProjectRepository,
-    TaskRepository, TeamRepository, UserRepository,
+    EventRepository, InvitationRepository, OrgMembershipRepository, OrganizationRepository,
+    ProjectRepository, TaskRepository, TeamRepository, UserRepository,
     messaging::{ChannelRepository, DmRepository},
     task::{CompletionDayRow, DashboardTaskRow},
 };
@@ -31,6 +31,7 @@ pub struct DashboardServiceDeps {
     pub task_repo: Arc<dyn TaskRepository>,
     pub invitation_repo: Arc<dyn InvitationRepository>,
     pub project_service: Arc<ProjectService>,
+    pub event_repo: Arc<dyn EventRepository>,
 }
 
 pub struct DashboardService {
@@ -43,6 +44,7 @@ pub struct DashboardService {
     task_repo: Arc<dyn TaskRepository>,
     invitation_repo: Arc<dyn InvitationRepository>,
     project_service: Arc<ProjectService>,
+    event_repo: Arc<dyn EventRepository>,
 }
 
 impl DashboardService {
@@ -57,6 +59,7 @@ impl DashboardService {
             task_repo: deps.task_repo,
             invitation_repo: deps.invitation_repo,
             project_service: deps.project_service,
+            event_repo: deps.event_repo,
         }
     }
 
@@ -204,6 +207,21 @@ impl DashboardService {
             )
             .await?;
 
+        let upcoming = self
+            .event_repo
+            .list_upcoming_events_for_user(org_id, caller_id, now, now + Duration::days(14), 20)
+            .await
+            .unwrap_or_default();
+
+        let upcoming_events = upcoming
+            .into_iter()
+            .map(|(occ, series)| DashboardEvent {
+                id: occ.id.to_string(),
+                title: series.title,
+                starts_at: occ.starts_at,
+            })
+            .collect();
+
         Ok(MyDashboard {
             greeting_name: membership.display_name,
             organization_name: org.name,
@@ -212,7 +230,7 @@ impl DashboardService {
             stats,
             my_tasks,
             my_projects,
-            upcoming_events: vec![],
+            upcoming_events,
             completion_trend,
         })
     }

@@ -344,6 +344,19 @@ impl ProjectRepository for FakeProjectRepo {
             .ok_or(RepositoryError::NotFound)?;
         Ok(())
     }
+    async fn list_members(
+        &self,
+        project_id: ProjectId,
+    ) -> Result<Vec<ProjectMembership>, RepositoryError> {
+        Ok(self
+            .memberships
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|m| m.project_id == project_id)
+            .cloned()
+            .collect())
+    }
 }
 
 struct FakeTeamRepo {

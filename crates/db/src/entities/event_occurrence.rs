@@ -4,19 +4,30 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "team")]
+#[sea_orm(table_name = "event_occurrence")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
+    pub series_id: Uuid,
     pub organization_id: Uuid,
-    pub name: String,
+    pub starts_at: DateTimeWithTimeZone,
+    pub ends_at: DateTimeWithTimeZone,
+    pub status: String,
+    pub reminded24h_at: Option<DateTimeWithTimeZone>,
+    pub reminded15m_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::event_series::Entity")]
+    #[sea_orm(
+        belongs_to = "super::event_series::Entity",
+        from = "Column::SeriesId",
+        to = "super::event_series::Column::Id",
+        on_update = "NoAction",
+        on_delete = "Cascade"
+    )]
     EventSeries,
     #[sea_orm(
         belongs_to = "super::organization::Entity",
@@ -26,10 +37,6 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Organization,
-    #[sea_orm(has_many = "super::project::Entity")]
-    Project,
-    #[sea_orm(has_many = "super::team_membership::Entity")]
-    TeamMembership,
 }
 
 impl Related<super::event_series::Entity> for Entity {
@@ -41,18 +48,6 @@ impl Related<super::event_series::Entity> for Entity {
 impl Related<super::organization::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Organization.def()
-    }
-}
-
-impl Related<super::project::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Project.def()
-    }
-}
-
-impl Related<super::team_membership::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::TeamMembership.def()
     }
 }
 

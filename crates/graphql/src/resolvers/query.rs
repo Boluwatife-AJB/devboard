@@ -1,7 +1,8 @@
 use async_graphql::{Context, ID, MergedObject, Object};
+use chrono::{DateTime, Utc};
 use devboard_domain::{
-    ChannelId, DmMessageId, DmThreadId, MessageId, NotificationId, ProjectId, TaskId, TaskStatus,
-    TeamId,
+    ChannelId, DmMessageId, DmThreadId, EventOccurrenceId, MessageId, NotificationId, ProjectId,
+    TaskId, TaskStatus, TeamId,
 };
 use devboard_repository::notification::ListNotifications;
 
@@ -11,9 +12,10 @@ use crate::{
     error::IntoGraphQLResult,
     types::{
         GqlAttachment, GqlChannel, GqlChannelMember, GqlComment, GqlDmMessage, GqlDmThread,
-        GqlInvitation, GqlMessage, GqlMyDashboard, GqlNotification, GqlNotificationKind,
-        GqlNotificationPreference, GqlOrgDashboard, GqlOrgMember, GqlOrgMemberProfile,
-        GqlOrgSummary, GqlProject, GqlTask, GqlTaskStatus, GqlTeam, GqlTeamMember, GqlUserPresence,
+        GqlEventOccurrence, GqlInvitation, GqlMessage, GqlMyDashboard, GqlNotification,
+        GqlNotificationKind, GqlNotificationPreference, GqlOrgDashboard, GqlOrgMember,
+        GqlOrgMemberProfile, GqlOrgSummary, GqlProject, GqlTask, GqlTaskStatus, GqlTeam,
+        GqlTeamMember, GqlUserPresence,
         pagination::{
             ConnectionArgs, PageInfo, TaskConnection, TaskEdge, decode_cursor, encode_cursor,
         },
@@ -374,6 +376,76 @@ impl CoreQuery {
             .map_gql_err()?;
 
         Ok(GqlOrgMemberProfile::from(profile))
+    }
+
+    async fn events(
+        &self,
+        ctx: &Context<'_>,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+        limit: Option<i32>,
+    ) -> async_graphql::Result<Vec<GqlEventOccurrence>> {
+        let auth = ctx.authenticated_user()?;
+        let membership = auth.require_org()?;
+        let services = ctx.services()?;
+
+        if to <= from {
+            return Err(async_graphql::Error::new(
+                "`to` date must be after `from` date",
+            ));
+        }
+
+        let limit = limit.unwrap_or(100).clamp(1, 500) as u64;
+
+        let events = services
+            .event_service
+            .list_events(&membership, auth.user_id, from, to, limit)
+            .await
+            .map_gql_err()?;
+
+        Ok(events.into_iter().map(GqlEventOccurrence::from).collect())
+    }
+
+    async fn event_occurrence(
+        &self,
+        ctx: &Context<'_>,
+        id: ID,
+    ) -> async_graphql::Result<GqlEventOccurrence> {
+        let auth = ctx.authenticated_user()?;
+        let membership = auth.require_org()?;
+        let services = ctx.services()?;
+
+        let occurrence_id = parse_id::<EventOccurrenceId>(&id)?;
+
+        let view = services
+            .event_service
+            .get_occurrence(&membership, auth.user_id, occurrence_id)
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlEventOccurrence::from(view))
+    }
+
+    async fn my_upcoming_events(
+        &self,
+        ctx: &Context<'_>,
+        days: Option<i32>,
+        limit: Option<i32>,
+    ) -> async_graphql::Result<Vec<GqlEventOccurrence>> {
+        let auth = ctx.authenticated_user()?;
+        let membership = auth.require_org()?;
+        let services = ctx.services()?;
+
+        let days = days.unwrap_or(7).clamp(1, 90) as i64;
+        let limit = limit.unwrap_or(100).clamp(1, 100) as u64;
+
+        let events = services
+            .event_service
+            .upcoming_for_user(membership.organization_id, auth.user_id, days, limit)
+            .await
+            .map_gql_err()?;
+
+        Ok(events.into_iter().map(GqlEventOccurrence::from).collect())
     }
 }
 

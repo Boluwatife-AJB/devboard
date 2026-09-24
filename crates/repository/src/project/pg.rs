@@ -220,4 +220,18 @@ impl ProjectRepository for PgProjectRepository {
 
         Ok(())
     }
+
+    #[tracing::instrument(skip(self), fields(project_id = %project_id))]
+    async fn list_members(
+        &self,
+        project_id: ProjectId,
+    ) -> Result<Vec<ProjectMembership>, RepositoryError> {
+        use devboard_db::entities::project_membership::{self, Entity as PmEntity};
+        let models = PmEntity::find()
+            .filter(project_membership::Column::ProjectId.eq(Uuid::from(project_id)))
+            .all(&self.db)
+            .await
+            .map_err(RepositoryError::from_db_err)?;
+        models.into_iter().map(membership_to_domain).collect()
+    }
 }

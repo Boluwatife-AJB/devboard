@@ -30,6 +30,10 @@ pub enum Relation {
     DmMessage,
     #[sea_orm(has_many = "super::dm_message_clear::Entity")]
     DmMessageClear,
+    #[sea_orm(has_many = "super::event_attendee::Entity")]
+    EventAttendee,
+    #[sea_orm(has_many = "super::event_series::Entity")]
+    EventSeries,
     #[sea_orm(has_many = "super::invitation::Entity")]
     Invitation,
     #[sea_orm(has_many = "super::message::Entity")]
@@ -83,6 +87,12 @@ impl Related<super::dm_message::Entity> for Entity {
 impl Related<super::dm_message_clear::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::DmMessageClear.def()
+    }
+}
+
+impl Related<super::event_attendee::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::EventAttendee.def()
     }
 }
 
@@ -140,6 +150,15 @@ impl Related<super::dm_thread::Entity> for Entity {
     }
     fn via() -> Option<RelationDef> {
         Some(super::dm_message_clear::Relation::User.def().rev())
+    }
+}
+
+impl Related<super::event_series::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::event_attendee::Relation::EventSeries.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::event_attendee::Relation::User.def().rev())
     }
 }
 

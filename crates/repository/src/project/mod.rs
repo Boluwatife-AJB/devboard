@@ -51,6 +51,11 @@ pub trait ProjectRepository: Send + Sync {
     ) -> Result<Option<ProjectMembership>, RepositoryError>;
 
     async fn delete(&self, id: ProjectId) -> Result<(), RepositoryError>;
+
+    async fn list_members(
+        &self,
+        project_id: ProjectId,
+    ) -> Result<Vec<ProjectMembership>, RepositoryError>;
 }
 
 pub(crate) fn model_to_domain(

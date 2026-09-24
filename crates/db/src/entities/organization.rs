@@ -21,6 +21,10 @@ pub enum Relation {
     Channel,
     #[sea_orm(has_many = "super::dm_thread::Entity")]
     DmThread,
+    #[sea_orm(has_many = "super::event_occurrence::Entity")]
+    EventOccurrence,
+    #[sea_orm(has_many = "super::event_series::Entity")]
+    EventSeries,
     #[sea_orm(has_many = "super::invitation::Entity")]
     Invitation,
     #[sea_orm(has_many = "super::notification::Entity")]
@@ -44,6 +48,18 @@ impl Related<super::channel::Entity> for Entity {
 impl Related<super::dm_thread::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::DmThread.def()
+    }
+}
+
+impl Related<super::event_occurrence::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::EventOccurrence.def()
+    }
+}
+
+impl Related<super::event_series::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::EventSeries.def()
     }
 }
 

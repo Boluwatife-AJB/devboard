@@ -1,6 +1,7 @@
 pub mod attachment;
 pub mod comment;
 pub mod error;
+pub mod event;
 pub mod invitation;
 pub mod messaging;
 pub mod notification;
@@ -14,6 +15,7 @@ pub mod user;
 pub use attachment::AttachmentRepository;
 pub use comment::CommentRepository;
 pub use error::RepositoryError;
+pub use event::EventRepository;
 pub use invitation::{InvitationRepository, NewInvitation};
 pub use notification::NotificationRepository;
 pub use org_membership::OrgMembershipRepository;
@@ -25,6 +27,7 @@ pub use user::UserRepository;
 
 pub use attachment::pg::PgAttachmentRepository;
 pub use comment::pg::PgCommentRepository;
+pub use event::pg::PgEventRepository;
 pub use invitation::pg::PgInvitationRepository;
 pub use notification::pg::PgNotificationRepository;
 pub use org_membership::pg::PgOrgMembershipRepository;

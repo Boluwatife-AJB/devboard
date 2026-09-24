@@ -67,6 +67,7 @@ fn classify_error(err: &ServiceError) -> (&str, &str, bool) {
         ServiceError::Internal(_) | ServiceError::Repository(_) => {
             ("An internal error occurred", "INTERNAL_ERROR", true)
         }
+        ServiceError::EventNotFound { .. } => ("Event not found", "NOT_FOUND", false),
     }
 }
 

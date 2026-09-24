@@ -17,6 +17,10 @@ pub enum NotificationKind {
     DmThreadMessage,
     InviteReceived,
     Announcement,
+    EventScheduled,
+    EventUpdated,
+    EventCancelled,
+    EventReminder,
 }
 
 impl NotificationKind {
@@ -32,6 +36,10 @@ impl NotificationKind {
             Self::DmThreadMessage => "DM_THREAD_MESSAGE",
             Self::InviteReceived => "INVITE_RECEIVED",
             Self::Announcement => "ANNOUNCEMENT",
+            Self::EventScheduled => "EVENT_SCHEDULED",
+            Self::EventUpdated => "EVENT_UPDATED",
+            Self::EventCancelled => "EVENT_CANCELLED",
+            Self::EventReminder => "EVENT_REMINDER",
         }
     }
 
@@ -69,6 +77,10 @@ impl FromStr for NotificationKind {
             "DM_THREAD_MESSAGE" => Ok(Self::DmThreadMessage),
             "INVITE_RECEIVED" => Ok(Self::InviteReceived),
             "ANNOUNCEMENT" => Ok(Self::Announcement),
+            "EVENT_SCHEDULED" => Ok(Self::EventScheduled),
+            "EVENT_UPDATED" => Ok(Self::EventUpdated),
+            "EVENT_CANCELLED" => Ok(Self::EventCancelled),
+            "EVENT_REMINDER" => Ok(Self::EventReminder),
             _ => Err(()),
         }
     }

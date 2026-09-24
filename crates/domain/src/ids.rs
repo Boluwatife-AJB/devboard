@@ -51,3 +51,5 @@ define_id!(MessageId);
 define_id!(DmThreadId);
 define_id!(DmMessageId);
 define_id!(NotificationId);
+define_id!(EventSeriesId);
+define_id!(EventOccurrenceId);

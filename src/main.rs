@@ -29,15 +29,17 @@ use devboard_graphql::{
     context::{AuthenticatedUser, Services},
 };
 use devboard_repository::{
-    OrgMembershipRepository, PgAttachmentRepository, PgCommentRepository, PgInvitationRepository,
-    PgNotificationRepository, PgOrgMembershipRepository, PgOrganizationRepository,
-    PgProjectRepository, PgTaskRepository, PgTeamRepository, PgUserRepository,
+    OrgMembershipRepository, PgAttachmentRepository, PgCommentRepository, PgEventRepository,
+    PgInvitationRepository, PgNotificationRepository, PgOrgMembershipRepository,
+    PgOrganizationRepository, PgProjectRepository, PgTaskRepository, PgTeamRepository,
+    PgUserRepository,
     messaging::pg::{PgChannelRepository, PgDmRepository, PgMessageRepository},
 };
 use devboard_service::{
     AttachmentService, AuthService, CommentService, DashboardService, DashboardServiceDeps,
     MessagingService, MessagingServiceDeps, NotificationService, ProfileService, ProjectService,
-    TaskService, TeamService, retention, spawn_due_soon_checker, spawn_email_digest_job, unfurl,
+    TaskService, TeamService, events::EventService, notification_jobs::spawn_event_reminder_job,
+    retention, spawn_due_soon_checker, spawn_email_digest_job, unfurl,
 };
 
 mod auth_routes;
@@ -109,6 +111,7 @@ async fn main() -> anyhow::Result<()> {
     let message_repo = Arc::new(PgMessageRepository::new(db.clone()));
     let dm_repo = Arc::new(PgDmRepository::new(db.clone()));
     let notification_repo = Arc::new(PgNotificationRepository::new(db.clone()));
+    let event_repo = Arc::new(PgEventRepository::new(db.clone()));
 
     let unfurl_tx = unfurl::spawn_unfurl_worker(message_repo.clone());
 
@@ -192,12 +195,21 @@ async fn main() -> anyhow::Result<()> {
         task_repo: task_repo.clone(),
         invitation_repo: invitation_repo.clone(),
         project_service: project_service.clone(),
+        event_repo: event_repo.clone(),
     }));
 
     let profile_service = Arc::new(ProfileService::new(
         user_repo.clone(),
         org_membership_repo.clone(),
         Arc::new(membership_cache.clone()),
+    ));
+
+    let event_service = Arc::new(EventService::new(
+        event_repo.clone(),
+        org_membership_repo.clone(),
+        team_repo.clone(),
+        project_repo.clone(),
+        notification_service.clone(),
     ));
 
     let services = Services {
@@ -211,6 +223,7 @@ async fn main() -> anyhow::Result<()> {
         notification_service: notification_service.clone(),
         dashboard_service,
         profile_service,
+        event_service,
     };
 
     let schema = build_schema(
@@ -232,6 +245,7 @@ async fn main() -> anyhow::Result<()> {
 
     spawn_due_soon_checker(task_repo.clone(), notification_service.clone());
     spawn_email_digest_job(notification_repo.clone(), notification_service.clone());
+    spawn_event_reminder_job(event_repo.clone(), notification_service.clone());
 
     let app = build_router(state, &config.email.app_base_url);
 

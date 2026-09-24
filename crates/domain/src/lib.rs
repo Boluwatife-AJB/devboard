@@ -2,6 +2,7 @@ pub mod attachment;
 pub mod comment;
 pub mod dashboard;
 pub mod error;
+pub mod event;
 pub mod ids;
 pub mod invitation;
 pub mod messaging;
@@ -17,6 +18,7 @@ pub use attachment::{AttachmentKind, TaskAttachment};
 pub use comment::Comment;
 pub use dashboard::*;
 pub use error::DomainError;
+pub use event::*;
 pub use ids::*;
 pub use invitation::*;
 pub use messaging::{
