@@ -176,6 +176,86 @@ export const notificationSettingsSchema = z.object({
   emailDigest: z.boolean(),
 });
 
+export const createEventSchema = z
+  .object({
+    title: z
+      .string()
+      .min(1, "Title is required")
+      .max(200, "Title must be 200 characters or fewer"),
+    description: z.string().optional(),
+    eventType: z.enum([
+      "STANDUP",
+      "BRAINSTORM",
+      "TEST",
+      "CODE_REVIEW",
+      "DESIGN_REVIEW",
+      "PLANNING",
+      "DEMO",
+      "TEAM_MEETING",
+      "PROJECT_MEETING",
+      "OTHER",
+    ]),
+    audienceType: z.enum(["TEAM", "PROJECT", "ORGANIZATION", "CUSTOM"]),
+    teamId: z.string().optional(),
+    projectId: z.string().optional(),
+    customUserIds: z.array(z.string()).optional(),
+    date: z.string().min(1, "Date is required"),
+    startTime: z.string().min(1, "Start time is required"),
+    endTime: z.string().min(1, "End time is required"),
+    timezone: z.string().min(1, "Timezone is required"),
+    location: z.string().optional(),
+    meetingUrl: z
+      .string()
+      .optional()
+      .refine(
+        (value) =>
+          !value || value.startsWith("http://") || value.startsWith("https://"),
+        "Meeting URL must start with http:// or https://",
+      ),
+    recurrenceKind: z.enum([
+      "NONE",
+      "DAILY",
+      "WEEKLY",
+      "MONTHLY",
+      "YEARLY",
+      "INTERVAL_DAYS",
+    ]),
+    intervalDays: z.number().int().min(1).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.audienceType === "TEAM" && !data.teamId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["teamId"],
+        message: "Select a team",
+      });
+    }
+    if (data.audienceType === "PROJECT" && !data.projectId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["projectId"],
+        message: "Select a project",
+      });
+    }
+    if (
+      data.audienceType === "CUSTOM" &&
+      (!data.customUserIds || data.customUserIds.length === 0)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["customUserIds"],
+        message: "Select at least one member",
+      });
+    }
+    if (data.recurrenceKind === "INTERVAL_DAYS" && !data.intervalDays) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["intervalDays"],
+        message: "Interval days is required",
+      });
+    }
+  });
+
 export const changePasswordSchema = z
   .object({
     currentPassword: z

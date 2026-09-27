@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useMemo } from "react";
 import { CompletionTrendChart } from "@/components/dashboard/member/completion-trend-chart";
 import { MemberQuickActionsCard } from "@/components/dashboard/member/member-quick-actions-card";
 import { MyProjectsCard } from "@/components/dashboard/member/my-projects-card";
@@ -14,8 +14,10 @@ import {
 } from "@/components/dashboard/shared/dashboard-states";
 import { GettingStartedHub } from "@/components/dashboard/shared/getting-started-hub";
 import { StatsGrid } from "@/components/dashboard/shared/stats-grid";
+import { toUpcomingEventCard } from "@/components/events/lib/group-events";
 import { memberQuickActions } from "@/constant";
 import { useMyDashboard } from "@/hooks/use-dashboard";
+import { useMyUpcomingEvents } from "@/hooks/use-events";
 import { useChannels, useDmThreads } from "@/hooks/use-messaging";
 import {
   mapCompletionTrend,
@@ -36,12 +38,18 @@ export function MemberDashboard({
   const { data, isPending, isError, error, refetch } = useMyDashboard();
   const { data: channels = [] } = useChannels();
   const { data: dmThreads = [] } = useDmThreads();
+  const { data: upcomingApiEvents = [] } = useMyUpcomingEvents(14, 8);
 
   const unreadMessages =
     channels
       .filter((c) => c.isMember)
       .reduce((sum, c) => sum + c.unreadCount, 0) +
     dmThreads.reduce((sum, t) => sum + t.unreadCount, 0);
+
+  const upcomingEvents = useMemo(
+    () => upcomingApiEvents.map(toUpcomingEventCard),
+    [upcomingApiEvents],
+  );
 
   if (isPending) {
     return <DashboardSkeleton />;
@@ -105,7 +113,7 @@ export function MemberDashboard({
             actions={memberQuickActions}
             unreadMessages={unreadMessages}
           />
-          <UpcomingEventsCard events={[]} />
+          <UpcomingEventsCard events={upcomingEvents} />
         </div>
       </div>
 
