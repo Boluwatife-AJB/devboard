@@ -1,9 +1,10 @@
 use async_graphql::{Context, ID, MergedObject, Object};
 
 use devboard_domain::{
-    AttachmentId, AttachmentKind, ChannelId, ChannelKind, CommentId, DmMessageId, DmThreadId,
+    AttachmentId, AttachmentKind, ChannelId, ChannelKind, CommentId, CreateEventParams,
+    DmMessageId, DmThreadId, EventAudienceType, EventOccurrenceId, EventSeriesId, EventType,
     InvitationId, MessageId, NotificationId, NotificationPreference, OrgRole::OrgAdmin,
-    OrganizationId, ProjectId, TaskId, TeamId, UserId,
+    OrganizationId, ProjectId, RecurrenceKind, TaskId, TeamId, UserId,
 };
 use devboard_service::{ServiceError, task::CreateTaskCommand};
 
@@ -12,10 +13,11 @@ use crate::{
     error::IntoGraphQLResult,
     inputs::{
         AddAttachmentInput, AddChannelMemberInput, AddProjectMemberInput, AddTeamMemberInput,
-        AssignTaskInput, CreateChannelInput, CreateProjectInput, CreateTaskInput, CreateTeamInput,
-        DeleteDmInput, DeleteMessageInput, EditDmInput, EditMessageInput, MarkChannelAsReadInput,
-        ReactionInput, RegisterPushSubscriptionInput, RemoveChannelMemberInput,
-        SendAnnouncementInput, SendDmInput, SendMessageInput, UnregisterPushSubscriptionInput,
+        AssignTaskInput, CancelEventInput, CreateChannelInput, CreateEventInput,
+        CreateProjectInput, CreateTaskInput, CreateTeamInput, DeleteDmInput, DeleteMessageInput,
+        EditDmInput, EditMessageInput, MarkChannelAsReadInput, ReactionInput,
+        RegisterPushSubscriptionInput, RemoveChannelMemberInput, SendAnnouncementInput,
+        SendDmInput, SendMessageInput, UnregisterPushSubscriptionInput,
         UpdateNotificationPreferencesInput, UpdateTaskStatusInput,
         comment::{CreateCommentInput, EditCommentInput},
         profile::UpdateOrgProfileInput,
@@ -24,9 +26,9 @@ use crate::{
     },
     resolvers::query::parse_id,
     types::{
-        GqlAttachment, GqlChannel, GqlComment, GqlDmMessage, GqlDmThread, GqlMessage,
-        GqlNotificationKind, GqlNotificationPreference, GqlOrgMemberProfile, GqlProject,
-        GqlReactionSummary, GqlTask, GqlTeam,
+        GqlAttachment, GqlChannel, GqlComment, GqlDmMessage, GqlDmThread, GqlEventOccurrence,
+        GqlMessage, GqlNotificationKind, GqlNotificationPreference, GqlOrgMemberProfile,
+        GqlProject, GqlReactionSummary, GqlTask, GqlTeam,
     },
 };
 
@@ -533,6 +535,86 @@ impl CoreMutation {
             .map_gql_err()?;
 
         Ok(GqlOrgMemberProfile::from(profile))
+    }
+
+    // Event mutations
+    async fn create_event(
+        &self,
+        ctx: &Context<'_>,
+        input: CreateEventInput,
+    ) -> async_graphql::Result<GqlEventOccurrence> {
+        let auth = ctx.authenticated_user()?;
+        let membership = auth.require_org()?;
+        let services = ctx.services()?;
+
+        let audience_type = EventAudienceType::from(input.audience_type);
+
+        let team_id = input.team_id.as_ref().map(parse_id::<TeamId>).transpose()?;
+
+        let project_id = input
+            .project_id
+            .as_ref()
+            .map(parse_id::<ProjectId>)
+            .transpose()?;
+
+        let custom_user_ids = input
+            .custom_user_ids
+            .unwrap_or_default()
+            .iter()
+            .map(parse_id::<UserId>)
+            .collect::<async_graphql::Result<Vec<_>>>()?;
+
+        let params = CreateEventParams {
+            title: input.title,
+            description: input.description,
+            event_type: EventType::from(input.event_type),
+            audience_type,
+            team_id,
+            project_id,
+            custom_user_ids,
+            starts_at: input.starts_at,
+            ends_at: input.ends_at,
+            timezone: input.timezone,
+            location: input.location,
+            meeting_url: input.meeting_url,
+            recurrence_kind: RecurrenceKind::from(input.recurrence_kind),
+            interval_days: input.interval_days,
+            recurrence_end_at: input.recurrence_end_at,
+        };
+
+        let view = services
+            .event_service
+            .create_event(&membership, auth.user_id, params)
+            .await
+            .map_gql_err()?;
+
+        Ok(GqlEventOccurrence::from(view))
+    }
+
+    async fn cancel_event(
+        &self,
+        ctx: &Context<'_>,
+        input: CancelEventInput,
+    ) -> async_graphql::Result<bool> {
+        let auth = ctx.authenticated_user()?;
+        let membership = auth.require_org()?;
+        let services = ctx.services()?;
+        if let Some(occurrence_id) = input.occurrence_id.as_ref() {
+            let occurrence_id = parse_id::<EventOccurrenceId>(occurrence_id)?;
+            services
+                .event_service
+                .cancel_occurrence(&membership, auth.user_id, occurrence_id)
+                .await
+                .map_gql_err()?;
+        } else {
+            let series_id = parse_id::<EventSeriesId>(&input.series_id)?;
+            services
+                .event_service
+                .cancel_series(&membership, auth.user_id, series_id)
+                .await
+                .map_gql_err()?;
+        }
+        Ok(true)
     }
 }
 

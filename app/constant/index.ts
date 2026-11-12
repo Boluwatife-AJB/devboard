@@ -2,6 +2,7 @@ import {
   BriefcaseIcon,
   BuildingsIcon,
   CalendarBlankIcon,
+  CalendarCheckIcon,
   ChartBarIcon,
   ChatsCircleIcon,
   ChatTextIcon,
@@ -69,6 +70,11 @@ export const sidebarMenu: SidebarLink[] = [
     path: "/messages",
     name: "Messages",
     icon: ChatTextIcon,
+  },
+  {
+    path: "/events",
+    name: "Events",
+    icon: CalendarCheckIcon,
   },
   {
     path: "/settings",

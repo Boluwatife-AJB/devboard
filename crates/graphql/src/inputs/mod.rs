@@ -1,6 +1,7 @@
 pub mod attachment;
 pub mod auth;
 pub mod comment;
+pub mod event;
 pub mod messaging;
 pub mod notification;
 pub mod profile;
@@ -10,6 +11,7 @@ pub mod team;
 
 pub use attachment::AddAttachmentInput;
 pub use auth::{AuthPayloadGql, LoginInput, RegisterInput};
+pub use event::{CancelEventInput, CreateEventInput};
 pub use messaging::{
     AddChannelMemberInput, CreateChannelInput, DeleteDmInput, DeleteMessageInput, EditDmInput,
     EditMessageInput, MarkChannelAsReadInput, ReactionInput, RemoveChannelMemberInput, SendDmInput,

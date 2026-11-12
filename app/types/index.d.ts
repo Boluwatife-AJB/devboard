@@ -8,6 +8,7 @@ import type {
   changePasswordSchema,
   createChannelSchema,
   createCommentSchema,
+  createEventSchema,
   createProjectSchema,
   createTaskSchema,
   createTeamSchema,
@@ -28,6 +29,7 @@ type CreateCommentFormData = z.infer<typeof createCommentSchema>;
 type UpdateProjectFormData = z.infer<typeof updateProjectSchema>;
 type AddProjectMemberFormData = z.infer<typeof addProjectMemberSchema>;
 type CreateChannelFormData = z.infer<typeof createChannelSchema>;
+type CreateEventFormData = z.infer<typeof createEventSchema>;
 type InviteMemberFormData = z.infer<typeof inviteMemberSchema>;
 type AcceptInviteSignupFormData = z.infer<typeof acceptInviteSignupSchema>;
 type EditProfileFormData = z.infer<typeof editProfileSchema>;
@@ -708,6 +710,75 @@ type UpcomingEvent = {
   title: string;
   time: string;
 };
+
+type EventType =
+  | "STANDUP"
+  | "BRAINSTORM"
+  | "TEST"
+  | "CODE_REVIEW"
+  | "DESIGN_REVIEW"
+  | "PLANNING"
+  | "DEMO"
+  | "TEAM_MEETING"
+  | "PROJECT_MEETING"
+  | "OTHER";
+
+type EventAudienceType = "TEAM" | "PROJECT" | "ORGANIZATION" | "CUSTOM";
+
+type EventRecurrenceKind =
+  | "NONE"
+  | "DAILY"
+  | "WEEKLY"
+  | "MONTHLY"
+  | "YEARLY"
+  | "INTERVAL_DAYS";
+
+type EventOccurrenceStatus = "SCHEDULED" | "CANCELLED";
+
+type EventSeriesStatus = "ACTIVE" | "COMPLETED" | "CANCELLED";
+
+interface ApiEventOccurrence {
+  id: string;
+  seriesId: string;
+  title: string;
+  description: string | null;
+  eventType: EventType;
+  audienceType: EventAudienceType;
+  location: string | null;
+  meetingUrl: string | null;
+  timezone: string;
+  startsAt: string;
+  endsAt: string;
+  status: EventOccurrenceStatus;
+  seriesStatus: EventSeriesStatus;
+  recurrenceKind: EventRecurrenceKind;
+  intervalDays: number | null;
+  teamId: string | null;
+  projectId: string | null;
+}
+
+interface CreateEventInput {
+  title: string;
+  description?: string | null;
+  eventType: EventType;
+  audienceType: EventAudienceType;
+  teamId?: string | null;
+  projectId?: string | null;
+  customUserIds?: string[] | null;
+  startsAt: string;
+  endsAt: string;
+  timezone: string;
+  location?: string | null;
+  meetingUrl?: string | null;
+  recurrenceKind: EventRecurrenceKind;
+  intervalDays?: number | null;
+  recurrenceEndAt?: string | null;
+}
+
+interface CancelEventInput {
+  seriesId: string;
+  occurrenceId?: string | null;
+}
 
 type CompletionPoint = {
   day: string;

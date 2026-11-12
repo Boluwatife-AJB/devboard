@@ -14,6 +14,10 @@ pub enum GqlNotificationKind {
     DmThreadMessage,
     InviteReceived,
     Announcement,
+    EventScheduled,
+    EventUpdated,
+    EventCancelled,
+    EventReminder,
 }
 
 impl From<NotificationKind> for GqlNotificationKind {
@@ -29,6 +33,10 @@ impl From<NotificationKind> for GqlNotificationKind {
             NotificationKind::DmThreadMessage => Self::DmThreadMessage,
             NotificationKind::InviteReceived => Self::InviteReceived,
             NotificationKind::Announcement => Self::Announcement,
+            NotificationKind::EventScheduled => Self::EventScheduled,
+            NotificationKind::EventUpdated => Self::EventUpdated,
+            NotificationKind::EventCancelled => Self::EventCancelled,
+            NotificationKind::EventReminder => Self::EventReminder,
         }
     }
 }
@@ -46,6 +54,10 @@ impl From<GqlNotificationKind> for NotificationKind {
             GqlNotificationKind::DmThreadMessage => Self::DmThreadMessage,
             GqlNotificationKind::InviteReceived => Self::InviteReceived,
             GqlNotificationKind::Announcement => Self::Announcement,
+            GqlNotificationKind::EventScheduled => Self::EventScheduled,
+            GqlNotificationKind::EventUpdated => Self::EventUpdated,
+            GqlNotificationKind::EventCancelled => Self::EventCancelled,
+            GqlNotificationKind::EventReminder => Self::EventReminder,
         }
     }
 }

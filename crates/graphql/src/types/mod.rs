@@ -1,6 +1,7 @@
 pub mod attachment;
 pub mod comment;
 pub mod dashboard;
+pub mod event;
 pub mod invitation;
 pub mod messaging;
 pub mod notification;
@@ -20,6 +21,10 @@ pub use dashboard::{
     GqlDashboardEmptyState, GqlDashboardEvent, GqlDashboardTaskItem, GqlMyDashboard,
     GqlMyDashboardProject, GqlMyDashboardStats, GqlOrgDashboard, GqlOrgDashboardStats,
     GqlWorkloadPoint,
+};
+pub use event::{
+    GqlEventAudienceType, GqlEventOccurrence, GqlEventOccurrenceStatus, GqlEventRecurrenceKind,
+    GqlEventSeriesStatus, GqlEventType,
 };
 pub use invitation::{GqlInvitation, GqlInvitationStatus};
 pub use messaging::{

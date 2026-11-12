@@ -809,3 +809,61 @@ export const ORG_DASHBOARD_QUERY = `
     }
   }
 `;
+
+const EVENT_OCCURRENCE_FIELDS = `
+  id
+  seriesId
+  title
+  description
+  eventType
+  audienceType
+  location
+  meetingUrl
+  timezone
+  startsAt
+  endsAt
+  status
+  seriesStatus
+  recurrenceKind
+  intervalDays
+  teamId
+  projectId
+`;
+
+export const EVENTS_QUERY = `
+  query Events($from: DateTime!, $to: DateTime!, $limit: Int) {
+    events(from: $from, to: $to, limit: $limit) {
+      ${EVENT_OCCURRENCE_FIELDS}
+    }
+  }
+`;
+
+export const MY_UPCOMING_EVENTS_QUERY = `
+  query MyUpcomingEvents($days: Int, $limit: Int) {
+    myUpcomingEvents(days: $days, limit: $limit) {
+      ${EVENT_OCCURRENCE_FIELDS}
+    }
+  }
+`;
+
+export const EVENT_OCCURRENCE_QUERY = `
+  query EventOccurrence($id: ID!) {
+    eventOccurrence(id: $id) {
+      ${EVENT_OCCURRENCE_FIELDS}
+    }
+  }
+`;
+
+export const CREATE_EVENT_MUTATION = `
+  mutation CreateEvent($input: CreateEventInput!) {
+    createEvent(input: $input) {
+      ${EVENT_OCCURRENCE_FIELDS}
+    }
+  }
+`;
+
+export const CANCEL_EVENT_MUTATION = `
+  mutation CancelEvent($input: CancelEventInput!) {
+    cancelEvent(input: $input)
+  }
+`;

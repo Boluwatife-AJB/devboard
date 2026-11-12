@@ -8,8 +8,8 @@ export function DashboardRealtimeSync() {
   const { wsGeneration } = useOrg();
   return (
     <>
-      <PresenceSync key={wsGeneration} />
-      <NotificationSync key={wsGeneration} />
+      <PresenceSync key={`presence-${wsGeneration}`} />
+      <NotificationSync key={`notification-${wsGeneration}`} />
     </>
   );
 }

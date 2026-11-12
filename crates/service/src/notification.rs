@@ -178,6 +178,27 @@ impl NotificationService {
             .map_err(ServiceError::from)
     }
 
+    pub async fn notify_event_reminder(
+        &self,
+        recipient_id: UserId,
+        org_id: OrganizationId,
+        title: String,
+        body: String,
+        action_url: Option<String>,
+        metadata: serde_json::Value,
+    ) -> Result<(), ServiceError> {
+        self.notify(NotifyParams {
+            recipient_id,
+            organization_id: org_id,
+            kind: NotificationKind::EventReminder,
+            title,
+            body: Some(body),
+            action_url,
+            metadata: Some(metadata),
+        })
+        .await
+    }
+
     // Internal creation APIs
     #[tracing::instrument(skip(self, params), fields(recipient_id = %params.recipient_id, kind = %params.kind.as_str()))]
     async fn notify(&self, params: NotifyParams) -> Result<(), ServiceError> {
@@ -532,6 +553,69 @@ impl NotificationService {
             body: Some(announcement_body),
             action_url,
             metadata: None,
+        })
+        .await
+    }
+
+    pub async fn notify_event_scheduled(
+        &self,
+        recipient_id: UserId,
+        org_id: OrganizationId,
+        title: String,
+        body: String,
+        action_url: Option<String>,
+        metadata: serde_json::Value,
+    ) -> Result<(), ServiceError> {
+        self.notify(NotifyParams {
+            recipient_id,
+            organization_id: org_id,
+            kind: NotificationKind::EventScheduled,
+            title: format!("New event scheduled: {}", title),
+            body: Some(body),
+            action_url,
+            metadata: Some(metadata),
+        })
+        .await
+    }
+
+    pub async fn notify_event_updated(
+        &self,
+        recipient_id: UserId,
+        org_id: OrganizationId,
+        title: String,
+        body: String,
+        action_url: Option<String>,
+        metadata: serde_json::Value,
+    ) -> Result<(), ServiceError> {
+        self.notify(NotifyParams {
+            recipient_id,
+            organization_id: org_id,
+            kind: NotificationKind::EventUpdated,
+            title,
+            body: Some(body),
+            action_url,
+            metadata: Some(metadata),
+        })
+        .await
+    }
+
+    pub async fn notify_event_cancelled(
+        &self,
+        recipient_id: UserId,
+        org_id: OrganizationId,
+        title: String,
+        body: String,
+        action_url: Option<String>,
+        metadata: serde_json::Value,
+    ) -> Result<(), ServiceError> {
+        self.notify(NotifyParams {
+            recipient_id,
+            organization_id: org_id,
+            kind: NotificationKind::EventCancelled,
+            title,
+            body: Some(body),
+            action_url,
+            metadata: Some(metadata),
         })
         .await
     }

@@ -1,0 +1,30 @@
+name: Redis keep-alive
+
+# Prevents Upstash Free Redis from being evicted after inactivity.
+# Requires repo secrets: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
+
+on:
+  schedule:
+    - cron: "0 12 * * *" # daily 12:00 UTC
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: PING Upstash
+    runs-on: ubuntu-latest
+    steps:
+      - name: PING Redis
+        env:
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+        run: |
+          if [ -z "$UPSTASH_REDIS_REST_URL" ] || [ -z "$UPSTASH_REDIS_REST_TOKEN" ]; then
+            echo "Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN secrets"
+            exit 1
+          fi
+
+          # Strip trailing slash so /ping resolves correctly
+          BASE="${UPSTASH_REDIS_REST_URL%/}"
+          RESP=$(curl -fsS "${BASE}/ping" \
+            -H "Authorization: Bearer ${UPSTASH_REDIS_REST_TOKEN}")
+          echo "Upstash response: ${RESP}"

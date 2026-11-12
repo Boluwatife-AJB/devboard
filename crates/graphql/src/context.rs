@@ -5,6 +5,7 @@ use devboard_domain::{OrgMembership, UserId};
 use devboard_service::{
     AttachmentService, AuthService, CommentService, DashboardService, MessagingService,
     NotificationService, ProfileService, ProjectService, TaskService, TeamService,
+    events::EventService,
 };
 
 #[derive(Clone)]
@@ -19,6 +20,7 @@ pub struct Services {
     pub notification_service: Arc<NotificationService>,
     pub dashboard_service: Arc<DashboardService>,
     pub profile_service: Arc<ProfileService>,
+    pub event_service: Arc<EventService>,
 }
 
 #[derive(Debug, Clone)]

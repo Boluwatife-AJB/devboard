@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use chrono::Utc;
 use devboard_domain::{Notification, UserId};
-use devboard_repository::{NotificationRepository, TaskRepository};
+use devboard_repository::{EventRepository, NotificationRepository, TaskRepository};
 
 use crate::NotificationService;
 
@@ -75,6 +75,54 @@ pub fn spawn_email_digest_job(
                     tracing::info!("email digest job complete");
                 }
             }
+        }
+    });
+}
+
+pub fn spawn_event_reminder_job(
+    event_repo: Arc<dyn EventRepository>,
+    notification_service: Arc<NotificationService>,
+) {
+    tokio::spawn(async move {
+        tracing::info!("Starting event reminder job");
+        loop {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            let now = Utc::now();
+
+            // 24h window: starts_at in [now+23h50m, now+24h10m]
+            let w24_start = now + chrono::Duration::minutes(23 * 60 + 50);
+            let w24_end = now + chrono::Duration::minutes(24 * 60 + 10);
+            if let Ok(due) = event_repo
+                .find_due_reminders_24h(w24_start, w24_end, 100)
+                .await
+            {
+                for (occ, series) in due {
+                    if let Ok(attendees) = event_repo.list_attendee_ids(series.id).await {
+                        for uid in attendees {
+                            let _ = notification_service
+                                .notify_event_reminder(
+                                    uid,
+                                    series.organization_id,
+                                    series.title.clone(),
+                                    format!("{} starts in about 24 hours", series.title),
+                                    Some(format!("/events/{}", occ.id)),
+                                    serde_json::json!({
+                                        "eventSeriesId": series.id.to_string(),
+                                        "eventOccurrenceId": occ.id.to_string(),
+                                        "reminder": "24h",
+                                    }),
+                                )
+                                .await;
+                        }
+                    }
+                    let _ = event_repo.mark_reminded_24h(occ.id).await;
+                }
+            }
+
+            // 15m window similarly
+            let _w15_start = now + chrono::Duration::minutes(10);
+            let _w15_end = now + chrono::Duration::minutes(20);
+            // find_due_reminders_15m + mark_reminded_15m
         }
     });
 }

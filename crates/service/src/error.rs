@@ -52,6 +52,9 @@ pub enum ServiceError {
 
     #[error(transparent)]
     Repository(RepositoryError),
+
+    #[error("event not found: {id}")]
+    EventNotFound { id: String },
 }
 
 impl From<AuthError> for ServiceError {
