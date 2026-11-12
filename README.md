@@ -377,6 +377,22 @@ SKIP_INTEGRATION=1 git push
 | `SERVER_HOST` | | `0.0.0.0` | API bind address |
 | `SERVER_PORT` | | `8080` | API bind port |
 | `RUST_LOG` | | `devboard=info` | Log filter |
+| `REDIS_URL` | ✓ | `redis://localhost:6379` | Redis connection string (local Docker or Upstash) |
+
+### Upstash Free Redis keep-alive
+
+Upstash Free databases can be evicted after days of inactivity. This repo includes
+[`.github/workflows/redis-keepalive.yml`](.github/workflows/redis-keepalive.yml),
+which sends a daily `PING` via the Upstash REST API.
+
+Add these **GitHub Actions secrets** (from the Upstash console → REST API):
+
+| Secret | Description |
+|---|---|
+| `UPSTASH_REDIS_REST_URL` | e.g. `https://….upstash.io` |
+| `UPSTASH_REDIS_REST_TOKEN` | REST bearer token |
+
+Run manually anytime via **Actions → Redis keep-alive → Run workflow**.
 
 ### Frontend (`app/.env.local`)
 
